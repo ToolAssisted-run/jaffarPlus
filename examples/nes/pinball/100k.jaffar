@@ -1,0 +1,231 @@
+{
+    "Driver Configuration": {
+        "End On First Win State": true,
+        "Max Steps": 23128,
+        "Save Intermediate Results": {
+            "Enabled": true,
+            "Frequency (s)": 1.0,
+            "Best Solution Path": "/tmp/jaffar.best.sol",
+            "Worst Solution Path": "/tmp/jaffar.worst.sol"
+        }
+    },
+    "Engine Configuration": {
+        "Hash Database": {
+            "Enabled": true,
+            "Max Store Count": 2,
+            "Max Store Size (Mb)": 100000
+        },
+        "State Database": {
+            "Max Size (Mb)": 400000
+        }
+    },
+    "Emulator Configuration": {
+        "Emulator Name": "QuickerNES",
+        "Rom File Path": "Pinball (JU) [!].nes",
+        "Rom File SHA1": "D2F25A027E390A0337BED7E0DC98D2D1D187D230",
+                "Initial Sequence File Path": "lvl01a.initial.sol",
+        "Initial State File Path": "",
+        "Use Flat Code Map": false,
+        "Initial RAM Data File Path": "",
+        "SRAM Block Size": 0,
+        "Controller 1 Type": "Joypad",
+        "Controller 2 Type": "None",
+        "Disabled State Properties": [
+            "SRAM",
+            "CHRR",
+            "NTAB",
+            "SPRT",
+            "CTRL"
+        ],
+        "Nametable Block Size": 2048
+    },
+    "Runner Configuration": {
+        "Bypass Hash Calculation": false,
+        "Frameskip": {
+            "Rate": 0,
+            "Use Custom Input": false,
+            "Custom Input": "|..|........|"
+        },
+        "Hash Step Tolerance": 3,
+        "Show Empty Input Slots": true,
+        "Show Allowed Inputs": true,
+        "Store Input History": {
+            "Type": "Raw",
+            "Max Size": 23128
+        },
+        "Allowed Input Sets": [
+            {
+                "Conditions": [],
+                "Inputs": [
+                    "|..|........|"
+                ],
+                "Stop Input Evaluation": false
+            },
+            {
+                "Conditions": [
+                    {
+                        "Property": "Ball Launched",
+                        "Op": "==",
+                        "Value": false
+                    }
+                ],
+                "Inputs": [
+                    "|..|......B.|"
+                ],
+                "Stop Input Evaluation": true
+            },
+            {
+                "Conditions": [
+                    {
+                        "Property": "Ball Launched",
+                        "Op": "==",
+                        "Value": true
+                    },
+                    {
+                        "Property": "Ball Pos Y",
+                        "Op": ">",
+                        "Value": 170
+                    },
+                    {
+                        "Property": "Ball Pos X",
+                        "Op": ">=",
+                        "Value": 141
+                    },
+                    {
+                        "Property": "Ball Pos X",
+                        "Op": "<",
+                        "Value": 200
+                    }
+                ],
+                "Inputs": [
+                    "|..|.......A|"
+                ],
+                "Stop Input Evaluation": true
+            },
+            {
+                "Conditions": [
+                    {
+                        "Property": "Ball Launched",
+                        "Op": "==",
+                        "Value": true
+                    },
+                    {
+                        "Property": "Ball Pos Y",
+                        "Op": ">",
+                        "Value": 170
+                    },
+                    {
+                        "Property": "Ball Pos X",
+                        "Op": "<",
+                        "Value": 141
+                    }
+                ],
+                "Inputs": [
+                    "|..|U.......|"
+                ],
+                "Stop Input Evaluation": true
+            }
+        ],
+        "Test Candidate Inputs": false,
+        "Candidate Input Sets": []
+    },
+    "Game Configuration": {
+        "Game Name": "NES / Pinball",
+        "Frame Rate": 600.1,
+        "Bypass Emulator State": false,
+        "Print Properties": [],
+        "Hash Properties": [],
+        "Rules": [
+            {
+                "Label": 1000,
+                "Conditions": [],
+                "Satisfies": [],
+                "Actions": [
+                    {
+                        "Type": "Set Ball Pos Y Magnet",
+                        "Pos": 0,
+                        "Intensity": 1.0
+                    }
+                ]
+            },
+            {
+                "Label": 1001,
+                "Conditions": [
+                    {
+                        "Property": "Current Screen",
+                        "Op": "==",
+                        "Value": 0
+                    }
+                ],
+                "Satisfies": [
+                    1000
+                ],
+                "Actions": [
+                    {
+                        "Type": "Add Reward",
+                        "Value": 10000.0
+                    },
+                    {
+                        "Type": "Set Ball Pos Y Magnet",
+                        "Pos": 0,
+                        "Intensity": 1.0
+                    }
+                ]
+            },
+            {
+                "Label": 1002,
+                "Conditions": [
+                    {
+                        "Property": "Current Screen",
+                        "Op": "==",
+                        "Value": 0
+                    },
+                    {
+                        "Property": "Ball Pos X",
+                        "Op": "<=",
+                        "Value": 200
+                    }
+                ],
+                "Satisfies": [
+                    1001
+                ],
+                "Actions": [
+                    {
+                        "Type": "Add Reward",
+                        "Value": 10000.0
+                    },
+                    {
+                        "Type": "Set Ball Pos Y Magnet",
+                        "Pos": 31,
+                        "Intensity": 0.0
+                    },
+                    {
+                        "Type": "Set Ball Pos X Magnet",
+                        "Pos": 210,
+                        "Intensity": 0.0
+                    },
+                    {
+                        "Type": "Set Score Magnet",
+                        "Intensity": 1.0
+                    }
+                ]
+            },
+            {
+                "Label": 1004,
+                "Conditions": [
+                    {
+                        "Property": "Score",
+                        "Op": ">",
+                        "Value": 100000
+                    }
+                ],
+                "Satisfies": [],
+                "Actions": [
+                    {
+                        "Type": "Trigger Win"
+                    }
+                ]
+            }
+        ]
+    }
+}

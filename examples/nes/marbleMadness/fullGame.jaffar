@@ -1,7 +1,7 @@
 {
  "Driver Configuration": {
   "End On First Win State": false,
-  "Max Steps": 1200,
+  "Max Steps": 1360,
   "Save Intermediate Results": {
    "Enabled": true,
    "Frequency (s)": 1.0,
@@ -10,13 +10,13 @@
   }
  },
  "Engine Configuration": {
+  "State Database": {
+   "Max Size (Mb)": 1000
+  },
   "Hash Database": {
    "Max Store Count": 2,
-   "Max Store Size (Mb)": 10000,
+   "Max Store Size (Mb)": 500,
    "Enabled": true
-  },
-  "State Database": {
-   "Max Size (Mb)": 3000
   }
  },
  "Emulator Configuration": {
@@ -26,25 +26,26 @@
   "Rom File Path": "Marble Madness (U) [!].nes",
   "Rom File SHA1": "DB009866ECF20CFDCE93DCA861F5BE1F9DFAAF2B",
   "Initial State File Path": "",
-  "Initial Sequence File Path": "stage06full.initial.sol",
+  "Initial Sequence File Path": "",
   "Initial RAM Data File Path": "",
   "Controller 1 Type": "Joypad",
   "Controller 2 Type": "None",
   "Disabled State Properties": [
    "SRAM",
-   "CHRR",
-   "SPRT"
+   "SPRT",
+   "CTRL"
   ],
-  "Nametable Block Size": 4096
+  "Nametable Block Size": 4096,
+  "Precise State Timing": true
  },
  "Runner Configuration": {
-  "Hash Step Tolerance": 1,
+  "Hash Step Tolerance": 4,
   "Show Empty Input Slots": true,
   "Show Allowed Inputs": true,
   "Bypass Hash Calculation": false,
   "Store Input History": {
    "Type": "Raw",
-   "Max Size": 1200
+   "Max Size": 1360
   },
   "Allowed Input Sets": [
    {
@@ -53,27 +54,15 @@
       "Property": "Pause State",
       "Op": "==",
       "Value": 0
-     }
-    ],
-    "Inputs": [
-     "|..|........|"
-    ],
-    "Stop Input Evaluation": false
-   },
-   {
-    "Conditions": [
-     {
-      "Property": "Current Step",
-      "Op": ">=",
-      "Value": 1010
      },
      {
-      "Property": "Current Step",
-      "Op": "<=",
-      "Value": 1015
+      "Property": "Pause Phase",
+      "Op": "==",
+      "Value": 7
      }
     ],
     "Inputs": [
+     "|..|........|",
      "|..|....S...|"
     ],
     "Stop Input Evaluation": true
@@ -84,26 +73,15 @@
       "Property": "Pause State",
       "Op": "==",
       "Value": 0
-     },
-     {
-      "Property": "Current Step",
-      "Op": ">=",
-      "Value": 1050
      }
     ],
     "Inputs": [
-     "|..|....S...|"
+     "|..|........|"
     ],
     "Stop Input Evaluation": true
    },
    {
-    "Conditions": [
-     {
-      "Property": "Current Step",
-      "Op": ">=",
-      "Value": 1115
-     }
-    ],
+    "Conditions": [],
     "Inputs": [
      "|..|........|"
     ],
@@ -112,19 +90,14 @@
    {
     "Conditions": [
      {
-      "Property": "Pause State",
-      "Op": "==",
-      "Value": 1
+      "Property": "Current Step",
+      "Op": "<",
+      "Value": 1350
      },
      {
       "Property": "Try New Inputs",
       "Op": "==",
       "Value": true
-     },
-     {
-      "Property": "Current Step",
-      "Op": "<=",
-      "Value": 1119
      }
     ],
     "Inputs": [
@@ -147,6 +120,52 @@
      "|..|.D.R...A|"
     ],
     "Stop Input Evaluation": false
+   },
+   {
+    "Conditions": [
+     {
+      "Property": "Marble Pos X",
+      "Op": ">",
+      "Value": 740.0
+     },
+     {
+      "Property": "Marble Pos Y",
+      "Op": "<",
+      "Value": 710.0
+     }
+    ],
+    "Inputs": [
+     "|..|....S...|"
+    ],
+    "Stop Input Evaluation": false
+   },
+   {
+    "Conditions": [
+     {
+      "Property": "Marble Pos X",
+      "Op": ">",
+      "Value": 600.0
+     },
+     {
+      "Property": "Marble Pos X",
+      "Op": "<",
+      "Value": 700.0
+     },
+     {
+      "Property": "Marble Pos Y",
+      "Op": ">",
+      "Value": 590.0
+     },
+     {
+      "Property": "Marble Pos Y",
+      "Op": "<",
+      "Value": 700.0
+     }
+    ],
+    "Inputs": [
+     "|..|....S...|"
+    ],
+    "Stop Input Evaluation": false
    }
   ],
   "Test Candidate Inputs": false,
@@ -164,49 +183,50 @@
   "Trace File Path": "",
   "Repeat Prev Input Times": 0,
   "Print Properties": [
-   "Current Step",
-   "Pause State",
-   "Prev Pause State",
    "Marble Pos X",
    "Marble Pos Y",
    "Marble Pos Z",
-   "Marble Motion 1",
    "Last Input Step"
   ],
   "Hash Properties": [
-   "Pause State",
-   "Prev Pause State",
    "Game Cycle",
    "Win Flag",
    "Marble State",
    "Marble Flags",
-   "Marble Pos X1",
-   "Marble Pos X2",
-   "Marble Pos Y1",
-   "Marble Pos Y2",
    "Marble Pos Z1",
-   "Marble Motion 1",
-   "Marble Airtime",
    "Marble Dead Flag",
-   "Marble Pos X3",
-   "Marble Pos Y3",
    "Marble Surface Angle",
-   "Marble Vel X",
-   "Marble Vel Y",
-   "Last Input Step"
+   "Marble Motion 1",
+   "Pause State",
+   "Prev Pause State",
+   "Marble Motion 2",
+   "Marble Fall Counter",
+   "Marble Airborne Flag",
+   "Marble In Catapult",
+   "Funnel Timer",
+   "Camera Scroll Lo",
+   "Camera Scroll Hi",
+   "Platform Phase",
+   "Pause Phase",
+   "Pause Countdown"
   ],
   "Rules": [
    {
-    "Label": 1999,
-    "Description": "Fail on breaking",
+    "Label": 2000,
+    "Description": "Fail on shatter/death (game-accurate)",
+    "Satisfies": [],
     "Conditions": [
      {
       "Property": "Marble Flags",
       "Op": ">",
       "Value": 1
+     },
+     {
+      "Property": "Marble Flags",
+      "Op": "<",
+      "Value": 27
      }
     ],
-    "Satisfies": [],
     "Actions": [
      {
       "Type": "Trigger Fail"
@@ -214,16 +234,16 @@
     ]
    },
    {
-    "Label": 2000,
-    "Description": "Fail on falling",
+    "Label": 2002,
+    "Description": "Early fail on committed void-fall: scripted motion ($7B==1) without the funnel countdown persisting 8 consecutive frames (death latches at 24; reference maximum is 4)",
+    "Satisfies": [],
     "Conditions": [
      {
-      "Property": "Marble Pos Z",
-      "Op": ">",
-      "Value": 60
+      "Property": "Void Fall Frames",
+      "Op": ">=",
+      "Value": 8
      }
     ],
-    "Satisfies": [],
     "Actions": [
      {
       "Type": "Trigger Fail"
@@ -232,15 +252,15 @@
    },
    {
     "Label": 2001,
-    "Description": "Fail on exceeding last input step",
+    "Description": "Fail in a pit (no exit; legit route never exceeds Z 60)",
+    "Satisfies": [],
     "Conditions": [
      {
-      "Property": "Last Input Step",
+      "Property": "Marble Pos Z",
       "Op": ">",
-      "Value": 1119
+      "Value": 70
      }
     ],
-    "Satisfies": [],
     "Actions": [
      {
       "Type": "Trigger Fail"

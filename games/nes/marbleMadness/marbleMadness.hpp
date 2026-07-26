@@ -97,18 +97,18 @@ public:
     // removed from "Hash Properties"; this block adds their quantized stand-ins.
     if (_gameConfigRemaining.contains("Hash Quantization"))
     {
-      auto hq              = jaffarCommon::json::popObject(_gameConfigRemaining, "Hash Quantization");
-      _hqVelocityShift     = jaffarCommon::json::popNumber<int>(hq, "Velocity Shift");
-      _hqPositionShift     = hq.contains("Position Shift") ? jaffarCommon::json::popNumber<int>(hq, "Position Shift") : 0;
+      auto hq          = jaffarCommon::json::popObject(_gameConfigRemaining, "Hash Quantization");
+      _hqVelocityShift = jaffarCommon::json::popNumber<int>(hq, "Velocity Shift");
+      _hqPositionShift = hq.contains("Position Shift") ? jaffarCommon::json::popNumber<int>(hq, "Position Shift") : 0;
       if (hq.contains("Exact Region"))
       {
-        auto er          = jaffarCommon::json::popObject(hq, "Exact Region");
-        _hqExactXMin     = jaffarCommon::json::popNumber<float>(er, "X Min");
-        _hqExactYMax     = jaffarCommon::json::popNumber<float>(er, "Y Max");
+        auto er      = jaffarCommon::json::popObject(hq, "Exact Region");
+        _hqExactXMin = jaffarCommon::json::popNumber<float>(er, "X Min");
+        _hqExactYMax = jaffarCommon::json::popNumber<float>(er, "Y Max");
         jaffarCommon::json::checkEmpty(er, "Hash Quantization > Exact Region");
         _hqUseExactRegion = true;
       }
-      _hqHashSubpixels     = jaffarCommon::json::popBoolean(hq, "Hash Position Subpixels");
+      _hqHashSubpixels = jaffarCommon::json::popBoolean(hq, "Hash Position Subpixels");
       jaffarCommon::json::checkEmpty(hq, "Game Configuration > Hash Quantization");
       _useHashQuantization = true;
     }
@@ -367,10 +367,10 @@ private:
     // marble is inside it after this frame's advance. A while loop tolerates overlapping boxes.
     if (_useWaypointMagnet)
     {
-      const float   wx      = (float)_lowMem[0x0398] * 256.0f + (float)_lowMem[0x0390] + (float)_lowMem[0x0388] / 256.0f;
-      const float   wy      = (float)_lowMem[0x03B0] * 256.0f + (float)_lowMem[0x03A8] + (float)_lowMem[0x03A0] / 256.0f;
-      const uint8_t wpPrev  = _wpNext;
-      const float wz = (float)_lowMem[0x03C0];
+      const float   wx     = (float)_lowMem[0x0398] * 256.0f + (float)_lowMem[0x0390] + (float)_lowMem[0x0388] / 256.0f;
+      const float   wy     = (float)_lowMem[0x03B0] * 256.0f + (float)_lowMem[0x03A8] + (float)_lowMem[0x03A0] / 256.0f;
+      const uint8_t wpPrev = _wpNext;
+      const float   wz     = (float)_lowMem[0x03C0];
       while (_wpNext < _wpBoxes.size() && wx >= _wpBoxes[_wpNext].xMin && wx <= _wpBoxes[_wpNext].xMax && wy >= _wpBoxes[_wpNext].yMin && wy <= _wpBoxes[_wpNext].yMax &&
              wz >= _wpBoxes[_wpNext].zMin && wz <= _wpBoxes[_wpNext].zMax)
         _wpNext++;
@@ -461,7 +461,7 @@ private:
     // At (quantized) rest the successive states hash identically -- include the step so waiting and
     // crawling chains stay distinct. Under quantization the threshold is the velocity CELL (a crawl
     // inside one position cell with velocity bucket 0 is a wait for dedup purposes).
-    const int      rq      = _useHashQuantization ? _hqVelocityShift : 0;
+    const int rq = _useHashQuantization ? _hqVelocityShift : 0;
     if ((velXMag >> rq) == 0 && (velYMag >> rq) == 0 && *_marbleAirborneFlag == 0) hashEngine.Update(_currentStep);
     // hashEngine.Update(&_lowMem[0x0001], 0x0018);
     // hashEngine.Update(&_lowMem[0x001C], 0x0050);
@@ -889,17 +889,17 @@ private:
   uint8_t* _marbleAirborneFlag;
 
   // Progress Magnet configuration/state
-  bool                       _usePMagnet = false;
-  float                      _pmIntensity;
-  float                      _pmDeviationWeight;
-  int                        _pmWindowBehind;
-  int                        _pmWindowAhead;
-  float                      _pmPositionScale;
-  float                      _pmVelocityScale;
-  float                      _pmZWeight;
-  float                      _pmAirbornePenalty;
-  float                      _pmDeviationGate;
-  float                      _pmOffCorridorPenalty;
+  bool  _usePMagnet = false;
+  float _pmIntensity;
+  float _pmDeviationWeight;
+  int   _pmWindowBehind;
+  int   _pmWindowAhead;
+  float _pmPositionScale;
+  float _pmVelocityScale;
+  float _pmZWeight;
+  float _pmAirbornePenalty;
+  float _pmDeviationGate;
+  float _pmOffCorridorPenalty;
   bool  _useHashQuantization = false;
   int   _hqVelocityShift     = 0;
   int   _hqPositionShift     = 0;
@@ -907,7 +907,7 @@ private:
   float _hqExactXMin         = 0.0f;
   float _hqExactYMax         = 0.0f;
   bool  _inExactRegion       = false;
-  bool _hqHashSubpixels     = true;
+  bool  _hqHashSubpixels     = true;
 
   // Waypoint Magnet configuration/state
   bool                 _useWaypointMagnet = false;

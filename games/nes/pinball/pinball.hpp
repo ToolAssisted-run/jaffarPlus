@@ -75,20 +75,20 @@ private:
     registerGameProperty("Ball Launched", &_ballLaunched, Property::datatype_t::dt_bool, Property::endianness_t::little);
     registerGameProperty("Score", &_score, Property::datatype_t::dt_uint32, Property::endianness_t::little);
     registerGameProperty("Prev Score", &_prevScore, Property::datatype_t::dt_uint32, Property::endianness_t::little);
-    _nullInputIdx = _emulator->registerInput("|..|........|");
-    _ballLaunched = false;
-    _prevScore    = 0;
-    _framesInPlay = 0;
-    _walkHappened = false;
-    _walkStep = 0;
-    _scoreAtWalk = 0;
-    _framesSinceWalk = 0;
+    _nullInputIdx       = _emulator->registerInput("|..|........|");
+    _ballLaunched       = false;
+    _prevScore          = 0;
+    _framesInPlay       = 0;
+    _walkHappened       = false;
+    _walkStep           = 0;
+    _scoreAtWalk        = 0;
+    _framesSinceWalk    = 0;
     _scoreGainSinceWalk = 0;
-    _scoreBeforeWalk = 0;
-    _walkBoost = 0;
-    _scoreJump = 0;
-    _playScore = 0;
-    _escapedChamber = false;
+    _scoreBeforeWalk    = 0;
+    _walkBoost          = 0;
+    _scoreJump          = 0;
+    _playScore          = 0;
+    _escapedChamber     = false;
 
     stateUpdatePostHook();
   }
@@ -237,16 +237,18 @@ private:
     // score-boost fires (upper-center bumper region ~(150,64) on screen 0) nudges the ball there.
     if (_escapedChamber == false)
     {
-      reward += (255.0f - (float)*_ballPosY);                       // continuous: ball altitude in the chamber
-      if (_ballLaunched == false) reward += (float)*_springCharge;  // + plunger charge while on the plunger
+      reward += (255.0f - (float)*_ballPosY);                      // continuous: ball altitude in the chamber
+      if (_ballLaunched == false) reward += (float)*_springCharge; // + plunger charge while on the plunger
     }
     else
     {
-      reward += 5000.0f;                                            // discrete: escaped the launch chamber
-      if (*_currentScreen == 0)                                     // minimal pull toward the boost position
+      reward += 5000.0f;        // discrete: escaped the launch chamber
+      if (*_currentScreen == 0) // minimal pull toward the boost position
       {
-        float dx = 150.0f - (float)*_ballPosX; if (dx < 0.0f) dx = -dx;
-        float dy = 64.0f - (float)*_ballPosY;  if (dy < 0.0f) dy = -dy;
+        float dx = 150.0f - (float)*_ballPosX;
+        if (dx < 0.0f) dx = -dx;
+        float dy = 64.0f - (float)*_ballPosY;
+        if (dy < 0.0f) dy = -dy;
         reward += -0.1f * (dx + dy);
       }
     }

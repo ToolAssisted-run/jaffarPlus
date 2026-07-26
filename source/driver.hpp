@@ -227,7 +227,7 @@ public:
       // dedup hash, hash equality no longer identifies the reference lineage, so the engine byte-compares
       // pin candidates against these exact states (hash match = cheap pre-filter only).
       std::vector<std::vector<uint8_t>> referenceStates;
-      const auto captureState = [&]()
+      const auto                        captureState = [&]()
       {
         // Capture in CANONICAL (round-tripped) form: serialize, load back, serialize again. Search-side
         // states are always post-round-trip, and a few emulator header bytes normalize on load -- a raw

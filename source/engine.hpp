@@ -1246,28 +1246,28 @@ public:
     // so the mask covers the union.
     const size_t runnersToProbe = std::min<size_t>(16, _runners.size());
     for (size_t ri = 0; ri < runnersToProbe; ri++)
-    for (size_t pi = 0; pi < probeCount; pi++)
-    {
-      auto&        r = *_runners[ri];
-      const size_t k = (pi * maxDepth) / probeCount;
-      if (refInputs[k].empty()) continue;
+      for (size_t pi = 0; pi < probeCount; pi++)
       {
-        jaffarCommon::deserializer::Contiguous d(_refStates[k].data(), _refStates[k].size());
-        r.deserializeState(d);
-      }
-      r.advanceState(r.getGame()->getEmulator()->registerInput(refInputs[k]));
-      {
-        jaffarCommon::serializer::Contiguous s(scratch.data(), scratch.size());
-        r.serializeState(s);
-      }
-      for (size_t i = 0; i < scratch.size(); i++)
-        if (scratch[i] != _refStates[k + 1][i])
+        auto&        r = *_runners[ri];
+        const size_t k = (pi * maxDepth) / probeCount;
+        if (refInputs[k].empty()) continue;
         {
-          const size_t lo = i >= 128 ? i - 128 : 0;
-          const size_t hi = std::min(i + 128, scratch.size() - 1);
-          for (size_t j = lo; j <= hi; j++) _refVolatileMask[j] = 1;
+          jaffarCommon::deserializer::Contiguous d(_refStates[k].data(), _refStates[k].size());
+          r.deserializeState(d);
         }
-    }
+        r.advanceState(r.getGame()->getEmulator()->registerInput(refInputs[k]));
+        {
+          jaffarCommon::serializer::Contiguous s(scratch.data(), scratch.size());
+          r.serializeState(s);
+        }
+        for (size_t i = 0; i < scratch.size(); i++)
+          if (scratch[i] != _refStates[k + 1][i])
+          {
+            const size_t lo = i >= 128 ? i - 128 : 0;
+            const size_t hi = std::min(i + 128, scratch.size() - 1);
+            for (size_t j = lo; j <= hi; j++) _refVolatileMask[j] = 1;
+          }
+      }
     size_t total = 0;
     for (auto m : _refVolatileMask) total += m;
     jaffarCommon::logger::log("[J+] Reference pin exact-verification: volatile mask covers %lu / %lu bytes\n", total, _refVolatileMask.size());

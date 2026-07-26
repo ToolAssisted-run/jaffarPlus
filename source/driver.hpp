@@ -106,6 +106,12 @@ public:
       auto refJs               = jaffarCommon::json::popObject(driverConfig, "Reference Reward Floor");
       _referenceFloorEnabled   = jaffarCommon::json::popBoolean(refJs, "Enabled");
       _referenceFloorTolerance = jaffarCommon::json::popNumber<float>(refJs, "Tolerance");
+      // Optional (default 0): compare best against the reference's reward G steps EARLIER. With a
+      // discrete-jump reward (waypoint boxes), a zero reward tolerance cancels at every box boundary
+      // on a frames-scale timing skew even when the frontier is at pace; a step grace bounds the
+      // allowed slack in TIME uniformly (<= G frames behind schedule anywhere) instead of in reward
+      // units (which a jump makes step-dependent).
+      _referenceFloorStepGrace = refJs.contains("Step Grace") ? jaffarCommon::json::popNumber<uint32_t>(refJs, "Step Grace") : 0;
       // The reference reward trace can be supplied two ways:
       //  - "Solution File": a reference solution (a .sol input sequence). Its per-step floor-reward trace is
       //    computed at engine init by replaying it through THIS run's own runner/game (see initialize()), so the
@@ -217,22 +223,65 @@ public:
       auto* emulator = game->getEmulator();
       _referenceReward.clear();
 
+      // Per-depth serialized reference states, captured for EXACT pinning: with a quantized (coarse)
+      // dedup hash, hash equality no longer identifies the reference lineage, so the engine byte-compares
+      // pin candidates against these exact states (hash match = cheap pre-filter only).
+      std::vector<std::vector<uint8_t>> referenceStates;
+      const auto captureState = [&]()
+      {
+        // Capture in CANONICAL (round-tripped) form: serialize, load back, serialize again. Search-side
+        // states are always post-round-trip, and a few emulator header bytes normalize on load -- a raw
+        // linear-replay capture differs in those and would fail the exact byte comparison.
+        std::vector<uint8_t> st(_runner->getStateSize());
+        {
+          jaffarCommon::serializer::Contiguous s(st.data(), st.size());
+          _runner->serializeState(s);
+        }
+        {
+          jaffarCommon::deserializer::Contiguous d(st.data(), st.size());
+          _runner->deserializeState(d);
+        }
+        {
+          jaffarCommon::serializer::Contiguous s(st.data(), st.size());
+          _runner->serializeState(s);
+        }
+        referenceStates.push_back(std::move(st));
+      };
+
       // Depth 0: evaluate the initial state exactly as the engine does when it seeds the root
       game->evaluateRules();
       game->updateGameStateType();
       game->updateReward();
       _referenceReward.push_back(game->getFloorReward());
+      captureState();
 
-      // Replay each input, recording the floor reward at each resulting depth
+      // Replay each input, recording the floor reward at each resulting depth. Each step first
+      // round-trips the runner (serialize + load) so the replay follows the exact same
+      // load -> advance -> serialize path as the search; otherwise path-dependent residue bytes
+      // (CPU scratch, audio buffer tails) differ and exact pin verification can never match.
+      std::vector<uint8_t> rt(_runner->getStateSize());
       for (const auto& inputString : referenceInputs)
       {
         if (inputString.empty()) continue;
+        {
+          jaffarCommon::serializer::Contiguous s(rt.data(), rt.size());
+          _runner->serializeState(s);
+        }
+        {
+          jaffarCommon::deserializer::Contiguous d(rt.data(), rt.size());
+          _runner->deserializeState(d);
+        }
         _runner->advanceState(emulator->registerInput(inputString));
         game->evaluateRules();
         game->updateGameStateType();
         game->updateReward();
         _referenceReward.push_back(game->getFloorReward());
+        captureState();
       }
+      std::vector<std::string> refInputStrings;
+      for (const auto& s : referenceInputs)
+        if (s.empty() == false) refInputStrings.push_back(s);
+      _engine->setReferenceStates(std::move(referenceStates), refInputStrings);
 
       // Restore the runner to its initial state (and reset its step counter) for the search
       _runner->setStepCount(0);
@@ -313,11 +362,13 @@ public:
 
       // Reference reward floor: if the best leading edge has fallen below the reference at this step, the run
       // can no longer keep pace with the reference -- cancel now (purely a stop signal; nothing was pruned).
-      if (_referenceFloorEnabled && _currentStep < _referenceReward.size() && _bestStateFloorReward < _referenceReward[_currentStep] - _referenceFloorTolerance)
+      // With Step Grace G, the comparison point is the reference G steps earlier (bounded time slack).
+      const size_t floorRefStep = (_currentStep > _referenceFloorStepGrace) ? _currentStep - _referenceFloorStepGrace : 0;
+      if (_referenceFloorEnabled && _currentStep < _referenceReward.size() && _bestStateFloorReward < _referenceReward[floorRefStep] - _referenceFloorTolerance)
       {
-        jaffarCommon::logger::log("[J+] Best (%.6f) fell below reference floor (%.6f, tol %.4f) at step %lu by %.6f -- cancelling.\n", _bestStateFloorReward,
-                                  _referenceReward[_currentStep], _referenceFloorTolerance, _currentStep,
-                                  _referenceReward[_currentStep] - _referenceFloorTolerance - _bestStateFloorReward);
+        jaffarCommon::logger::log("[J+] Best (%.6f) fell below reference floor (%.6f, tol %.4f, grace %u steps) at step %lu by %.6f -- cancelling.\n", _bestStateFloorReward,
+                                  _referenceReward[floorRefStep], _referenceFloorTolerance, _referenceFloorStepGrace, _currentStep,
+                                  _referenceReward[floorRefStep] - _referenceFloorTolerance - _bestStateFloorReward);
         exitReason = exitReason_t::bestBelowReference;
         break;
       }
@@ -718,6 +769,7 @@ private:
 
   bool               _referenceFloorEnabled;       ///< Whether the reference reward floor cancel is active.
   float              _referenceFloorTolerance;     ///< Allowed shortfall of best below the reference per step.
+  uint32_t           _referenceFloorStepGrace = 0; ///< Compare best against the reference this many steps earlier (bounded time slack for jumpy rewards).
   bool               _cancelIfReferenceBelowWorst; ///< Opt-in: cancel when the reference reward drops below the worst kept state (reference evicted).
   float              _referenceBelowWorstMargin;   ///< Margin added to the reference before the below-worst comparison (typically the pinning bonus).
   std::vector<float> _referenceReward;             ///< Per-step reference reward floor (index = step).

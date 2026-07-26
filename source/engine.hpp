@@ -1015,17 +1015,53 @@ private:
         if (idx < _refPinHashes.size() && hash == _refPinHashes[idx])
         {
           _refPinSeenPreDedup.fetch_add(1, std::memory_order_relaxed);
-          // EVERY state matching a reference-depth hash is pinned (dedup bypass + bonus). The per-depth
-          // claim flag is kept as a statistic only: a single-shot claim burned the pin when a lookahead
-          // leader touched a depth and later died, leaving the true reference lineage to be discarded
-          // as "repeated" against the dead leader's hash.
-          pinBonus         = _refPinBonus + (float)k * _refPinLookaheadBonus;
-          isRefPin         = true;
-          uint8_t expected = 0;
-          if (_refPinnedAtDepth[idx].compare_exchange_strong(expected, 1, std::memory_order_relaxed))
+          // Hash equality is only a PRE-FILTER: under a quantized dedup hash a whole cell of states
+          // shares the reference's hash. When exact reference states are available (floor Solution File
+          // replay), verify by byte comparison so only the true reference lineage is pinned.
+          bool verified = true;
+          if (idx < _refStates.size() && _refStates[idx].size() > 0)
           {
-            _refPinHits.fetch_add(1, std::memory_order_relaxed);
-            _refPinMaxDepthHit.store(std::max(_refPinMaxDepthHit.load(std::memory_order_relaxed), idx), std::memory_order_relaxed);
+            thread_local std::vector<uint8_t> scratch;
+            scratch.resize(_refStates[idx].size());
+            jaffarCommon::serializer::Contiguous s(scratch.data(), scratch.size());
+            r.serializeState(s);
+            verified = true;
+            for (size_t i = 0; i < scratch.size(); i++)
+              if (_refVolatileMask[i] == 0 && scratch[i] != _refStates[idx][i])
+              {
+                verified = false;
+                break;
+              }
+            // One-shot diagnostic: report the first differing byte of the first failed verification.
+            if (verified == false)
+            {
+              static std::atomic<int> reported{0};
+              int                     expected = 0;
+              if (reported.compare_exchange_strong(expected, 1))
+              {
+                size_t nDiff = 0;
+                char   buf[1024];
+                int    p = 0;
+                for (size_t off = 0; off < scratch.size(); off++)
+                  if (_refVolatileMask[off] == 0 && scratch[off] != _refStates[idx][off])
+                  {
+                    if (nDiff < 32 && p < 900) p += snprintf(buf + p, sizeof(buf) - p, " %lu(%02X!=%02X)", off, scratch[off], _refStates[idx][off]);
+                    nDiff++;
+                  }
+                jaffarCommon::logger::log("[J+] PIN-VERIFY MISMATCH at depth %lu: %lu UNMASKED differing bytes / %lu:%s\n", idx, nDiff, scratch.size(), buf);
+              }
+            }
+          }
+          if (verified)
+          {
+            pinBonus         = _refPinBonus + (float)k * _refPinLookaheadBonus;
+            isRefPin         = true;
+            uint8_t expected = 0;
+            if (_refPinnedAtDepth[idx].compare_exchange_strong(expected, 1, std::memory_order_relaxed))
+            {
+              _refPinHits.fetch_add(1, std::memory_order_relaxed);
+              _refPinMaxDepthHit.store(std::max(_refPinMaxDepthHit.load(std::memory_order_relaxed), idx), std::memory_order_relaxed);
+            }
           }
           break;
         }
@@ -1186,8 +1222,59 @@ private:
   std::vector<jaffarCommon::hash::hash_t> _refPinHashes;                 ///< Reference state hash at each search depth.
   std::atomic<size_t>                     _refPinHits{0};                ///< Cumulative reference-pin hits (diagnostic).
   std::atomic<size_t>                     _refPinMaxDepthHit{0};         ///< Deepest reference depth a pin matched (diagnostic).
+  std::vector<std::vector<uint8_t>>       _refStates;                    ///< Per-depth serialized reference states for EXACT pin verification (empty = hash-only pinning).
   std::atomic<size_t>                     _refPinSeenPreDedup{0};        ///< Reference-depth matches seen (diagnostic).
   std::unique_ptr<std::atomic<uint8_t>[]> _refPinnedAtDepth;             ///< Per reference depth: claimed(1)/unclaimed(0), so exactly one copy is pinned.
+
+public:
+  /// @brief Supplies per-depth serialized reference states for exact pin verification, and computes the
+  ///        volatile-byte mask: driver-side captures carry different instance residue (unrestored buffer
+  ///        bytes) than worker-produced states, so the mask is built empirically by re-producing a few
+  ///        reference states through a WORKER runner and diffing. Verification compares outside the mask.
+  void setReferenceStates(std::vector<std::vector<uint8_t>>&& states, const std::vector<std::string>& refInputs)
+  {
+    _refStates = std::move(states);
+    if (_refStates.size() < 2 || refInputs.size() == 0) return;
+    std::vector<uint8_t> scratch(_refStates[0].size());
+    _refVolatileMask.assign(_refStates[0].size(), 0);
+    // Probe depths spread across the whole span: the volatile region (audio ring residue) slides over
+    // time, so distant depths expose different parts of it. Each hit is padded so the union covers the
+    // sliding band.
+    const size_t maxDepth   = std::min(_refStates.size() - 1, refInputs.size());
+    const size_t probeCount = std::min<size_t>(32, maxDepth);
+    // Every worker runner instance carries its own residue pattern -- probe across several instances
+    // so the mask covers the union.
+    const size_t runnersToProbe = std::min<size_t>(16, _runners.size());
+    for (size_t ri = 0; ri < runnersToProbe; ri++)
+    for (size_t pi = 0; pi < probeCount; pi++)
+    {
+      auto&        r = *_runners[ri];
+      const size_t k = (pi * maxDepth) / probeCount;
+      if (refInputs[k].empty()) continue;
+      {
+        jaffarCommon::deserializer::Contiguous d(_refStates[k].data(), _refStates[k].size());
+        r.deserializeState(d);
+      }
+      r.advanceState(r.getGame()->getEmulator()->registerInput(refInputs[k]));
+      {
+        jaffarCommon::serializer::Contiguous s(scratch.data(), scratch.size());
+        r.serializeState(s);
+      }
+      for (size_t i = 0; i < scratch.size(); i++)
+        if (scratch[i] != _refStates[k + 1][i])
+        {
+          const size_t lo = i >= 128 ? i - 128 : 0;
+          const size_t hi = std::min(i + 128, scratch.size() - 1);
+          for (size_t j = lo; j <= hi; j++) _refVolatileMask[j] = 1;
+        }
+    }
+    size_t total = 0;
+    for (auto m : _refVolatileMask) total += m;
+    jaffarCommon::logger::log("[J+] Reference pin exact-verification: volatile mask covers %lu / %lu bytes\n", total, _refVolatileMask.size());
+  }
+
+private:
+  std::vector<uint8_t> _refVolatileMask; ///< 1 = byte is instance-residue (excluded from exact pin verification)
 
   /// @brief Thread-safe hash database used to detect repeated states.
   std::unique_ptr<jaffarPlus::HashDb> _hashDb;

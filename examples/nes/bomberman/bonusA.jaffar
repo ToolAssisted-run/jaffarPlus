@@ -1,0 +1,149 @@
+{
+ "Driver Configuration": {
+  "End On First Win State": true,
+  "Max Steps": 1940,
+  "Save Intermediate Results": {
+   "Enabled": true,
+   "Frequency (s)": 1.0,
+   "Best Solution Path": "/tmp/jaffar.best.sol",
+   "Worst Solution Path": "/tmp/jaffar.worst.sol"
+  }
+ },
+ "Engine Configuration": {
+  "State Database": {
+   "Max Size (Mb)": 1000
+  },
+  "Hash Database": {
+   "Max Store Count": 2,
+   "Max Store Size (Mb)": 4000,
+   "Enabled": true
+  }
+ },
+ "Emulator Configuration": {
+  "Emulator Name": "QuickerNES",
+  "Use Flat Code Map": true,
+  "SRAM Block Size": 8192,
+  "Rom File Path": "Bomberman (USA).nes",
+  "Rom File SHA1": "12531701E633D2196C9A15F944B101A8205248E4",
+  "Initial State File Path": "",
+  "Initial Sequence File Path": "bonusA.initial.sol",
+  "Initial RAM Data File Path": "",
+  "Controller 1 Type": "Joypad",
+  "Controller 2 Type": "None",
+  "Disabled State Properties": [
+   "SPRT",
+   "NTAB",
+   "CHRR",
+   "SRAM"
+  ],
+  "Nametable Block Size": 0,
+  "Precise State Timing": false
+ },
+ "Runner Configuration": {
+  "Hash Step Tolerance": 4,
+  "Show Empty Input Slots": true,
+  "Show Allowed Inputs": true,
+  "Bypass Hash Calculation": false,
+  "Store Input History": {
+   "Type": "Raw",
+   "Max Size": 5000
+  },
+  "Allowed Input Sets": [
+   {
+    "Conditions": [
+     {
+      "Property": "Input Frame",
+      "Op": "==",
+      "Value": false
+     }
+    ],
+    "Inputs": [
+     "|..|........|"
+    ],
+    "Stop Input Evaluation": true
+   },
+   {
+    "Conditions": [
+     {
+      "Property": "Level",
+      "Op": "==",
+      "Value": 255
+     }
+    ],
+    "Inputs": [
+     "|..|U.......|",
+     "|..|.D......|",
+     "|..|..L.....|",
+     "|..|...R....|",
+     "|..|.......A|",
+     "|..|......B.|",
+     "|..|U.....B.|",
+     "|..|.D....B.|",
+     "|..|..L...B.|",
+     "|..|...R..B.|"
+    ],
+    "Stop Input Evaluation": false
+   }
+  ],
+  "Test Candidate Inputs": false,
+  "Candidate Input Sets": [],
+  "Frameskip": {
+   "Rate": 0,
+   "Use Custom Input": false,
+   "Custom Input": ""
+  }
+ },
+ "Game Configuration": {
+  "Game Name": "NES / Bomberman",
+  "Frame Rate": 60.1,
+  "Print Properties": [
+   "Level",
+   "Player Pos X",
+   "Player Pos Y",
+   "Enemies Left",
+   "Flame Count",
+   "Time Left"
+  ],
+  "Hash Properties": [],
+  "Rules": [
+   {
+    "Label": 1000,
+    "Description": "Always: weak pull toward the closest Balloom (positioning shaping)",
+    "Satisfies": [],
+    "Conditions": [],
+    "Actions": [
+     {
+      "Type": "Set Closest Enemy Magnet",
+      "Intensity": 1.0
+     }
+    ]
+   },
+   {
+    "Label": 1999,
+    "Description": "Win at bonus end: gameplay flag down AND bonus timer exhausted (pre-bonus frames have $93 = stage-5 leftover, so this is unique to the true end)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gameplay Active",
+      "Op": "==",
+      "Value": 0
+     },
+     {
+      "Property": "Stage Timer",
+      "Op": "==",
+      "Value": 0
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Win"
+     }
+    ]
+   }
+  ],
+  "Bypass Emulator State": false,
+  "Force Immediate Bomb Placement": true,
+  "Powerup Stat": "Flame",
+  "Bonus Mode": true
+ }
+}

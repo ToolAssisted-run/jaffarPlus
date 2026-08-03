@@ -1,0 +1,522 @@
+{
+ "Driver Configuration": {
+  "End On First Win State": true,
+  "Max Steps": 3000,
+  "Save Intermediate Results": {
+   "Enabled": true,
+   "Frequency (s)": 1.0,
+   "Best Solution Path": "/tmp/jaffar.best.sol",
+   "Worst Solution Path": "/tmp/jaffar.worst.sol"
+  }
+ },
+ "Engine Configuration": {
+  "State Database": {
+   "Max Size (Mb)": 1000
+  },
+  "Hash Database": {
+   "Max Store Count": 2,
+   "Max Store Size (Mb)": 4000,
+   "Enabled": true
+  }
+ },
+ "Emulator Configuration": {
+  "Emulator Name": "QuickerNES",
+  "Use Flat Code Map": true,
+  "SRAM Block Size": 8192,
+  "Rom File Path": "Bomberman (USA).nes",
+  "Rom File SHA1": "12531701E633D2196C9A15F944B101A8205248E4",
+  "Initial State File Path": "",
+  "Initial Sequence File Path": "stage06d.initial.sol",
+  "Initial RAM Data File Path": "",
+  "Controller 1 Type": "Joypad",
+  "Controller 2 Type": "None",
+  "Disabled State Properties": [
+   "SPRT",
+   "NTAB",
+   "CHRR",
+   "SRAM"
+  ],
+  "Nametable Block Size": 0,
+  "Precise State Timing": false
+ },
+ "Runner Configuration": {
+  "Hash Step Tolerance": 4,
+  "Show Empty Input Slots": true,
+  "Show Allowed Inputs": true,
+  "Bypass Hash Calculation": false,
+  "Store Input History": {
+   "Type": "Raw",
+   "Max Size": 5000
+  },
+  "Allowed Input Sets": [
+   {
+    "Conditions": [
+     {
+      "Property": "Input Frame",
+      "Op": "==",
+      "Value": false
+     }
+    ],
+    "Inputs": [
+     "|..|........|"
+    ],
+    "Stop Input Evaluation": true
+   },
+   {
+    "Conditions": [
+     {
+      "Property": "Level",
+      "Op": "==",
+      "Value": 255
+     }
+    ],
+    "Inputs": [
+     "|..|U.......|",
+     "|..|.D......|",
+     "|..|..L.....|",
+     "|..|...R....|",
+     "|..|.......A|",
+     "|..|......B.|",
+     "|..|U.....B.|",
+     "|..|.D....B.|",
+     "|..|..L...B.|",
+     "|..|...R..B.|"
+    ],
+    "Stop Input Evaluation": false
+   }
+  ],
+  "Test Candidate Inputs": false,
+  "Candidate Input Sets": [],
+  "Frameskip": {
+   "Rate": 0,
+   "Use Custom Input": false,
+   "Custom Input": ""
+  }
+ },
+ "Game Configuration": {
+  "Game Name": "NES / Bomberman",
+  "Frame Rate": 60.1,
+  "Print Properties": [
+   "Level",
+   "Player Pos X",
+   "Player Pos Y",
+   "Enemies Left",
+   "Flame Count",
+   "Time Left"
+  ],
+  "Hash Properties": [],
+  "Rules": [
+   {
+    "Label": 1994,
+    "Description": "Fail: self-trapped -- Detonator held and every reachable cell sits inside a ticking bomb's blast (bomb can never clear, lineage is a permanent zombie)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Blast Trapped",
+      "Op": "==",
+      "Value": true
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Fail"
+     }
+    ]
+   },
+   {
+    "Label": 1995,
+    "Description": "Fail: player inside a blast cross at detonation (pre-Flamepass survival is a dead end)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Caught In Blast",
+      "Op": "==",
+      "Value": true
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Fail"
+     }
+    ]
+   },
+   {
+    "Label": 1000,
+    "Description": "Always: kill ladder, power-up pickup ladder, bomb pending shaping",
+    "Satisfies": [],
+    "Conditions": [],
+    "Actions": [
+     {
+      "Type": "Set Enemies Left Magnet",
+      "Intensity": 3000.0
+     },
+     {
+      "Type": "Set Bomb Pending Magnets",
+      "Brick Intensity": 150.0,
+      "Kill Intensity": 500.0,
+      "Hazard Intensity": 500.0
+     },
+     {
+      "Type": "Set Bomb Escape Magnet",
+      "Intensity": 150.0
+     }
+    ]
+   },
+   {
+    "Label": 1001,
+    "Description": "After the power-up is grabbed and while enemies remain: pull toward the closest enemy",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Enemies Left",
+      "Op": ">",
+      "Value": 0
+     },
+     {
+      "Property": "Powerup Obtained",
+      "Op": "==",
+      "Value": true
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Set Closest Enemy Magnet",
+      "Intensity": 1.0
+     }
+    ]
+   },
+   {
+    "Label": 1002,
+    "Description": "Until the power-up is grabbed: follow the brick chain (head magnet + per-brick ladder)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Powerup Obtained",
+      "Op": "==",
+      "Value": false
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Set Chain Magnet",
+      "Head Intensity": 5.0,
+      "Brick Reward": 6000.0
+     }
+    ]
+   },
+   {
+    "Label": 1003,
+    "Description": "Power-up grabbed: one-off bonus; all powerup magnets off; enemy focus takes over",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Powerup Obtained",
+      "Op": "==",
+      "Value": true
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Set Powerup Grab Bonus",
+      "Value": 100000.0
+     }
+    ]
+   },
+   {
+    "Label": 1998,
+    "Description": "Fail the moment the dying sequence starts",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Dying",
+      "Op": ">",
+      "Value": 0
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Fail"
+     }
+    ]
+   },
+   {
+    "Label": 1997,
+    "Description": "Fail if the power-up was destroyed (gone from map without the stat gain)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Powerup Present",
+      "Op": "==",
+      "Value": false
+     },
+     {
+      "Property": "Powerup Obtained",
+      "Op": "==",
+      "Value": false
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Fail"
+     }
+    ]
+   },
+   {
+    "Label": 1999,
+    "Description": "Win on true stage clear (all enemies dead, exit touched)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Game End Status",
+      "Op": "==",
+      "Value": 1
+     },
+     {
+      "Property": "Powerup Obtained",
+      "Op": "==",
+      "Value": true
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Win"
+     }
+    ]
+   },
+   {
+    "Label": 6666,
+    "Description": "TRIPWIRE: physically impossible state (all enemies gone with bricks intact before 4 elapsed seconds) -- halts the run loudly if engine-level state corruption reappears",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Enemies Alive",
+      "Op": "==",
+      "Value": 0
+     },
+     {
+      "Property": "Bricks Left",
+      "Op": ">",
+      "Value": 40
+     },
+     {
+      "Property": "Time Left",
+      "Op": ">=",
+      "Value": 196
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Win"
+     }
+    ]
+   },
+   {
+    "Label": 1996,
+    "Description": "Anti-exploit: fail on placing a bomb inside a live blast (flame-survival farming) -- lift once Flamepass is obtained",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Bomb Placed In Flames",
+      "Op": "==",
+      "Value": true
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Fail"
+     }
+    ]
+   },
+   {
+    "Label": 1004,
+    "Description": "All enemies dead: exit chain takes over (same logic as the power-up chain)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Enemies Left",
+      "Op": "==",
+      "Value": 0
+     },
+     {
+      "Property": "Powerup Obtained",
+      "Op": "==",
+      "Value": true
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Set Exit Chain Magnet",
+      "Head Intensity": 5.0,
+      "Brick Reward": 6000.0
+     }
+    ]
+   },
+   {
+    "Label": 1005,
+    "Description": "Door-first (user): one-time latched bonus for revealing the exit door -- it sits on the route to the remaining enemies, so lines that open it in passing dominate ties",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Exit Revealed",
+      "Op": "==",
+      "Value": true
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Add Reward",
+      "Value": 1500.0
+     }
+    ]
+   },
+   {
+    "Label": 3000,
+    "Description": "Checkpoint: 6 enemies left",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Enemies Alive",
+      "Op": "<=",
+      "Value": 6
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Checkpoint",
+      "Tolerance": 16
+     }
+    ]
+   },
+   {
+    "Label": 3001,
+    "Description": "Checkpoint: 5 enemies left",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Enemies Alive",
+      "Op": "<=",
+      "Value": 5
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Checkpoint",
+      "Tolerance": 16
+     }
+    ]
+   },
+   {
+    "Label": 3002,
+    "Description": "Checkpoint: 4 enemies left",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Enemies Alive",
+      "Op": "<=",
+      "Value": 4
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Checkpoint",
+      "Tolerance": 16
+     }
+    ]
+   },
+   {
+    "Label": 3003,
+    "Description": "Checkpoint: power-up grabbed",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Powerup Obtained",
+      "Op": "==",
+      "Value": true
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Checkpoint",
+      "Tolerance": 16
+     }
+    ]
+   },
+   {
+    "Label": 3004,
+    "Description": "Checkpoint: 3 enemies left",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Enemies Alive",
+      "Op": "<=",
+      "Value": 3
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Checkpoint",
+      "Tolerance": 16
+     }
+    ]
+   },
+   {
+    "Label": 3005,
+    "Description": "Checkpoint: 2 enemies left",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Enemies Alive",
+      "Op": "<=",
+      "Value": 2
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Checkpoint",
+      "Tolerance": 16
+     }
+    ]
+   },
+   {
+    "Label": 3006,
+    "Description": "Checkpoint: 1 enemy left",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Enemies Alive",
+      "Op": "<=",
+      "Value": 1
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Checkpoint",
+      "Tolerance": 16
+     }
+    ]
+   },
+   {
+    "Label": 3007,
+    "Description": "Checkpoint: all enemies dead",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Enemies Alive",
+      "Op": "==",
+      "Value": 0
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Checkpoint",
+      "Tolerance": 16
+     }
+    ]
+   }
+  ],
+  "Bypass Emulator State": false,
+  "Force Immediate Bomb Placement": true,
+  "Powerup Stat": "Bombs",
+  "Powerup Bombs Threshold": 3
+ }
+}

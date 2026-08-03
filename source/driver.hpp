@@ -693,10 +693,10 @@ public:
     if (_referenceFloorEnabled)
     {
       if (_currentStep < _referenceReward.size())
-        jaffarCommon::logger::log("[J+] Reference Reward (Best - Ref):               %.6f (Best %+.6f, tol %.4f) [step %lu / %lu ref steps]\n", _referenceReward[_currentStep],
+        jaffarCommon::logger::log("[J+] Reference Reward (Ref / Best-Ref):           %.6f (Best-Ref %+.6f, tol %.4f) [step %lu / %lu ref steps]\n", _referenceReward[_currentStep],
                                   _bestStateFloorReward - _referenceReward[_currentStep], _referenceFloorTolerance, _currentStep, _referenceReward.size());
       else
-        jaffarCommon::logger::log("[J+] Reference Reward (Best - Ref):               (none: step %lu beyond reference trace of %lu steps)\n", _currentStep,
+        jaffarCommon::logger::log("[J+] Reference Reward (Ref / Best-Ref):           (none: step %lu beyond reference trace of %lu steps)\n", _currentStep,
                                   _referenceReward.size());
     }
 

@@ -77,9 +77,13 @@ public:
    * runner, evaluates rules, updates the game state type and reward, and records the first win/fail
    * step.
    * @param inputSequence The ordered list of input strings to replay.
+   * @param storeRendererState When false, the per-step renderer framebuffer (256KB/step) is not
+   *        cached. Safe in headless mode (--disableRender), where renderFrame is never called; this
+   *        cuts memory from ~256KB/step to just the game state (~11KB/step) for long movies.
    */
-  void initialize(const std::vector<std::string>& inputSequence)
+  void initialize(const std::vector<std::string>& inputSequence, bool storeRendererState = true)
   {
+    _storeRendererState = storeRendererState;
     // For each input in the sequence, store the game's state
     for (size_t i = 0; i <= inputSequence.size(); i++)
     {
@@ -127,15 +131,20 @@ public:
       jaffarCommon::serializer::Contiguous sg(step.gameStateData, _gameStateSize);
       _runner->serializeState(sg);
 
-      // Allocating space for the renderer state data
-      step.rendererStateData = malloc(_rendererStateSize);
+      // Allocating and serializing renderer state (skipped in headless mode to save ~256KB/step)
+      if (_storeRendererState)
+      {
+        step.rendererStateData = malloc(_rendererStateSize);
 
-      // Updating renderer state
-      _runner->getGame()->getEmulator()->updateRendererState(i, step.inputString);
+        // Updating renderer state
+        _runner->getGame()->getEmulator()->updateRendererState(i, step.inputString);
 
-      // Serializing renderer state
-      jaffarCommon::serializer::Contiguous sr(step.rendererStateData, _rendererStateSize);
-      _runner->getGame()->getEmulator()->serializeRendererState(sr);
+        // Serializing renderer state
+        jaffarCommon::serializer::Contiguous sr(step.rendererStateData, _rendererStateSize);
+        _runner->getGame()->getEmulator()->serializeRendererState(sr);
+      }
+      else
+        step.rendererStateData = nullptr;
 
       // Advancing state
       if (i < inputSequence.size()) _runner->advanceState(step.inputIndex);
@@ -174,7 +183,7 @@ public:
     for (const auto& step : _sequence)
     {
       free(step.gameStateData);
-      free(step.rendererStateData);
+      if (step.rendererStateData != nullptr) free(step.rendererStateData);
     }
   }
 
@@ -276,6 +285,9 @@ private:
 
   /// @brief Size, in bytes, of a serialized renderer state.
   size_t _rendererStateSize;
+
+  /// @brief Whether to cache the per-step renderer framebuffer (disabled in headless mode to save memory).
+  bool _storeRendererState = true;
 
   /// @brief The recorded sequence of playback steps.
   std::vector<step_t> _sequence;

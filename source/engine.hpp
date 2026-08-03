@@ -115,6 +115,18 @@ public:
     _baseStateBatch = engineConfigRemaining.contains("Base State Batch Size") ? jaffarCommon::json::popNumber<size_t>(engineConfigRemaining, "Base State Batch Size") : 0;
     if (_baseStateBatch > BASE_STATE_BATCH_MAX) _baseStateBatch = BASE_STATE_BATCH_MAX;
 
+    // Log verbosity: "Full" (default, everything) or "Compact" (per-step engine block collapses to
+    // step timing, checkpoint, state-flow counters, and one-line DB summaries; the game module's own
+    // print is unaffected -- it is what live observers actually watch). Labels that external
+    // tooling greps ("Win States:", "Checkpoint (Level/Tolerance/Cutoff)") are kept verbatim.
+    _compactLog = false;
+    if (engineConfigRemaining.contains("Log Verbosity"))
+    {
+      const auto v = jaffarCommon::json::popString(engineConfigRemaining, "Log Verbosity");
+      if (v != "Full" && v != "Compact") JAFFAR_THROW_LOGIC("[ERROR] 'Log Verbosity' must be 'Full' or 'Compact' (got '%s')\n", v.c_str());
+      _compactLog = (v == "Compact");
+    }
+
     // Optional reference pinning: keep a known (reference) solution's lineage anchored in the frontier so
     // it is never evicted, and reward being AHEAD of it. We load the reference's per-depth state hashes;
     // when a newly generated state's hash matches the reference hash at depth d (its own depth), or at
@@ -551,6 +563,22 @@ public:
     _totalBaseStatesProcessed += _stepBaseStatesProcessed;
     _totalNewStatesProcessed += _stepNewStatesProcessed;
 
+    // Checkpoint cohort extinction guard: if this step stored ZERO states at the current
+    // checkpoint level, the milestone's surviving lineage is gone -- executing the purge would
+    // wipe the whole database for the benefit of nobody. Demote the level so the search can
+    // re-achieve the milestone; the next genuine rise re-arms the cutoff.
+    if (_checkpointLevel.load(std::memory_order_relaxed) > 0 && _stepMaxLevelStored.load(std::memory_order_relaxed) == 0 && _stateDb->getStateCount() > 0)
+    {
+      std::lock_guard<std::mutex> lk(_checkpointMutex);
+      const auto                  lvl = _checkpointLevel.load(std::memory_order_relaxed);
+      if (lvl > 0)
+      {
+        _checkpointLevel.store(lvl - 1, std::memory_order_release);
+        jaffarCommon::logger::log("[J+] Checkpoint level %lu cohort extinct -- demoting to %lu\n", lvl, lvl - 1);
+      }
+    }
+    _stepMaxLevelStored.store(0, std::memory_order_relaxed);
+
     // Advancing step
     _currentStep++;
   }
@@ -590,6 +618,26 @@ public:
    */
   void printInfo()
   {
+    // Compact mode: the handful of lines observers actually use, then out. Grep-stable labels.
+    if (_compactLog)
+    {
+      jaffarCommon::logger::log("[J+] Elapsed Time (Step/Total):                   %9.3fs / %9.3fs\n", 1.0e-6 * (double)(_currentStepTime), 1.0e-6 * (double)(_totalRunningTime));
+      jaffarCommon::logger::log("[J+] Checkpoint (Level/Tolerance/Cutoff):         %lu / %lu / %lu\n", _checkpointLevel.load(), _checkpointTolerance.load(),
+                                _checkpointCutoff.load());
+      jaffarCommon::logger::log("[J+] New States Processed:                        %.3f Mstates (Total: %.3f Mstates) @ %.3f Mstates/s\n", 1.0e-6 * (double)_stepNewStatesProcessed,
+                                1.0e-6 * (double)_totalNewStatesProcessed, 1.0e-6 * (double)_stepNewStatesProcessed / (1.0e-6 * (double)_currentStepTime));
+      jaffarCommon::logger::log("[J+] States (fail/rep/drop cumulative):           %lu / %lu / %lu\n", _failedStates.load(), _repeatedStates.load(),
+                                _droppedStatesNoStorage.load() + _droppedStatesFailedSerialization.load() + _droppedStatesCheckpoint.load());
+      jaffarCommon::logger::log("[J+] Win States:                                  %lu (%5.3f%% of New States Processed) \n", _winStates.load(),
+                                100.0 * (double)_winStates.load() / (double)_totalNewStatesProcessed);
+      if (_refPinEnabled)
+        jaffarCommon::logger::log("[J+] Reference Pin Hits (cumulative):             %lu (deepest %lu / %lu)\n", _refPinHits.load(), _refPinMaxDepthHit.load(),
+                                  _refPinHashes.size());
+      jaffarCommon::logger::log("[J+] State Db States:                             %lu (%.2f / %.2f GB)\n", _stateDb->getStateCount(),
+                                (double)(_stateDb->getStateCount() * _stateDb->getStateSizeInDatabase()) / (1024.0 * 1024.0 * 1024.0),
+                                (double)_stateDb->getMaxBudgetBytes() / (1024.0 * 1024.0 * 1024.0));
+      return;
+    }
     // Printing information
     jaffarCommon::logger::log("[J+] Thread Count / NUMA Domains:                 %3d / %d\n", _threadCount, _numaCount);
 #ifdef JAFFARPLUS_DETAILED_PROFILING
@@ -660,7 +708,8 @@ public:
                               100.0 * ((double)(_advanceStateDbAverageTime) / (double)(_currentStepTime)), 1.0e-6 * (double)(_advanceStateDbAverageCumulativeTime),
                               100.0 * ((double)_advanceStateDbAverageCumulativeTime) / (double)(_totalRunningTime));
 
-    jaffarCommon::logger::log("[J+] Checkpoint (Level/Tolerance/Cutoff):         %lu / %lu / %lu\n", _checkpointLevel, _checkpointTolerance, _checkpointCutoff);
+    jaffarCommon::logger::log("[J+] Checkpoint (Level/Tolerance/Cutoff):         %lu / %lu / %lu\n", _checkpointLevel.load(), _checkpointTolerance.load(),
+                              _checkpointCutoff.load());
     jaffarCommon::logger::log("[J+] Base States Processed:                       %.3f Mstates (Total: %.3f Mstates)\n", 1.0e-6 * (double)_stepBaseStatesProcessed,
                               1.0e-6 * (double)_totalBaseStatesProcessed);
     jaffarCommon::logger::log("[J+] New States Processed:                        %.3f Mstates (Total: %.3f Mstates)\n", 1.0e-6 * (double)_stepNewStatesProcessed,
@@ -951,14 +1000,28 @@ private:
     if (result == inputResult_t::droppedFailedSerialization) acc.droppedStatesFailedSerialization++;
     if (result == inputResult_t::droppedCheckpoint) acc.droppedStatesCheckpoint++;
 
-    // Checking whether this state's checkpoint is new
-    const auto stateCheckpointLevel     = r.getGame()->getCheckpointLevel();
-    const auto stateCheckpointTolerance = r.getGame()->getCheckpointTolerance();
-    if (stateCheckpointLevel > _checkpointLevel)
+    // Checking whether this state's checkpoint is new. Only states that were actually stored
+    // (normal/win) may raise the global level: a failed or repeated state that satisfies a
+    // checkpoint rule leaves no surviving lineage at that level, and raising the level from it
+    // purges the entire database (guaranteed starvation at tolerance 0).
+    if (result == inputResult_t::normal || result == inputResult_t::win)
     {
-      _checkpointLevel     = stateCheckpointLevel;
-      _checkpointTolerance = stateCheckpointTolerance;
-      _checkpointCutoff    = _currentStep + stateCheckpointTolerance;
+      const auto stateCheckpointLevel     = r.getGame()->getCheckpointLevel();
+      const auto stateCheckpointTolerance = r.getGame()->getCheckpointTolerance();
+      if (stateCheckpointLevel >= _checkpointLevel.load(std::memory_order_relaxed)) _stepMaxLevelStored.fetch_add(1, std::memory_order_relaxed);
+      if (stateCheckpointLevel > _checkpointLevel.load(std::memory_order_relaxed))
+      {
+        // Publication order is load-bearing: the new cutoff must become visible BEFORE the new
+        // level, or a concurrent thread can observe (new level, stale cutoff) and purge states
+        // that are inside the new tolerance window -- wiping the database in a single step.
+        std::lock_guard<std::mutex> lk(_checkpointMutex);
+        if (stateCheckpointLevel > _checkpointLevel.load(std::memory_order_relaxed))
+        {
+          _checkpointTolerance.store(stateCheckpointTolerance, std::memory_order_relaxed);
+          _checkpointCutoff.store(_currentStep + stateCheckpointTolerance, std::memory_order_relaxed);
+          _checkpointLevel.store(stateCheckpointLevel, std::memory_order_release);
+        }
+      }
     }
 
     // Returning result
@@ -1077,12 +1140,14 @@ private:
     r.getGame()->evaluateRules();
 
     // Checking whether this state meets checkpoint
-    if (_currentStep > _checkpointCutoff)
     {
-      const auto stateCheckpointLevel = r.getGame()->getCheckpointLevel();
+      // Read the level with acquire FIRST: seeing a new level guarantees the matching cutoff
+      // (written before it under release ordering) is also visible.
+      const auto globalCheckpointLevel = _checkpointLevel.load(std::memory_order_acquire);
+      const auto stateCheckpointLevel  = r.getGame()->getCheckpointLevel();
 
-      // If state does not meet checkpoint, then do not process it further
-      if (stateCheckpointLevel < _checkpointLevel) return inputResult_t::droppedCheckpoint;
+      // If state does not meet checkpoint past the cutoff, then do not process it further
+      if (stateCheckpointLevel < globalCheckpointLevel && _currentStep > _checkpointCutoff.load(std::memory_order_relaxed)) return inputResult_t::droppedCheckpoint;
     }
 
     // Determining state type
@@ -1221,6 +1286,7 @@ private:
   float                                   _refPinLookaheadBonus = 0.0f;  ///< Extra bonus per frame ahead of the reference.
   std::vector<jaffarCommon::hash::hash_t> _refPinHashes;                 ///< Reference state hash at each search depth.
   std::atomic<size_t>                     _refPinHits{0};                ///< Cumulative reference-pin hits (diagnostic).
+  bool                                    _compactLog = false;           ///< "Log Verbosity": "Compact" collapses the per-step engine block to essentials.
   std::atomic<size_t>                     _refPinMaxDepthHit{0};         ///< Deepest reference depth a pin matched (diagnostic).
   std::vector<std::vector<uint8_t>>       _refStates;                    ///< Per-depth serialized reference states for EXACT pin verification (empty = hash-only pinning).
   std::atomic<size_t>                     _refPinSeenPreDedup{0};        ///< Reference-depth matches seen (diagnostic).
@@ -1301,9 +1367,11 @@ private:
   std::string          _manualSaveSolutionLastPath = "";     ///< Path of the most recently activated manual-save solution.
 
   // Checkpoint information
-  size_t _checkpointLevel;     ///< Highest checkpoint level reached so far.
-  size_t _checkpointTolerance; ///< Tolerance (in steps) associated with the current checkpoint level.
-  size_t _checkpointCutoff;    ///< Step index after which states below @ref _checkpointLevel are dropped.
+  std::atomic<size_t> _checkpointLevel;     ///< Highest checkpoint level reached so far.
+  std::atomic<size_t> _checkpointTolerance; ///< Tolerance (in steps) associated with the current checkpoint level.
+  std::atomic<size_t> _checkpointCutoff;    ///< Step index after which states below @ref _checkpointLevel are dropped.
+  std::mutex          _checkpointMutex;     ///< Serializes checkpoint level rises (rare path).
+  std::atomic<size_t> _stepMaxLevelStored;  ///< States stored this step whose level >= the global checkpoint level.
 
   //////////////// Statistics
 

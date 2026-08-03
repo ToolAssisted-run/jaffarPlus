@@ -142,6 +142,16 @@ public:
   virtual void initializeImpl() = 0;
 
   /**
+   * @brief Temporarily re-enables ALL state properties disabled via configuration (e.g. NTAB/CHRR),
+   *        so a FULL-fidelity snapshot can be captured for exact restores (player reload). Pair with
+   *        @ref reapplyDisabledStateProperties. Default: no-op.
+   */
+  virtual void enableAllStateProperties() {}
+
+  /** @brief Re-applies the configured disabled state properties after @ref enableAllStateProperties. Default: no-op. */
+  virtual void reapplyDisabledStateProperties() {}
+
+  /**
    * @brief Serializes the emulator state into the given serializer.
    * @param serializer The serializer to write the emulator state into.
    */

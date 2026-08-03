@@ -508,8 +508,9 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
     return false;
   }
 
-  // Initializing playback instance
-  p.initialize(solutionSequence);
+  // Initializing playback instance. In headless mode (--disableRender) renderFrame is never called,
+  // so skip caching the per-step renderer framebuffer (~256KB/step) -- critical for long movies.
+  p.initialize(solutionSequence, !disableRender);
 
   // Flag to display frame information
   bool showFrameInfo = true;
@@ -624,11 +625,18 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
   {
     const auto step = (ssize_t)parseUInt(saveStateStepStr, "--saveStateStep");
     p.loadStepData(step);
+    // Full-fidelity save: enable ALL state properties (incl. the search-disabled SPRT/NTAB/CHRR/
+    // SRAM) so the blob is loadable as an "Initial State File Path" by a freshly-constructed
+    // emulator (which has everything enabled). Saving the reduced hot state produced an
+    // undersized blob that the loader rejected ("Maximum input data position reached").
+    auto* saveEmu = r.getGame()->getEmulator();
+    saveEmu->enableAllStateProperties();
     std::string  saveData;
-    const size_t stateSize = r.getGame()->getEmulator()->getStateSize();
+    const size_t stateSize = saveEmu->getStateSize();
     saveData.resize(stateSize);
     jaffarCommon::serializer::Contiguous s(saveData.data(), stateSize);
-    r.getGame()->getEmulator()->serializeState(s);
+    saveEmu->serializeState(s);
+    saveEmu->reapplyDisabledStateProperties();
     if (jaffarCommon::file::saveStringToFile(saveData, saveStateFilePath.c_str()) == false)
       JAFFAR_THROW_LOGIC("[ERROR] Could not write state at step %ld to: %s\n", (long)step, saveStateFilePath.c_str());
     jaffarCommon::logger::log("[J+] Saved emulator state at step %ld to %s (%lu bytes)\n", (long)step, saveStateFilePath.c_str(), stateSize);
@@ -1065,6 +1073,21 @@ int main(int argc, char* argv[])
   jaffarCommon::serializer::Contiguous s(initialState.data(), initialState.size());
   r->serializeState(s);
 
+  // ALSO capture a FULL-fidelity emulator snapshot (all state properties enabled, including any
+  // configured-out blocks like NES nametables). The reduced runner state above restores game RAM
+  // but leaves excluded video state (e.g. NTAB) at its end-of-movie contents, so every reload
+  // cycle displayed the PREVIOUS cycle's background. Restoring this full snapshot first fixes it.
+  auto*       fullEmu = r->getGame()->getEmulator();
+  std::string fullInitialState;
+  {
+    fullEmu->enableAllStateProperties();
+    const size_t fullSize = fullEmu->getStateSize();
+    fullInitialState.resize(fullSize);
+    jaffarCommon::serializer::Contiguous fs(fullInitialState.data(), fullInitialState.size());
+    fullEmu->serializeState(fs);
+    fullEmu->reapplyDisabledStateProperties();
+  }
+
   // Running main cycle
   bool continueRunning = true;
   while (continueRunning == true)
@@ -1083,6 +1106,14 @@ int main(int argc, char* argv[])
 
       // Reloading the initial state (captured at step 0); the step counter is not in the stream, so reset
       // it here before deserializing (the player advances it itself as it replays).
+      // Full-fidelity emulator restore FIRST (brings back excluded blocks like nametables), then
+      // the reduced runner restore for game/runner bookkeeping.
+      {
+        fullEmu->enableAllStateProperties();
+        jaffarCommon::deserializer::Contiguous fd(fullInitialState.data(), fullInitialState.size());
+        fullEmu->deserializeState(fd);
+        fullEmu->reapplyDisabledStateProperties();
+      }
       r->setStepCount(0);
       jaffarCommon::deserializer::Contiguous d(initialState.data(), initialState.size());
       r->deserializeState(d);

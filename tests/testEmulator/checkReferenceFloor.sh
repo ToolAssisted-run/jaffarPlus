@@ -39,7 +39,7 @@ out="$(OMP_NUM_THREADS=1 "$PLAYER" "$CONFIG" "$REF_SOL" --reproduce --disableRen
 # Floor + pinning search over the full step budget
 out="$(OMP_NUM_THREADS=1 "$JAFFAR" "$CONFIG" 2>&1)"
 [[ "$out" == *"Reference pinning enabled"* ]]        || { printf '%s\n' "$out" | tail -n 20; fail "pinning banner missing"; }
-[[ "$out" == *"Reference Reward (Best - Ref)"* ]]    || fail "floor telemetry missing"
+[[ "$out" == *"Reference Reward (Ref / Best-Ref)"* ]] || fail "floor telemetry missing"
 [[ "$out" == *"Reference Pin Hits"* ]]               || fail "pin statistics missing"
 [[ "$out" == *"WARNING: reference"* ]]               || fail "below-worst warning did not fire (negative margin should force it)"
 [[ "$out" == *"Reached reference frame count"* || "$out" == *"Solution found"* ]] \

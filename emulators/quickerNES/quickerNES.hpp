@@ -230,6 +230,11 @@ public:
 
   __INLINE__ void enableStateProperty(const std::string& property) { _quickerNES->enableStateBlock(property); }
 
+  // Full-fidelity snapshot support (player reload): momentarily lift the configured block
+  // exclusions so NTAB/CHRR/etc. serialize too, then re-apply them.
+  void enableAllStateProperties() override { enableStateProperties(); }
+  void reapplyDisabledStateProperties() override { disableStateProperties(); }
+
   __INLINE__ void disableStateProperty(const std::string& property) { _quickerNES->disableStateBlock(property); }
 
   ////////// Rendering functions (some of these taken from https://github.com/Bindernews/HeadlessQuickNes / MIT License)

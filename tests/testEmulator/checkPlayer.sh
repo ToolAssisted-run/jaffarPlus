@@ -84,5 +84,25 @@ QSDIR="$(mktemp -d)"
 [[ -s "$QSDIR/quicksave.state" ]] || { rm -rf "$QSDIR"; fail "--runCommand s did not write a non-empty quicksave.state"; }
 rm -rf "$QSDIR"
 
-echo "PASS: player reproduces to Win deterministically (hash $hash1); partial=$typeP; not-allowed reported; runCommand q/s OK"
+# 7. Render-mode reproduction (no --disableRender) with a dummy video driver. This exercises the
+#    Playback path that caches per-step renderer state (storeRendererState=true), which the headless
+#    --disableRender runs above skip. Must auto-play to the end and exit cleanly (return code 0).
+if ! SDL_VIDEODRIVER=dummy "$PLAYER" "$CONFIG" "$SOL" --reproduce --unattended --exitOnEnd </dev/null >/dev/null 2>&1; then
+  fail "render-mode reproduction (renderer-state caching) did not exit cleanly"
+fi
+
+# 8. Compact engine log verbosity: a run with "Log Verbosity": "Compact" must emit the compact
+#    status block (a handful of grep-stable lines) instead of the full report.
+outC="$("$JAFFAR" "$PWD/gridWalker.compact.jaffar" 2>&1)"
+[[ "$outC" == *"New States Processed"* && "$outC" == *"Checkpoint (Level/Tolerance/Cutoff)"* ]] \
+  || { printf '%s\n' "$outC" | tail -n 20; fail "compact log verbosity did not emit the compact status block"; }
+
+# 9. Full-fidelity mid-run state save (--saveStateStep + --saveStateFile) must write a state file
+#    that a fresh player can then load as its Initial State File Path.
+STATE="$(mktemp -u).state"
+"$PLAYER" "$CONFIG" "$SOL" --saveStateStep 4 --saveStateFile "$STATE" --disableRender --unattended >/dev/null 2>&1
+[[ -s "$STATE" ]] || fail "--saveStateStep/--saveStateFile did not write a non-empty state file"
+rm -f "$STATE"
+
+echo "PASS: player reproduces to Win deterministically (hash $hash1); partial=$typeP; not-allowed reported; runCommand q/s OK; render-mode OK; compact-log OK; state-save OK"
 exit 0

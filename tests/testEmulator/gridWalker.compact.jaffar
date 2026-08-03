@@ -1,0 +1,152 @@
+{
+ "Driver Configuration": {
+  "End On First Win State": true,
+  "Max Steps": 64,
+  "Save Intermediate Results": {
+   "Enabled": true,
+   "Frequency (s)": 1.0,
+   "Best Solution Path": "/tmp/jaffar.gridWalker.best.sol",
+   "Worst Solution Path": "/tmp/jaffar.gridWalker.worst.sol"
+  }
+ },
+ "Engine Configuration": {
+  "Hash Database": {
+   "Max Store Count": 2,
+   "Max Store Size (Mb)": 100,
+   "Enabled": true
+  },
+  "State Database": {
+   "Max Size (Mb)": 100
+  },
+  "Log Verbosity": "Compact"
+ },
+ "Emulator Configuration": {
+  "Emulator Name": "TestEmulator",
+  "Grid Width": 5,
+  "Grid Height": 5,
+  "Start X": 0,
+  "Start Y": 0
+ },
+ "Runner Configuration": {
+  "Hash Step Tolerance": 0,
+  "Show Empty Input Slots": false,
+  "Show Allowed Inputs": false,
+  "Bypass Hash Calculation": false,
+  "Store Input History": {
+   "Type": "Raw",
+   "Max Size": 64
+  },
+  "Allowed Input Sets": [
+   {
+    "Conditions": [],
+    "Inputs": [
+     "|U|",
+     "|D|",
+     "|L|",
+     "|R|"
+    ],
+    "Stop Input Evaluation": false
+   }
+  ],
+  "Test Candidate Inputs": false,
+  "Candidate Input Sets": [],
+  "Frameskip": {
+   "Rate": 0,
+   "Use Custom Input": false,
+   "Custom Input": ""
+  }
+ },
+ "Game Configuration": {
+  "Game Name": "Test / GridWalker",
+  "Frame Rate": 60.0,
+  "Goal X": 4,
+  "Goal Y": 4,
+  "Print Properties": [
+   "Pos X",
+   "Pos Y",
+   "Distance",
+   "Steps",
+   "Goal Reached"
+  ],
+  "Hash Properties": [
+   "Pos X",
+   "Pos Y"
+  ],
+  "Rules": [
+   {
+    "Label": 100,
+    "Conditions": [
+     {
+      "Property": "Pos X",
+      "Op": "==",
+      "Value": 2
+     },
+     {
+      "Property": "Pos Y",
+      "Op": "==",
+      "Value": 2
+     }
+    ],
+    "Satisfies": [],
+    "Actions": [
+     {
+      "Type": "Trigger Fail"
+     }
+    ]
+   },
+   {
+    "Label": 200,
+    "Conditions": [
+     {
+      "Property": "Pos X",
+      "Op": "==",
+      "Value": 4
+     }
+    ],
+    "Satisfies": [],
+    "Actions": [
+     {
+      "Type": "Add Reward",
+      "Value": 100.0
+     },
+     {
+      "Type": "Trigger Checkpoint",
+      "Tolerance": 8
+     },
+     {
+      "Type": "Trigger Save Solution",
+      "Path": "/tmp/jaffar.gridWalker.win.sol"
+     }
+    ]
+   },
+   {
+    "Label": 300,
+    "Conditions": [
+     {
+      "Property": "Pos X",
+      "Op": "==",
+      "Value": 4
+     },
+     {
+      "Property": "Pos Y",
+      "Op": "==",
+      "Value": 4
+     }
+    ],
+    "Satisfies": [
+     200
+    ],
+    "Actions": [
+     {
+      "Type": "Add Reward",
+      "Value": 100000.0
+     },
+     {
+      "Type": "Trigger Win"
+     }
+    ]
+   }
+  ],
+  "Bypass Emulator State": false
+ }
+}

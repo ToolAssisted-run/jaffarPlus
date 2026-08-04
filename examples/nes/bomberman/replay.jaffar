@@ -1,0 +1,134 @@
+{
+ "Driver Configuration": {
+  "End On First Win State": true,
+  "Max Steps": 120000,
+  "Save Intermediate Results": {
+   "Enabled": true,
+   "Frequency (s)": 1.0,
+   "Best Solution Path": "/tmp/jaffar.best.sol",
+   "Worst Solution Path": "/tmp/jaffar.worst.sol"
+  }
+ },
+ "Engine Configuration": {
+  "State Database": {
+   "Max Size (Mb)": 1000
+  },
+  "Hash Database": {
+   "Max Store Count": 2,
+   "Max Store Size (Mb)": 1000,
+   "Enabled": true
+  }
+ },
+ "Emulator Configuration": {
+  "Emulator Name": "QuickerNES",
+  "Use Flat Code Map": true,
+  "SRAM Block Size": 8192,
+  "Rom File Path": "Bomberman (USA).nes",
+  "Rom File SHA1": "12531701E633D2196C9A15F944B101A8205248E4",
+  "Initial State File Path": "",
+  "Initial Sequence File Path": "",
+  "Initial RAM Data File Path": "",
+  "Controller 1 Type": "Joypad",
+  "Controller 2 Type": "None",
+  "Disabled State Properties": [],
+  "Nametable Block Size": 4096,
+  "Precise State Timing": true
+ },
+ "Runner Configuration": {
+  "Hash Step Tolerance": 4,
+  "Show Empty Input Slots": true,
+  "Show Allowed Inputs": true,
+  "Bypass Hash Calculation": false,
+  "Store Input History": {
+   "Type": "Raw",
+   "Max Size": 120000
+  },
+  "Allowed Input Sets": [
+   {
+    "Conditions": [],
+    "Inputs": [
+     "|..|........|",
+     "|..|U.......|",
+     "|..|.D......|",
+     "|..|..L.....|",
+     "|..|...R....|",
+     "|..|U.L.....|",
+     "|..|U..R....|",
+     "|..|.DL.....|",
+     "|..|.D.R....|",
+     "|..|.......A|",
+     "|..|......B.|",
+     "|..|U......A|",
+     "|..|.D.....A|",
+     "|..|..L....A|",
+     "|..|...R...A|",
+     "|..|U.....B.|",
+     "|..|.D....B.|",
+     "|..|..L...B.|",
+     "|..|...R..B.|",
+     "|..|......BA|",
+     "|..|....S...|",
+     "|..|.....s..|"
+    ],
+    "Stop Input Evaluation": false
+   }
+  ],
+  "Test Candidate Inputs": false,
+  "Candidate Input Sets": [],
+  "Frameskip": {
+   "Rate": 0,
+   "Use Custom Input": false,
+   "Custom Input": ""
+  }
+ },
+ "Game Configuration": {
+  "Game Name": "NES / Bomberman",
+  "Frame Rate": 60.1,
+  "Print Properties": [
+   "Level",
+   "Player Pos X",
+   "Player Pos Y",
+   "Enemies Left",
+   "Flame Count",
+   "Time Left"
+  ],
+  "Hash Properties": [],
+  "Rules": [
+   {
+    "Label": 1998,
+    "Description": "Fail the moment the dying sequence starts (full-run replays must be deathless)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Dying",
+      "Op": ">",
+      "Value": 0
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Fail"
+     }
+    ]
+   },
+   {
+    "Label": 1999,
+    "Description": "Win: never fires in replay mode (placeholder)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Level",
+      "Op": "==",
+      "Value": 255
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Win"
+     }
+    ]
+   }
+  ],
+  "Bypass Emulator State": false
+ }
+}

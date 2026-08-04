@@ -278,14 +278,24 @@ call counter, so the sequence never short-cycles; $57 changes only every 256 cal
   (persists), `$11-$14` explosion transients (1 frame).
 - The map is hashed in its entirety by the game module (dedup correctness).
 
-### Input gating — every 4th frame is inert
+### Input gating — every 4th frame is inert (UNLESS the Speed stat is held)
 - Global frame counter `$33` (+1 every frame during play).
 - **On frames where `$33 % 4 == 0` ALL input is ignored** — a 1-frame direction tap does
   nothing and a 1-frame A tap does NOT drop a bomb (verified). On the other 3 phases input
   takes effect the SAME frame with zero latency (movement +1 px, bomb appears in map).
-- Search consequence: on those frames only the null input needs testing (25% of the tree
-  pruned). Implemented via the module's derived bool `Input Frame` (predicts the next
-  advance's phase) + a config allowed-input set.
+- **The Speed power-up bypasses the gate entirely** (found 2026-08-04, ROM `$CCA4: LDA $75 /
+  BNE process-input`): with `$75 != 0` (stage-4 pickup, carried for the rest of a deathless
+  run — set at frame 6254 of the v1 movie) input processes EVERY frame. That is the skates'
+  entire mechanic: 1 px per processed frame → 4/4 px instead of 3/4 px per 4 frames.
+  Verified: a phase-0 direction press moves the player in stage 5+, is swallowed in stages 1–4.
+- Search consequence: stages 1–4 only, phase-0 frames need just the null input (25% of the
+  tree pruned); **stages 5–50 + bonuses B–J have NO inert frames** — the module's `Input
+  Frame` bool implements exactly this (`$75 != 0 || (($33+1) & 3) != 0`). v1 wrongly applied
+  the phase gate to all stages: its solves from stage 5 on held null every 4th frame (the
+  player stopped walking 1 frame in 4 — skates never actually exploited).
+- Related input facts (ROM `$CF87`): gameplay input = `$12 | $13` — **controller 2 mirrors
+  controller 1 in play** (but title/menu/transition waits read `$12` only). NMI read routine
+  `$C19D` double-reads and zeroes both on mismatch (DMC-glitch filter).
 
 ### Movement
 - Player position (TRUE, alias-free block): tile `$28`/`$2A` (X/Y) + pixel-in-tile `$29`/`$2B`
@@ -328,7 +338,7 @@ call counter, so the sequence never short-cycles; $57 changes only every 256 cal
 - Ranking by delay + NN kill-tour (BFS with brick penalty) + exit leg: best early candidate
   k=31 (exit (11,8), compact left-center enemy cluster). Exit-adjacent-to-spawn seeds exist
   (k=102: exit (3,1); k=40: exit (1,5)) but score worse on total tour with spread enemies.
-- GOTCHA that burned the first sweep: `bomberman.jaffar` auto-applies
+- GOTCHA that burned the first sweep: `stage01.jaffar` auto-applies
   `stage01.initial.sol` as Initial Sequence — replaying full-boot sols through that config
   double-applies inputs. Use a config with an empty Initial Sequence for boot-relative
   experiments (`boot.jaffar` pattern).
@@ -360,7 +370,7 @@ call counter, so the sequence never short-cycles; $57 changes only every 256 cal
   `$68` lives decrements only later).
 - `$0B` = gameplay-active flag (1 during play, drops after clear/death resolution).
 - IMPORTANT pairing note: `stage01.casualPlay.sol` contains NO Start press — it must be
-  replayed with `stage01.initial.sol` as the Initial Sequence (i.e. through `bomberman.jaffar`).
+  replayed with `stage01.initial.sol` as the Initial Sequence (i.e. through `stage01.jaffar`).
   Replayed standalone, the title ignores it and the ATTRACT DEMO plays instead (the demo
   self-triggers ~frame 2058 from power-on, plays stage 1 with maxed stats — radius 4-5, 10
   bombs, detonator — and is fully input-independent; earlier "late-Start stat leak"
@@ -380,7 +390,7 @@ call counter, so the sequence never short-cycles; $57 changes only every 256 cal
   intensities — smooth per-frame reward growth across the fuse horizon (temporal continuity),
   collapsing into the realized discrete gains at detonation (observed valley <= 500 for <= 4
   frames before the +3000 kill step lands).
-- Stage-1 config (`bomberman.jaffar`): kills x3000 + pickup x3000 + pending (20/500/500);
+- Stage-1 config (`stage01.jaffar`): kills x3000 + pickup x3000 + pending (20/500/500);
   closest-enemy 1.0 while `Enemies Left > 0`; power-up 0.5 while `Flame Count < 2`; exit 0.5
   once `Flame Count >= 2`; fail on `Dying > 0` and on power-up-destroyed; win on
   `Game End Status == 1 && Flame Count >= 2`.
@@ -403,13 +413,36 @@ call counter, so the sequence never short-cycles; $57 changes only every 256 cal
   searches from state files here — seed with input-sequence prefixes (concatenated .sols),
   which are exact.
 - **Input alphabet pruned to {null, U, D, L, R, A}** (plus B for detonator stages later):
-  diagonals PROVEN positionally redundant — a diagonal resolves to one single direction's
-  exact position evolution (mid-walk: horizontal wins; at junctions: D beats R beats U),
-  differing only in facing/animation bytes. A-only bombing costs ~1 frame per bomb vs
-  direction+A; final-polish passes can re-widen the alphabet around a found route.
-- **A at bomb capacity is NOT a no-op**: holding A after releasing a direction continues
-  movement to the tile center (auto-center on refused placement). Redundant with holding the
-  direction, but do NOT prune A-at-capacity as "dead" — it has positional effects.
+  diagonals were believed positionally redundant. **OVERTURNED 2026-08-04 — that proof only
+  held for aligned mid-corridor positions.** Within the ±3px cornering-assist window of a
+  passable junction, a single perpendicular direction already moves BOTH axes (2px/frame);
+  a diagonal adds the parallel handler's pixel on top (3px/frame while misaligned), reaches
+  positions no held single direction ever occupies, and wins net frames: exhaustive BFS to
+  crossroad (3,3) from the stage05 arm = 71 steps with {null,U,D,L,R} vs **69 steps with
+  diagonals added** — the optimal line HOLDS D+R through the corridor and corrects with DL.
+  Opposing pairs are also not no-ops: U+D (or adding L+R to a vertical push) moves 1px then
+  FREEZES the player (a hover 1px off-center that null cannot hold, since null clears
+  $A6/$7B); pure L+R horizontally cancels. v2 searches must include the 4 diagonals (and
+  optionally UD/LR) in the alphabet. A-only bombing costs ~1 frame per bomb vs direction+A;
+  final-polish passes can re-widen the alphabet around a found route.
+- **A at bomb capacity is NOT a no-op — it is a SPEED TOOL (mechanism found 2026-08-04)**:
+  every frame A is down with the player's current tile EMPTY, the bomb handler runs the
+  align-to-center routines FIRST (`$CD01: JSR $CE10 / JSR $CE1F`, before the free-slot check):
+  `$CE10` nudges pixel-in-tile X (`$29`) 1px toward 8, `$CE1F` same for Y (`$2B`) — both axes,
+  unconditionally. Consequences (all verified on the stage05 arm):
+  - **Walking toward a tile center with empty reserve: movement + align stack = 2px/frame**
+    (offsets 1,3,5,7 observed). First half of every tile at double speed → up to ~25% faster
+    corridor walking (4+8 frames per 16px tile instead of 16).
+  - **At/past the center, held A stalls movement dead** (align −1 cancels the direction +1;
+    verified: descent pinned at offset 8 indefinitely). The exploit is therefore *hold A for
+    the approach half, release at center* — a per-tile A rhythm, which the search will time
+    exactly.
+  - Standing still with A held drifts 1px/frame toward the current tile's center (both axes).
+  - Suppressed while standing on a non-empty tile (own bomb, brick residue): the handler bails
+    on the tile check before aligning. With reserve available, the same press places a bomb
+    (align still applies on that frame — the pre-placement snap).
+  - `$74` is not "max bombs" but max slot INDEX: the placement loop checks slots `0..$74`,
+    so capacity = `$74 + 1` (stage05's `$74=1` = 2 simultaneous bombs).
 - Frame phases: the aligned-at-spawn diagonal test landed on an inert phase-0 frame (all
   inputs equal there) — any single-frame input probe must guarantee an active phase (burst
   4 frames or compute the phase).

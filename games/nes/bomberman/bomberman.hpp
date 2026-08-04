@@ -50,6 +50,16 @@ public:
     // gating. Massive branching -- intended only for short localized searches (e.g. an endgame tail).
     _disableInputRestrictions = false;
     if (_gameConfigRemaining.contains("Disable Input Restrictions")) _disableInputRestrictions = jaffarCommon::json::popBoolean(_gameConfigRemaining, "Disable Input Restrictions");
+    // Composite-direction alphabet (v2, 2026-08-04): diagonals (UL/UR/DL/DR) are NOT redundant --
+    // within the +-3px cornering-assist window of a junction they stack the parallel handler's
+    // pixel on top of the assist (3px/frame while misaligned; BFS proof 71->69 steps, see
+    // MECHANICS.md). Opposing pairs: U+D (or L+R against a perpendicular push) moves 1px then
+    // freezes the player -- a 1px-off-center hover null cannot hold; pure L+R cancels. Opt-in
+    // because configs must also list these input strings in some (even never-satisfiable) input
+    // set, or the runner's string map lacks them and printInfo/solution stringification crashes;
+    // enabling it by default would break v1-era configs.
+    _allowCompositeDirections = false;
+    if (_gameConfigRemaining.contains("Allow Composite Directions")) _allowCompositeDirections = jaffarCommon::json::popBoolean(_gameConfigRemaining, "Allow Composite Directions");
     // Per-stage power-up type: the stage's single power-up is stage-fixed (1=Fire, 2=Bombs, ...).
     // "Powerup Stat": "Flame" (default, stage 1), "Bombs" (stage 2), "Detonator" (stage 3) or
     // "Speed" (stage 4; ROM $CF29: pickup does LDA #1 / STA $75) selects the grab signal.
@@ -152,9 +162,12 @@ private:
     registerGameProperty("Path Distance To Enemy", &_pathDistEnemy, Property::datatype_t::dt_float32, Property::endianness_t::little);
     registerGameProperty("Path Distance To Powerup", &_pathDistPowerup, Property::datatype_t::dt_float32, Property::endianness_t::little);
     registerGameProperty("Path Distance To Exit", &_pathDistExit, Property::datatype_t::dt_float32, Property::endianness_t::little);
-    // Global frame counter, +1 per frame during play. Inputs are IGNORED entirely on frames where
-    // ($33 % 4) == 0 (movement, bomb drops, everything). "Input Frame" tells whether the NEXT
-    // advance will process input -- configs use it to restrict non-input frames to the null input.
+    // Global frame counter, +1 per frame during play. Without the Speed stat, inputs are IGNORED
+    // entirely on frames where ($33 % 4) == 0 (movement, bomb drops, everything). The Speed power-up
+    // ($75 != 0, stage 4, carried for the rest of a deathless run) BYPASSES that gate (ROM $CCA4:
+    // LDA $75 / BNE process-input): input then processes EVERY frame -- that is what the skates'
+    // speedup actually is. "Input Frame" tells whether the NEXT advance will process input --
+    // configs use it to restrict non-input frames to the null input.
     _frameCounter = (uint8_t*)registerGameProperty("Frame Counter", &_lowMem[0x0033], Property::datatype_t::dt_uint8, Property::endianness_t::little);
     registerGameProperty("Input Frame", &_nextFrameAcceptsInput, Property::datatype_t::dt_bool, Property::endianness_t::little);
     // RNG state RandomCtrl1-4 (layout/enemy manipulation lever; see MECHANICS.md)
@@ -199,6 +212,14 @@ private:
     _inputDAB = _emulator->registerInput("|..|.D....BA|");
     _inputLAB = _emulator->registerInput("|..|..L...BA|");
     _inputRAB = _emulator->registerInput("|..|...R..BA|");
+    // Composite directions ("Allow Composite Directions", v2): diagonals for junction turning
+    // (assist stacking), opposing pairs for the 1px-nudge-then-freeze hover. See MECHANICS.md.
+    _inputUL = _emulator->registerInput("|..|U.L.....|");
+    _inputUR = _emulator->registerInput("|..|U..R....|");
+    _inputDL = _emulator->registerInput("|..|.DL.....|");
+    _inputDR = _emulator->registerInput("|..|.D.R....|");
+    _inputLR = _emulator->registerInput("|..|..LR....|");
+    _inputUD = _emulator->registerInput("|..|UD......|");
     // Tracked player position: $20/$28/$29/$2A double as the engine's map-access scratch and can
     // alias to other entities' lookups (~0.5% of frames, e.g. enemy deaths). Continuity-filtered
     // shadow; feeds magnets, path smoothing and the corridor-parity input pruning. Hashed and
@@ -241,6 +262,19 @@ private:
     for (const auto a : singles) hashEngine.Update(_lowMem[a]);
     // Input-gate phase: the only causal content of the frame counter (movement/input on phase != 0)
     hashEngine.Update((uint8_t)(_lowMem[0x0033] & 3));
+    // Stage-load latch window (2026-08-04): the pad mirrors are excluded from the hash in normal
+    // play (the next poll overwrites them; hashing them would split identical-future states every
+    // frame). But during the load stall ($0C PPU_CTRL shadow == 0x10, screen off) polls stop, and
+    // the value latched by the start frame's poll IS causal: the in-flight stage-init iteration
+    // processes it (movement banks +1/+2 px before the stall ends). Without this, a start-frame
+    // input child and the null child hash identically for ~13 frames and dedup extinguishes the
+    // latch lineage before its position diverges -- no search could ever exploit the start-frame
+    // input.
+    if (_lowMem[0x000C] == 0x10)
+    {
+      hashEngine.Update(_lowMem[0x0012]);
+      hashEngine.Update(_lowMem[0x0013]);
+    }
     // Player position (tile + pixel)
     hashEngine.Update(_lowMem[0x0028]);
     hashEngine.Update(_lowMem[0x0029]);
@@ -297,7 +331,20 @@ private:
         if (_lowMem[_erST + e] < 32 && _lowMem[_erX + e] != 0 && *_playerTileX == _lowMem[_erX + e] && *_playerTileY == _lowMem[_erY + e]) alias = true;
       const int dx = std::abs((int)*_playerTileX - (int)_trackedTileX);
       const int dy = std::abs((int)*_playerTileY - (int)_trackedTileY);
-      if (alias) { /* hold last good tracked position; do not advance the mismatch counter */ }
+      // Stage-load snap (2026-08-04): during the board draw ($0C PPU_CTRL shadow = 0x10, screen
+      // off) the raw spawn coordinates are authoritative and the previous stage's tracked
+      // position is stale garbage. Without this, the continuity filter holds the stale position
+      // through the load and the parity gate offers the WRONG directions on the first playable
+      // frame (cost: the play-start input, measured 1 frame on the stage05 micro-search).
+      if (_lowMem[0x000C] == 0x10)
+      {
+        _trackedTileX    = *_playerTileX;
+        _trackedTileY    = *_playerTileY;
+        _trackedPixX     = *_playerPixelX;
+        _trackedPixY     = *_playerPixelY;
+        _trackedMismatch = 0;
+      }
+      else if (alias) { /* hold last good tracked position; do not advance the mismatch counter */ }
       else if (dx + dy <= 1)
       {
         _trackedTileX    = *_playerTileX;
@@ -318,8 +365,9 @@ private:
     _playerPosX = (uint16_t)_trackedTileX * 16 + _trackedPixX;
     _playerPosY = (uint16_t)_trackedTileY * 16 + _trackedPixY;
 
-    // (2) Input-gate phase prediction
-    _nextFrameAcceptsInput = (((*_frameCounter + 1) & 3) != 0);
+    // (2) Input-gate phase prediction. The Speed stat ($75) bypasses the phase gate entirely
+    // (ROM $CCA4) -- with skates, every frame processes input.
+    _nextFrameAcceptsInput = (_lowMem[0x0075] != 0) || (((*_frameCounter + 1) & 3) != 0);
 
     // (2b) Bomb-slot shadow: remember each ticking bomb's tile; after the slot frees at
     // detonation, keep the slot marked 'exploding' while a flame object still burns on that tile
@@ -1442,6 +1490,11 @@ private:
       const InputSet::inputIndex_t all[] = {_nullInputIdx, _inputU,  _inputD,  _inputL,  _inputR,  _inputA,  _inputB,   _inputUA,  _inputDA,  _inputLA,
                                             _inputRA,      _inputUB, _inputDB, _inputLB, _inputRB, _inputAB, _inputUAB, _inputDAB, _inputLAB, _inputRAB};
       for (auto i : all) allowedInputSet.push_back(i);
+      if (_allowCompositeDirections)
+      {
+        const InputSet::inputIndex_t comps[] = {_inputUL, _inputUR, _inputDL, _inputDR, _inputLR, _inputUD};
+        for (auto i : comps) allowedInputSet.push_back(i);
+      }
       return;
     }
     if (_bonusMode)
@@ -1459,10 +1512,25 @@ private:
       }
       const uint8_t r = _trackedTileY, c = _trackedTileX;
       const bool    rOdd = (r & 1) != 0, cOdd = (c & 1) != 0;
-      if (cOdd && r > 1) allowedInputSet.push_back(_inputU);
-      if (cOdd && r < _mapRows - 2) allowedInputSet.push_back(_inputD);
-      if (rOdd && c > 1) allowedInputSet.push_back(_inputL);
-      if (rOdd && c < _mapCols - 2) allowedInputSet.push_back(_inputR);
+      // Same straddle windows as the main path (assist engages from corridor-cell edges)
+      const bool    strX = (_trackedPixX <= 2) || (_trackedPixX >= 13);
+      const bool    strY = (_trackedPixY <= 2) || (_trackedPixY >= 13);
+      const bool    bU = (cOdd || strX) && r > 1, bD = (cOdd || strX) && r < _mapRows - 2, bL = (rOdd || strY) && c > 1, bR = (rOdd || strY) && c < _mapCols - 2;
+      if (bU) allowedInputSet.push_back(_inputU);
+      if (bD) allowedInputSet.push_back(_inputD);
+      if (bL) allowedInputSet.push_back(_inputL);
+      if (bR) allowedInputSet.push_back(_inputR);
+      if (_allowCompositeDirections)
+      {
+        // Diagonals where both components are legal; opposing pairs where either component is
+        // (U+D / L+R nudge-then-freeze works with a single live component).
+        if (bU && bL) allowedInputSet.push_back(_inputUL);
+        if (bU && bR) allowedInputSet.push_back(_inputUR);
+        if (bD && bL) allowedInputSet.push_back(_inputDL);
+        if (bD && bR) allowedInputSet.push_back(_inputDR);
+        if (bL || bR) allowedInputSet.push_back(_inputLR);
+        if (bU || bD) allowedInputSet.push_back(_inputUD);
+      }
       uint8_t nBombs = 0;
       for (uint8_t i = 0; i < 10; i++)
         if (_lowMem[0x03A0 + i] != 0) nBombs++;
@@ -1480,11 +1548,31 @@ private:
     const uint8_t r = _trackedTileY, c = _trackedTileX;
     if (r >= _mapRows || c >= _mapCols) return; // not in play
     const bool rOdd = (r & 1) != 0, cOdd = (c & 1) != 0;
-    const bool allowUD = cOdd, allowLR = rOdd;
-    if (allowUD && r > 1) allowedInputSet.push_back(_inputU);
-    if (allowUD && r < _mapRows - 2) allowedInputSet.push_back(_inputD);
-    if (allowLR && c > 1) allowedInputSet.push_back(_inputL);
-    if (allowLR && c < _mapCols - 2) allowedInputSet.push_back(_inputR);
+    // Straddle windows (2026-08-04): the corridor-parity no-op proofs (E1/E2) only hold at
+    // centered / >=4px-off positions. Within ~3px of a corridor cell's edge the neighboring
+    // cell along the corridor is a crossroad and the cornering assist already engages there
+    // (verified: DR from a corridor cell at offset 15 moves +2x+1y). So perpendicular
+    // directions must also be offered while straddling.
+    const bool strX = (_trackedPixX <= 2) || (_trackedPixX >= 13);
+    const bool strY = (_trackedPixY <= 2) || (_trackedPixY >= 13);
+    const bool allowUD = cOdd || strX, allowLR = rOdd || strY;
+    const bool bU = allowUD && r > 1, bD = allowUD && r < _mapRows - 2, bL = allowLR && c > 1, bR = allowLR && c < _mapCols - 2;
+    if (bU) allowedInputSet.push_back(_inputU);
+    if (bD) allowedInputSet.push_back(_inputD);
+    if (bL) allowedInputSet.push_back(_inputL);
+    if (bR) allowedInputSet.push_back(_inputR);
+    if (_allowCompositeDirections)
+    {
+      // Diagonals where both components are legal (crossroad cells; this is where the
+      // cornering-assist stacking lives). Opposing pairs where either component is legal
+      // (1px-nudge-then-freeze hover).
+      if (bU && bL) allowedInputSet.push_back(_inputUL);
+      if (bU && bR) allowedInputSet.push_back(_inputUR);
+      if (bD && bL) allowedInputSet.push_back(_inputDL);
+      if (bD && bR) allowedInputSet.push_back(_inputDR);
+      if (bL || bR) allowedInputSet.push_back(_inputLR);
+      if (bU || bD) allowedInputSet.push_back(_inputUD);
+    }
     // A only when a bomb slot is actually available (capacity = $74 + 1). A refused press's only
     // effect (auto-center) is replicable by direction holds, so this prunes no positional lines.
     uint8_t activeBombs = 0;
@@ -2022,6 +2110,9 @@ private:
   bool                                     _disableInputRestrictions;
   InputSet::inputIndex_t                   _inputUA, _inputDA, _inputLA, _inputRA, _inputAB;
   InputSet::inputIndex_t                   _inputUAB, _inputDAB, _inputLAB, _inputRAB;
+  // Composite directions (diagonals + opposing pairs), offered only with "Allow Composite Directions"
+  InputSet::inputIndex_t                   _inputUL, _inputUR, _inputDL, _inputDR, _inputLR, _inputUD;
+  bool                                     _allowCompositeDirections;
   bool                                     _exitChainAlwaysActive;
   bool                                     _chainComputed = false;
   std::array<uint16_t, 64>                 _chainCells;

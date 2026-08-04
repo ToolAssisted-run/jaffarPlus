@@ -18,6 +18,55 @@ hard-won lessons — especially the floor-50 optimization. Compiled 2026-08-03.
 
 - One JaffarPlus BFS **per stage**: `stageNN.initial.sol` seeds the emulator to the stage arm,
   the search solves that stage, its win is appended, and the next stage seeds from the result.
+- **v2 stage-start rule (v1 got this wrong on every stage)**: a stage's start frame is the
+  frame that runs its first game-logic iteration — input held there acts a full input-window
+  earlier than anything later, because the board draw then stalls the game in a 13–17-frame
+  lag group (no joypad poll). v1 seeds were cut past this frame, so all 60 stage solves
+  started late (the K20fixed movie holds null on all 60 start frames). **RAM detection
+  (immediate, no lag backtracking)**: on the start frame the stage-init code regenerates the
+  board array at `$0200` (13 rows × 32-byte stride) AND writes `#$10` into `$0C`, the
+  PPU_CTRL `$2000` shadow (ROM `$C2AA: LDA $0C / STA $2000`, `$C1FA: LDA #$10 / STA $0C`) to
+  turn the screen off for the draw. `start ⇔ ($0C: 0x90→0x10) ∧ ($0200 board changed)` —
+  screen-off alone also fires on stage-card draws, board changes alone happen all through
+  play; the conjunction is exact (60/60, zero false positives over 106,933 frames). The
+  stage seed is the full-run prefix of `startFrame − 1` inputs (first searched input = start
+  frame). `findStageStarts.py` implements this from a single `jaffar-player --dumpRam` pass,
+  labels starts against the stage schedule, writes seeds with `--writeSeeds`, and with
+  `--crossCheck` verifies the lag-group signature via `--dumpPolls` (per-frame `$4016/$4017`
+  read counts from the QuickerNES `Joypad Read Count` property; 0 = lag frame).
+- **RETRACTION + the real bug (2026-08-04)**: an earlier "seed-boundary input-death trap" at
+  the stage05 cut was a test artifact — the probe .sol files had the seed prefix prepended
+  while the config ALSO seeded them (double-seed), so they replayed the movie's own leading
+  nulls from the stage arm. A byte-level round-trip harness (serialize → snapshot → perturb →
+  deserialize → snapshot; plus continuation tests at pre-stall/mid-stall/stall-end
+  boundaries) proved QuickerNES serialize/deserialize is **fully faithful** at stage-arm
+  boundaries, start-frame latch included. All `startFrame − 1` seed cuts work.
+  **Pitfall to remember: never prepend the seed to a .sol replayed under a seeding config.**
+- **The REAL defect (FIXED in bomberman.hpp)**: the module hash excludes the pad mirrors
+  ($10–$17) — correct in normal play (the next poll overwrites them), but during the load
+  stall polls stop and the start frame's latched input IS causal (the in-flight stage-init
+  iteration processes it; movement banks +1/+2 px before the stall ends). A start-frame-input
+  child and the null child hashed identically for ~13 frames, so dedup extinguished the latch
+  lineage before its position diverged — **no search could ever exploit the start-frame
+  input**. Fix: hash `$12/$13` only while `$0C == 0x10` (screen-off load window; zero churn in
+  play). Measured on the stage05-arm micro-benchmark: flat alphabet 69 → **68**, module
+  alphabet 70 → **68**.
+- **Start-frame input is worth real pixels**: holding a direction on the stage-start frame
+  gives +1px (stage01) to **+2px (stage05)** head start over pressing one frame later — the
+  init iteration processes it and movement banks during the load stall.
+- **v2 alphabet (module, `"Allow Composite Directions": true`)**: the game module now registers
+  and offers UL/UR/DL/DR (diagonals; where both components legal) and LR/UD (opposing pairs;
+  where either component legal) through the corridor-parity gate, plus a **straddle window**
+  (perpendicular directions also offered within 3px of a corridor cell's edge — the
+  cornering assist engages there, which the original parity proofs missed). Configs enabling
+  the flag MUST list the six new input strings in some input set (never-satisfiable is fine)
+  or the runner's string map crashes. The tracked player position now snaps to raw during the
+  load window ($0C==0x10) so the parity gate is correct on the first playable frame.
+  Micro-benchmark (stage05 arm → crossroad (3,3)): singles-only 71 steps, module composites
+  70, flat-config composites 69; after the load-window latch-hash fix (see below) both
+  composite alphabets reach **68**. Still open: offering A as a pure align tool at bomb
+  capacity (the relevance gate never offers it — its "prunes no positional lines" assumption
+  is disproven by the refused-A align mechanic).
 - Objective per floor: kill all enemies, then step on the exit (hidden under one brick, active
   only once enemies are dead). Win rule = tripwire on **"Enemies Alive"** ($9C is glitchy — see
   MECHANICS; keying rules on it caused false wins).

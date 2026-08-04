@@ -52,6 +52,13 @@ std::string dumpRamPath;
 /// @brief When non-empty, writes the full VRAM for every step to this file as a flat binary blob.
 std::string dumpVramPath;
 
+/// @brief When non-empty (--dumpPolls), writes the per-step joypad read count ("step\tcount" per line)
+///        for the replayed solution to this file. A count of 0 marks a lag frame (input not polled);
+///        the polled frame right before a lag group is a level's true start frame. The counter is not
+///        part of the serialized state, so this pass replays the solution live instead of restoring
+///        per-step states.
+std::string dumpPollsPath;
+
 /// @brief When non-empty (--dumpReward), writes the per-step game reward (one value per line) for the
 ///        replayed solution to this file. Suitable as a driver "Reference Reward Floor" trace.
 std::string dumpRewardPath;
@@ -469,6 +476,28 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
   // Instantiating playback instance
   jaffarPlus::Playback p(r);
 
+  // Per-step joypad-poll dump: the read counter is reset and updated inside each frame advance and is
+  // NOT part of the serialized state, so it cannot be recovered from restored per-step states like the
+  // RAM/hash dumps below. Instead, replay the solution LIVE from the emulator's fresh step-0 state and
+  // sample the counter right after each advance. One-shot terminal pass (returns false) so the caller's
+  // playback loop does not re-run it.
+  if (dumpPollsPath.empty() == false)
+  {
+    auto*       emu   = r.getGame()->getEmulator();
+    const auto  polls = emu->getProperty("Joypad Read Count");
+    std::string dump;
+    char        line[64];
+    for (ssize_t s = 0; s < sequenceLength; s++)
+    {
+      r.advanceState(emu->registerInput(solutionSequence[s]));
+      snprintf(line, sizeof(line), "%ld\t%d\n", s + 1, *(const int*)polls.pointer);
+      dump += line;
+    }
+    if (jaffarCommon::file::saveStringToFile(dump, dumpPollsPath.c_str()) == false)
+      JAFFAR_THROW_LOGIC("[ERROR] Could not write per-step poll dump to: %s\n", dumpPollsPath.c_str());
+    return false;
+  }
+
   // Headless screenshot pass: capture each requested step to BMP. A per-step state RESTORE does NOT correctly
   // repaint the framebuffer (GPGX's tile caches are not rebuilt by a state-load), so we replay the solution
   // linearly from the emulator's FRESH step-0 state (as left by the runner's init sequence, before the playback
@@ -743,14 +772,19 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
     // If it's reproducing,
     if (isReproduce == true)
     {
-      // Introducing sleep related to the frame rate
-      usleep(inverseFrameRate);
+      // Headless batch reproduction (no renderer, unattended) has nobody watching or typing, so skip
+      // the frame-rate pacing sleep and key polling and advance at full emulation speed instead.
+      if (disableRender == false || isUnattended == false)
+      {
+        // Introducing sleep related to the frame rate
+        usleep(inverseFrameRate);
+
+        // Get command without interrupting
+        command = jaffarCommon::logger::getKeyPress();
+      }
 
       // Advance to the next frame
       currentStep++;
-
-      // Get command without interrupting
-      command = jaffarCommon::logger::getKeyPress();
     }
 
     // If it's not reproducing, grab command with a wait
@@ -906,6 +940,9 @@ int main(int argc, char* argv[])
   program.add_argument("--dumpVram")
       .help("Writes the full video RAM (VRAM) for every step to the given file as flat binary (for locating VRAM in a foreign savestate).")
       .default_value(std::string(""));
+  program.add_argument("--dumpPolls")
+      .help("Writes the per-step joypad read count to the given file (one 'step\\tcount' line per step; 0 = lag frame, input not polled).")
+      .default_value(std::string(""));
   program.add_argument("--dumpReward")
       .help("Writes the per-step game reward (one value per line) to the given file (for use as a 'Reference Reward Floor' trace).")
       .default_value(std::string(""));
@@ -1002,6 +1039,7 @@ int main(int argc, char* argv[])
   // Getting the per-step RAM dump path (if any)
   dumpRamPath       = program.get<std::string>("--dumpRam");
   dumpVramPath      = program.get<std::string>("--dumpVram");
+  dumpPollsPath     = program.get<std::string>("--dumpPolls");
   dumpRewardPath    = program.get<std::string>("--dumpReward");
   dumpTracePath     = program.get<std::string>("--dumpTrace");
   dumpRacerPath     = program.get<std::string>("--dumpRacer");

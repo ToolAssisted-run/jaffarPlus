@@ -199,6 +199,16 @@ public:
     // register it and FAIL any state that jammed the CPU -- real hardware freezes there, and letting
     // the emulator's NMI revive the game would make such states emulator artifacts, not valid play.
     if (propertyName == "CPU Halt Latch") return property_t(_quickerNES->getHaltLatchPtr(), 1);
+    // Per-frame joypad ($4016/$4017) read count as a raw int: 0 right after an advance means that
+    // frame polled no input (a lag frame). Not serialized -- only meaningful after a LIVE advance,
+    // never after a state restore. Used to pinpoint the exact polled frame before each level's
+    // loading lag group (the true stage-start frame).
+    if (propertyName == "Joypad Read Count")
+    {
+      auto* p = _quickerNES->getJoypadReadCountPtr();
+      if (p == nullptr) JAFFAR_THROW_LOGIC("Property 'Joypad Read Count' requires a -D_QUICKERNES_DETECT_JOYPAD_READS build.");
+      return property_t((uint8_t*)p, sizeof(int));
+    }
     // Glitch-investigation detector (only present in -D_QUICKERNES_DETECT_BAD_ACCESS builds): per-frame
     // flag, 1 iff this frame executed an unofficial opcode or fetched code from RAM (data-as-code derail).
     if (propertyName == "CPU Bad Access")

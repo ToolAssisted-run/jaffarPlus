@@ -26,7 +26,7 @@
   "Rom File Path": "Bomberman (USA).nes",
   "Rom File SHA1": "12531701E633D2196C9A15F944B101A8205248E4",
   "Initial State File Path": "",
-  "Initial Sequence File Path": "stage01.initial130.sol",
+  "Initial Sequence File Path": "stage01.initial.sol",
   "Initial RAM Data File Path": "",
   "Controller 1 Type": "Joypad",
   "Controller 2 Type": "None",

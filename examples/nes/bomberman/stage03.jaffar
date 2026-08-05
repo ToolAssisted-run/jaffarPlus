@@ -342,6 +342,11 @@
       "Property": "All Enemies Covered",
       "Op": "==",
       "Value": true
+     },
+     {
+      "Property": "Powerup Obtained",
+      "Op": "==",
+      "Value": true
      }
     ],
     "Actions": [

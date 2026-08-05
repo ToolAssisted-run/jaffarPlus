@@ -18,18 +18,34 @@
    ],
    "Path Prefix": "/tmp/claude-1000/-home-jaffar-jaffarPlus/71b2dfef-217f-4977-bbb0-00b9c33fe7c9/scratchpad/winCollect02/win_",
    "Max Files": 100
+  },
+  "Reference Reward Floor": {
+   "Enabled": false,
+   "Tolerance": 0.0,
+   "Solution File": "stage02.win1290.sol"
   }
  },
  "Engine Configuration": {
   "State Database": {
-   "Max Size (Mb)": 50000
+   "Max Size (Mb)": 5000
   },
   "Hash Database": {
    "Max Store Count": 2,
    "Max Store Size (Mb)": 4000,
    "Enabled": true
   },
-  "Log Verbosity": "Compact"
+  "Log Verbosity": "Compact",
+  "Reference Reward Prune": {
+   "Enabled": true,
+   "Tolerance": 5000.0
+  },
+  "Reference Pinning": {
+   "Enabled": true,
+   "Path": "/tmp/claude-1000/-home-jaffar-jaffarPlus/71b2dfef-217f-4977-bbb0-00b9c33fe7c9/scratchpad/ref02.hashes",
+   "Bonus": 5000.0,
+   "Lookahead": 4,
+   "Lookahead Bonus": 0.5
+  }
  },
  "Emulator Configuration": {
   "Emulator Name": "QuickerNES",
@@ -49,7 +65,7 @@
  "Runner Configuration": {
   "Hash Step Tolerance": 4,
   "Show Empty Input Slots": true,
-  "Show Allowed Inputs": true,
+  "Show Allowed Inputs": false,
   "Bypass Hash Calculation": false,
   "Store Input History": {
    "Type": "Raw",
@@ -340,6 +356,11 @@
     "Conditions": [
      {
       "Property": "All Enemies Covered",
+      "Op": "==",
+      "Value": true
+     },
+     {
+      "Property": "Powerup Obtained",
       "Op": "==",
       "Value": true
      }

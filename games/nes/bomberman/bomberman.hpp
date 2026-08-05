@@ -1017,9 +1017,13 @@ private:
     _chainComputed = true;
   }
 
-  // Brick chain along the shortest brick-penalized path src -> target (target cell included)
+  // Brick chain along the shortest brick-penalized path src -> target (target cell included).
+  // The full 64-cell buffer is zeroed first: the tail beyond outLen is hashed and serialized
+  // (replan lineage state), so it must be canonical -- leftover cells from a previous plan made
+  // hashes instance-dependent (search vs player vs trace-replay runners never matched).
   __INLINE__ void computeChainTo(const uint8_t srcC, const uint8_t srcR, const uint8_t tgtC, const uint8_t tgtR, uint16_t* cells, uint8_t& outLen)
   {
+    for (size_t zi = 0; zi < 64; zi++) cells[zi] = 0;
     constexpr uint16_t INF = 0xFFFF;
     uint16_t           dist[_mapRows * _mapCols];
     int16_t            prev[_mapRows * _mapCols];
@@ -2187,7 +2191,7 @@ private:
   float                  _bombEscapeMagnet;
   float                  _bombEscapeDanger;
   float                  _playerDistanceToExit;
-  InputSet::inputIndex_t _lastInput;
+  InputSet::inputIndex_t _lastInput = 0;
   InputSet::inputIndex_t _nullInputIdx;
   uint8_t*               _lowMem;
   uint8_t*               _playerTileX;
@@ -2238,16 +2242,16 @@ private:
   InputSet::inputIndex_t _inputDB;
   InputSet::inputIndex_t _inputLB;
   InputSet::inputIndex_t _inputRB;
-  uint8_t                _trackedTileX;
-  uint8_t                _trackedTileY;
-  uint8_t                _trackedPixX;
-  uint8_t                _trackedPixY;
-  uint8_t                _trackedMismatch;
-  uint8_t                _bombLastX[10]; // last tile of a bomb per slot (for post-detonation attribution)
-  uint8_t                _bombLastY[10];
-  uint8_t                _bombShadow[10];                        // 1 while slot's flames are still burning after the slot freed
-  uint8_t                _bombWasTicking[10];                    // for detonation-frame edge detection
-  bool                   _caughtInBlast;                         // latched: player inside a blast cross at detonation (pre-Flamepass survival exploit = dead end)
+  uint8_t                _trackedTileX       = 0;
+  uint8_t                _trackedTileY       = 0;
+  uint8_t                _trackedPixX        = 0;
+  uint8_t                _trackedPixY        = 0;
+  uint8_t                _trackedMismatch    = 0;
+  uint8_t                _bombLastX[10]      = {}; // last tile of a bomb per slot (for post-detonation attribution)
+  uint8_t                _bombLastY[10]      = {};
+  uint8_t                _bombShadow[10]     = {};               // 1 while slot's flames are still burning after the slot freed
+  uint8_t                _bombWasTicking[10] = {};               // for detonation-frame edge detection
+  bool                   _caughtInBlast      = false;            // latched: player inside a blast cross at detonation (pre-Flamepass survival exploit = dead end)
   bool                   _blastTrapped;                          // derived: Detonator held + whole reachable region inside ticking crosses = permanent zombie
   uint8_t                _coveredEnemies;                        // derived: alive non-burning enemies inside ticking-bomb crosses (Detonator credit)
   bool                   _bonusMode;                             // config: bonus-stage kill-frenzy mode (invincible; free A/B; kill-count reward)
@@ -2280,7 +2284,7 @@ private:
   bool                                     _isLoading         = false; // $0C == 0x10 (stage-load screen-off window)
   bool                                     _exitChainAlwaysActive;
   bool                                     _chainComputed = false;
-  std::array<uint16_t, 64>                 _chainCells;
+  std::array<uint16_t, 64>                 _chainCells{};
   uint8_t                                  _chainLen = 0;
   uint8_t                                  _chainRemaining;
   uint8_t                                  _chainHeadX;
@@ -2303,7 +2307,7 @@ private:
   float                                    _chainBrickReward;
   float                                    _grabBonus;
   uint8_t                                  _enemiesAlive;
-  std::array<uint16_t, 64>                 _exitChainCells;
+  std::array<uint16_t, 64>                 _exitChainCells{};
   uint8_t                                  _exitChainLen = 0;
   uint8_t                                  _exitChainRemaining;
   uint8_t                                  _exitChainHeadX;
@@ -2317,7 +2321,7 @@ private:
   float                                    _bombMaxProgress;
   float                                    _chainHeadGain;
   std::array<uint8_t, _mapRows * _mapCols> _threatOpen;
-  uint32_t                                 _currentStep;
+  uint32_t                                 _currentStep = 0;
 };
 } // namespace nes
 } // namespace games

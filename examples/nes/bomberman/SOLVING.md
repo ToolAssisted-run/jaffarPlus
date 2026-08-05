@@ -200,6 +200,46 @@ greedy — make every stage faster than both v1 and the reference segment.
 - GOTCHA (cost us two silent crashes): the driver must apply the collection config to the
   engine *after* engine construction, not at parse time.
 
+### Reference-prune polish mode (debuted on stage02 — the standard post-win step)
+
+Once a stage has a win, run a **pruned refinement** ladder to confirm (or beat) it cheaply.
+Config: driver `"Reference Reward Floor": {Enabled: false, Tolerance: 0, "Solution File":
+"<the win>.sol"}` (supplies the per-step reward trace, no cancel check) + engine
+`"Reference Reward Prune": {Enabled: true, Tolerance: T}` + engine `"Reference Pinning"`
+(hashes via `jaffar-player --dumpHashes`) with **`Bonus ≈ T`** — see gotcha 3. Every produced
+state whose reward falls below the trace at its depth beyond T is dropped; the pinned
+reference lineage is exempt, so a win of at-worst the reference length is always reachable.
+
+Stage02 ladder (reference 1290): T=0 → 1290 in seconds; T=10 → 1290 in ~45 s (exhaustive
+band, 1.3% of a 5 GB DB); T=5000 → 1290 in ~15 min. **No beat found** — 1290 is tight
+against any line that stays within half a kill-latch of the reference at every step.
+Semantics of T: 0 = never behind, ever; ~10 = micro-detours (a few px); ~5000 = latch
+reordering within half a kill; bigger T needs real DB budget and approaches the unpruned
+search. A tie run reproduces the reference length via a different micro-choreography
+(same RNG ending), confirming the local neighborhood is flat.
+
+**Hard-won gotchas (each cost a failed run):**
+
+1. **Module lineage state must be deterministically initialized.** 12 serialized members
+   (tracked position, bomb shadows, `_currentStep`, …) had no initializers; every runner
+   instance (search workers / player / trace replay) started from different heap garbage, so
+   states never byte-matched across instances and pinning could not engage at depth 1.
+2. **Hashed/serialized buffers must be canonical.** `computeChainTo` now zeroes the full
+   64-cell buffer before writing: the tail beyond the chain length is hashed and serialized
+   (replan lineage state), and plan leftovers made hashes instance-dependent — the search's
+   hashes never equaled `--dumpHashes` output.
+3. **Pin dedup-bypass must be once-per-depth, and Bonus must scale with T.** Pruning
+   collapses the surviving band onto the reference path, so every lineage re-creates the
+   reference states each step; with an unconditional dedup bypass they flooded the DB (83%
+   of 10 GB were copies of the same 1291 states — symptom: best == worst == ref exactly).
+   The bypass+bonus now applies once per depth. And at Bonus 5 the trace-riding reference is
+   the *floor* of the admitted band, so DB-full eviction kills it first (measured: pin died
+   at depth 184, extinction at 254); Bonus ≈ T ranks it above every merely-in-band state
+   while genuinely-ahead lineages still outrank it.
+
+Debug aid: `JAFFAR_DEBUG_SAMPLE_RATE=N` samples every Nth stored state (depth, reward,
+hash, player pos, RNG) and hard-checks the prune invariant on every push — zero cost unset.
+
 ### Observations that shape the campaign
 
 - **Stage boundaries are RNG-narrow**: every stage01/02 harvest collapsed to 2–3 distinct

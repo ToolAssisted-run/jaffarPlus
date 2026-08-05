@@ -142,3 +142,71 @@ Floor 50 is the hardest board (1K 2V 5P 2T = 2 Pontans + 5 Pass, homing enemies)
   frames 0–1 are 0xFF uninitialized boot RAM — not deaths), and confirm floor 50 clears `$58→51`,
   `$9C=0`.
 - ~57 fps single-thread replay is the emulation floor (precise-timing/dumpRam are not the cost).
+
+## v2 campaign (2026-08-04+): greedy per-stage rebuild vs the reference TAS
+
+The v1 movie (106,933 frames) is being rebuilt stage by stage against the best known solution
+(YouTube 3EjTKqNN8p8, F-counter overlay = frame ground truth, **final F76663**; per-stage
+timings in `refvideo.timings.tsv`). Their bonuses equal ours — the whole 30k gap is in the
+floors (powerup investment: they buy bomb capacity early, capacity 6 by mid-run). Strategy:
+greedy — make every stage faster than both v1 and the reference segment.
+
+### Results so far (absolute frame of stage clear)
+
+| stage | v2 clear | v1 ~abs | ref segment | notes |
+|-------|----------|---------|-------------|-------|
+| 01 | 1167 (win 857 post-arm, arm 311) | 1390 | 2051 (invest) | 50 GB DB re-run |
+| 02 | 2815 (win 1290 post-arm, arm 1526) | ~3700 | 1899/floor | 10 GB; 50 GB re-run pending |
+
+### The per-boundary procedure (now routine — repeat for every stage N → N+1)
+
+1. **Win-state collection harvest** (see engine feature below): the stage-N search runs with
+   `"Stop Frames After First Win": 200` and Driver `"Win State Collection"` enabled
+   (dedup on RNG State 1–4, output `winCollectNN/`). Every distinct frozen-RNG ending =
+   a distinct stage-N+1 board.
+2. **Score each ending's next board**: append ~600 nulls (the clear→next-arm transition is
+   ~360 frames), replay, `--dumpRam`, then `scoreBoards.extract(ram[clearFrame*LR:])`
+   (MUST offset past the current stage or extract() finds the wrong arm) and
+   `scoreBoards.score()` (plan-aware: powerup leg + kill-order permutations + last-kill→exit
+   leg + real arm-delta cost). `score() == None` = unsolvable-class board (unreachable
+   powerup/exit) — veto.
+3. **Pick** the best ending (often the shortest win is also the best board — but not always).
+4. **Transition NMI-slack pass**: greedy A-press stacking over the dead post-clear window
+   (RNG is frozen after the last kill, so presses can't change the board — verify by board
+   signature anyway). Each round: try a single A on every null frame, keep the press that
+   most reduces the next arm, repeat until no gain. Gains: stage01→02 −4, stage02→03 −1.
+   Boot equivalent (presses around the initial Start): −4 free; bigger shifts break the
+   mod-4 input-phase pre-skates of an already-banked win (only matters if reusing a solve).
+5. **Rebank** `stageNN.initial.sol` cut at (finalArm − 1) with the slack presses embedded.
+6. **Config**: `sed` the previous stage's .jaffar (initial sol path, winCollect path,
+   `"Powerup Stat"` from the stage table in MECHANICS.md). The v2 reward stack carries over
+   unchanged; per-stage fail-rule gates: `{"Loading","==",False}` on everything, and the
+   stage-card guard keyed on `{"Enemies Alive",">",0}` (Time Left is unusable — the card
+   inherits the previous stage's nonzero timer).
+7. **Launch detached** (`setsid`), symlink logs, watch for `Exit Reason`. On win: bank
+   `stageNN.full.sol`, verify deathless ($5C scan), render segment video
+   (`make_video.py … --start arm --end clear`), send, go to 1.
+
+### Engine feature: Win State Collection + Stop Frames After First Win (in master source)
+
+- Driver config `"Stop Frames After First Win": N` — replaces/generalizes the old
+  `"End On First Win State"` (legacy alias: true→0). N=0 stops at first win; N>0 keeps
+  searching N more steps past the first win (collecting alternate endings).
+- Driver config `"Win State Collection": {Enabled, Dedup Properties: ["RNG State 1"…],
+  Path Prefix, Max Files}` — every win whose dedup-property byte-key is new gets its full
+  input history saved to `<prefix><hexkey>.sol` + a manifest line. The log prints one
+  per-step counter line (`Win States Collected: N/max`); hitting max terminates the run
+  (exit reason "Win collection complete").
+- GOTCHA (cost us two silent crashes): the driver must apply the collection config to the
+  engine *after* engine construction, not at parse time.
+
+### Observations that shape the campaign
+
+- **Stage boundaries are RNG-narrow**: every stage01/02 harvest collapsed to 2–3 distinct
+  RNG keys per solve-length tier — the RNG freezes at the last kill and there are few viable
+  last-kill choreographies. Expect more variety once Detonator (stage 3+) frees kill timing.
+- **DB size matters at the margin**: stage01 at 50 GB beat the 1 GB-era solve by 159 frames
+  with the identical reward stack. Re-running a banked stage at 50 GB is cheap insurance.
+- **Scorer blind spots (open TODO)**: sealed-exit pockets, enclosed powerups, enclosed/far
+  enemies (tour legs need open-path-first treatment). Human-check the board map before
+  committing a long search.

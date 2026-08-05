@@ -88,7 +88,7 @@ def crossCheckPolls(polls, starts):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('solution', nargs='?', default='current/bomberman_full_50floors.K20fixed.sol')
+    ap.add_argument('solution', nargs='?', default='v1/bomberman_full_50floors.K20fixed.sol')
     ap.add_argument('--config', default='replay.jaffar')
     ap.add_argument('--player', default=os.path.join(os.path.dirname(__file__), '../../../build/jaffar-player'))
     ap.add_argument('--writeSeeds', action='store_true', help='write <label>.initial.sol seed files (startFrame-1 inputs each)')

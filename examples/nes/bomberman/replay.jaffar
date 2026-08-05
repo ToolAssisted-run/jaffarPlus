@@ -1,13 +1,13 @@
 {
  "Driver Configuration": {
-  "End On First Win State": true,
   "Max Steps": 120000,
   "Save Intermediate Results": {
    "Enabled": true,
    "Frequency (s)": 1.0,
    "Best Solution Path": "/tmp/jaffar.best.sol",
    "Worst Solution Path": "/tmp/jaffar.worst.sol"
-  }
+  },
+  "Stop Frames After First Win": 0
  },
  "Engine Configuration": {
   "State Database": {

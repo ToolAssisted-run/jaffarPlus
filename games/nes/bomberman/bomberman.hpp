@@ -60,6 +60,22 @@ public:
     // enabling it by default would break v1-era configs.
     _allowCompositeDirections = false;
     if (_gameConfigRemaining.contains("Allow Composite Directions")) _allowCompositeDirections = jaffarCommon::json::popBoolean(_gameConfigRemaining, "Allow Composite Directions");
+    // Covered-enemies-handled semantics (v2, 2026-08-04, user): an enemy inside a ticking bomb's
+    // blast cross counts as HANDLED -- the covered-enemy credit (+1500) pays in fuse mode too
+    // (not just Detonator mode), and the primary closest-enemy player magnet retargets to the
+    // nearest UNcovered enemy so the player moves on to the next objective while the bomb does
+    // its work. Opt-in: default false preserves every archived config's reward function.
+    _coveredEnemiesHandled = false;
+    if (_gameConfigRemaining.contains("Covered Enemies Handled")) _coveredEnemiesHandled = jaffarCommon::json::popBoolean(_gameConfigRemaining, "Covered Enemies Handled");
+    // Grab-time exit-chain replan (v2, 2026-08-04, user): the one-shot pu->exit plan (computed
+    // on the VIRGIN board with the powerup tile as a route proxy) leaves stray chain cells once
+    // the real solve diverges -- and at v2's 30k Brick Reward those strays become farmable
+    // detours. With this knob, the exit chain is recomputed ONCE at powerup grab, sourced from
+    // the player's ACTUAL position on the CURRENT board. That makes the plan lineage state:
+    // it is then serialized and hashed (knob-gated so archived configs keep their exact state
+    // and hash layouts). Between plan points the chain stays frozen (ladder stability).
+    _replanChainsOnGrab = false;
+    if (_gameConfigRemaining.contains("Replan Chains On Grab")) _replanChainsOnGrab = jaffarCommon::json::popBoolean(_gameConfigRemaining, "Replan Chains On Grab");
     // Per-stage power-up type: the stage's single power-up is stage-fixed (1=Fire, 2=Bombs, ...).
     // "Powerup Stat": "Flame" (default, stage 1), "Bombs" (stage 2), "Detonator" (stage 3) or
     // "Speed" (stage 4; ROM $CF29: pickup does LDA #1 / STA $75) selects the grab signal.
@@ -170,6 +186,11 @@ private:
     // configs use it to restrict non-input frames to the null input.
     _frameCounter = (uint8_t*)registerGameProperty("Frame Counter", &_lowMem[0x0033], Property::datatype_t::dt_uint8, Property::endianness_t::little);
     registerGameProperty("Input Frame", &_nextFrameAcceptsInput, Property::datatype_t::dt_bool, Property::endianness_t::little);
+    // True while the stage-load screen-off window is active ($0C PPU_CTRL shadow == 0x10, the
+    // board draw). Derived properties (powerup/exit/enemy scans) read a half-built board there;
+    // configs whose seeds are cut at the stage arm must gate their Trigger Fail rules on
+    // "Loading" == false or every step-1 child dies to garbage-property rules.
+    registerGameProperty("Loading", &_isLoading, Property::datatype_t::dt_bool, Property::endianness_t::little);
     // RNG state RandomCtrl1-4 (layout/enemy manipulation lever; see MECHANICS.md)
     _rngState1 = (uint8_t*)registerGameProperty("RNG State 1", &_lowMem[0x0054], Property::datatype_t::dt_uint8, Property::endianness_t::little);
     _rngState2 = (uint8_t*)registerGameProperty("RNG State 2", &_lowMem[0x0055], Property::datatype_t::dt_uint8, Property::endianness_t::little);
@@ -180,6 +201,7 @@ private:
     registerGameProperty("Exit Tile Y", &_exitTileY, Property::datatype_t::dt_uint8, Property::endianness_t::little);
     registerGameProperty("Exit Revealed", &_exitRevealed, Property::datatype_t::dt_bool, Property::endianness_t::little);
     registerGameProperty("Caught In Blast", &_caughtInBlast, Property::datatype_t::dt_bool, Property::endianness_t::little);
+    registerGameProperty("All Enemies Covered", &_allEnemiesCovered, Property::datatype_t::dt_bool, Property::endianness_t::little);
     registerGameProperty("Blast Trapped", &_blastTrapped, Property::datatype_t::dt_bool, Property::endianness_t::little);
     registerGameProperty("Powerup Obtained", &_powerupObtained, Property::datatype_t::dt_bool, Property::endianness_t::little);
     registerGameProperty("Powerup Tile X", &_powerupTileX, Property::datatype_t::dt_uint8, Property::endianness_t::little);
@@ -314,6 +336,13 @@ private:
     hashEngine.Update(_bombPlacedInFlames);
     hashEngine.Update(_caughtInBlast);
     hashEngine.Update(_enemyPathBricksBroken);
+    // Grab-time replanned exit chain is lineage state (feeds A-relevance input gating)
+    if (_replanChainsOnGrab)
+    {
+      hashEngine.Update(_exitReplanned);
+      hashEngine.Update(_exitChainLen);
+      hashEngine.Update(_exitChainCells.data(), sizeof(uint16_t) * _exitChainCells.size());
+    }
   }
   // Updating derivative values after updating the internal state
   // Updating derivative values after updating the internal state.
@@ -331,6 +360,7 @@ private:
         if (_lowMem[_erST + e] < 32 && _lowMem[_erX + e] != 0 && *_playerTileX == _lowMem[_erX + e] && *_playerTileY == _lowMem[_erY + e]) alias = true;
       const int dx = std::abs((int)*_playerTileX - (int)_trackedTileX);
       const int dy = std::abs((int)*_playerTileY - (int)_trackedTileY);
+      _isLoading   = (_lowMem[0x000C] == 0x10);
       // Stage-load snap (2026-08-04): during the board draw ($0C PPU_CTRL shadow = 0x10, screen
       // off) the raw spawn coordinates are authoritative and the previous stage's tracked
       // position is stale garbage. Without this, the continuity filter holds the stale position
@@ -436,11 +466,15 @@ private:
     // bomb never clears, and the lineage can neither progress nor die. Observed stage 6: bomb
     // sealed a 2-cell dead-end pocket, the zombie's chain-head proximity out-ranked every live
     // lineage for 2700+ steps and its wiggle-variants flooded the DB. Flag -> config Fail rule.
-    _blastTrapped   = false;
-    _coveredEnemies = 0;
+    _blastTrapped       = false;
+    _coveredEnemies     = 0;
+    _allEnemiesCovered  = false;
+    _enemiesKilledCount = 0;
+    for (uint8_t e = 0; e < _erN; e++)
+      if (_lowMem[_erST + e] >= 32 && _lowMem[_erX + e] != 0) _enemiesKilledCount++;
     // Flamepass ($79) makes own flames harmless -- a "trapped in own blasts" state is NOT a
     // zombie (player walks out through the flames), so the self-trap fail must not fire.
-    if (_lowMem[0x0077] != 0 && _lowMem[0x0079] == 0)
+    if ((_lowMem[0x0077] != 0 && _lowMem[0x0079] == 0) || _coveredEnemiesHandled)
     {
       bool anyTicking = false;
       for (uint8_t i = 0; i < 10 && anyTicking == false; i++)
@@ -474,6 +508,7 @@ private:
         // kill (+1500) per alive, non-burning enemy inside a ticking cross; monotone into the
         // +3000 kill, pop forced-available outside the cross, credit drops if the enemy wanders
         // out -- no latch, no annuity.
+        uint8_t aliveNonBurning = 0;
         for (uint8_t e = 0; e < _erN; e++)
         {
           const uint8_t st = _lowMem[_erST + e];
@@ -483,10 +518,16 @@ private:
           for (uint8_t fl = 0; fl < 10; fl++)
             if (_lowMem[0x042C + fl] != 0 && _lowMem[0x047C + fl] == ec && _lowMem[0x04CC + fl] == er) burning = true;
           if (burning) continue;
+          aliveNonBurning++;
           if (er < _mapRows && ec < _mapCols && cross[er * _mapCols + ec]) _coveredEnemies++;
         }
+        // All remaining enemies inside ticking crosses = the whole roster is HANDLED (even though
+        // a blast can still miss): the endgame walk may start now. Knob-gated like the rest of
+        // the covered-handled semantics; exposed as property "All Enemies Covered" and folded
+        // into exitPhase so the exit chain computes/pays while the bombs finish the job.
+        if (_coveredEnemiesHandled && aliveNonBurning > 0 && _coveredEnemies >= aliveNonBurning) _allEnemiesCovered = true;
         const int pc = (int)*_playerTileX, pr = (int)*_playerTileY;
-        if (pr >= 0 && pr < _mapRows && pc >= 0 && pc < _mapCols && cross[pr * _mapCols + pc])
+        if (_lowMem[0x0077] != 0 && _lowMem[0x0079] == 0 && pr >= 0 && pr < _mapRows && pc >= 0 && pc < _mapCols && cross[pr * _mapCols + pc])
         {
           // BFS over walkable cells (empty / revealed power-up / revealed exit; bombs solid)
           bool     seen[13 * 31] = {};
@@ -586,6 +627,12 @@ private:
       computeChainPlan();
       _initialBricks = _bricksLeft; // stage-constant baseline for the any-brick ladder
     }
+    // Grab-time replan: once, at the frame the powerup lands, from the actual player position
+    if (_replanChainsOnGrab && _exitReplanned == false && _powerupObtained && _exitTileX != 255 && _trackedTileX < _mapCols && _trackedTileY < _mapRows)
+    {
+      computeChainTo(_trackedTileX, _trackedTileY, _exitTileX, _exitTileY, _exitChainCells.data(), _exitChainLen);
+      _exitReplanned = true;
+    }
     _chainRemaining = 0;
     _chainCrumble   = 0.0f;
     _chainHeadX     = _powerupTileX;
@@ -648,12 +695,12 @@ private:
     // magnet members (those hold the previous evaluated state's values -- stale-data hazard).
     const bool prePickupPhase = (_powerupObtained == false);
     const bool killPhase      = _powerupObtained && (_lowMem[0x009C] > 0);
-    const bool exitPhase      = _powerupObtained && (_lowMem[0x009C] == 0 || _exitChainAlwaysActive);
+    const bool exitPhase      = _powerupObtained && (_lowMem[0x009C] == 0 || _exitChainAlwaysActive || _allEnemiesCovered);
     _pathDistPowerup          = 0.0f;
     _pathDistExit             = 0.0f;
     _pathGainPowerup          = 0.0f;
     _pathGainExit             = 0.0f;
-    _pathDistEnemy            = killPhase ? computePathDistance(true, 255, 255) : 0.0f;
+    _pathDistEnemy            = killPhase ? computePathDistance(true, 255, 255, false, false, _coveredEnemiesHandled) : 0.0f;
     // Enemy-path brick set (kill phase): bricks on the current optimal route toward the nearest
     // enemy. This is the dynamic 'enemy-reaching chain' -- expressed as a per-frame mark set so
     // all its rewards are instantaneous/event-anchored (no ladder to destabilize when the route
@@ -668,6 +715,8 @@ private:
     // (8) Bomb pending totals + threat flags + fuse progress
     _pendingBricks = _pendingKills = _pendingHazard = 0.0f;
     _bombMaxProgress                                = 0.0f;
+    _headFuseProgress                               = 0.0f;
+    _bombEnemyDist                                  = 1e9f;
     for (auto& v : _threatOpen) v = 0;
     {
       const uint8_t radius = _flameCount;
@@ -711,9 +760,24 @@ private:
         const bool  atWill   = (_lowMem[0x0077] != 0);
         const float progress = ticking ? (atWill ? 1.0f : (float)_lowMem[0x03D2 + i] / 160.0f) : 1.0f;
         if (progress > _bombMaxProgress) _bombMaxProgress = progress;
-        const uint8_t bx     = ticking ? _lowMem[0x03AA + i] : _bombLastX[i];
-        const uint8_t by     = ticking ? _lowMem[0x03B4 + i] : _bombLastY[i];
-        float         bricks = 0.0f, kills = 0.0f, hazard = 0.0f;
+        const uint8_t bx = ticking ? _lowMem[0x03AA + i] : _bombLastX[i];
+        const uint8_t by = ticking ? _lowMem[0x03B4 + i] : _bombLastY[i];
+        // Bomb-enemy proximity (2026-08-04, user): once the player closes in, what matters is a
+        // PLANTED bomb near the enemy -- pendingKills only pays for enemies already inside the
+        // cross (progress^2-weighted, ~zero early in the fuse), leaving no gradient between
+        // "bomb near enemy" and "bomb far away". Track the best (closest) ticking-bomb-to-enemy
+        // pixel distance; the reward term below turns it into a closeness bonus.
+        if (ticking)
+          for (uint8_t e = 0; e < _erN; e++)
+          {
+            const uint8_t st = _lowMem[_erST + e];
+            if (st >= 32 || _lowMem[_erX + e] == 0) continue;
+            const float ex = (float)_lowMem[_erX + e] * 16.0f + (float)_lowMem[_erPX + e];
+            const float ey = (float)_lowMem[_erY + e] * 16.0f + (float)_lowMem[_erPY + e];
+            const float d  = std::abs(ex - ((float)bx * 16.0f + 8.0f)) + std::abs(ey - ((float)by * 16.0f + 8.0f));
+            if (d < _bombEnemyDist) _bombEnemyDist = d;
+          }
+        float bricks = 0.0f, kills = 0.0f, hazard = 0.0f;
         for (uint8_t e = 0; e < _erN; e++)
         {
           const uint8_t st = _lowMem[_erST + e];
@@ -737,6 +801,11 @@ private:
               const bool isExitHead  = exitPhase && _chainComputed && _exitChainRemaining > 0 && cc == (int)_exitChainHeadX && rr == (int)_exitChainHeadY;
               const bool isEnemyPath = _enemyPathBricks[rr * _mapCols + cc] != 0;
               if (isPuHead || isExitHead || isEnemyPath) bricks += 1.0f;
+              // Head Fuse magnet: dedicated inverse-time-to-detonation gradient while a TICKING
+              // bomb's blast covers the powerup-chain head. Fuse mode only -- in at-will
+              // (Detonator) mode progress pins at 1.0 and this would become a farmable annuity
+              // (the exact pathology the DETONATOR RESET removed).
+              if (isPuHead && ticking && atWill == false && progress > _headFuseProgress) _headFuseProgress = progress;
               _threatOpen[rr * _mapCols + cc] = 1;
               break;
             }
@@ -1310,6 +1379,9 @@ private:
     _pendingBrickMagnet         = 0.0f;
     _pendingKillMagnet          = 0.0f;
     _pendingHazardMagnet        = 0.0f;
+    _headFuseMagnet             = 0.0f;
+    _bombEnemyMagnet            = 0.0f;
+    _enemiesKilledMagnet        = 0.0f;
     _bombEscapeMagnet           = 0.0f;
     _chainHeadMagnet            = 0.0f;
     _chainBrickReward           = 0.0f;
@@ -1346,6 +1418,12 @@ private:
     serializer.push(_bombWasTicking, sizeof(_bombWasTicking));
     serializer.push(&_caughtInBlast, sizeof(_caughtInBlast));
     serializer.push(&_enemyPathBricksBroken, sizeof(_enemyPathBricksBroken));
+    if (_replanChainsOnGrab)
+    {
+      serializer.push(&_exitReplanned, sizeof(_exitReplanned));
+      serializer.push(&_exitChainLen, sizeof(_exitChainLen));
+      serializer.push(_exitChainCells.data(), sizeof(uint16_t) * _exitChainCells.size());
+    }
   }
   __INLINE__ void deserializeStateImpl(jaffarCommon::deserializer::Base& deserializer)
   {
@@ -1362,6 +1440,12 @@ private:
     deserializer.pop(_bombWasTicking, sizeof(_bombWasTicking));
     deserializer.pop(&_caughtInBlast, sizeof(_caughtInBlast));
     deserializer.pop(&_enemyPathBricksBroken, sizeof(_enemyPathBricksBroken));
+    if (_replanChainsOnGrab)
+    {
+      deserializer.pop(&_exitReplanned, sizeof(_exitReplanned));
+      deserializer.pop(&_exitChainLen, sizeof(_exitChainLen));
+      deserializer.pop(_exitChainCells.data(), sizeof(uint16_t) * _exitChainCells.size());
+    }
   }
   __INLINE__ float calculateGameSpecificReward() const
   {
@@ -1386,7 +1470,12 @@ private:
     if (_exitChainNextDist >= 0.0f) reward += 0.2f * _exitChainHeadMagnet * std::max(0.0f, 800.0f - _exitChainNextDist);
     // Reward for reducing the enemy count (the stage's primary objective)
     reward += -1.0 * _enemiesLeftMagnet * (float)*_enemiesLeft;
-    // Covered-enemy credit (Detonator held): half a kill while a ticking cross covers an enemy
+    // Per-kill payoff from the enemy TABLE (robust: $9C reads 0 transiently; table state >= 32
+    // latches at death). Config action "Set Enemies Killed Magnet"; v2 configs use this at 10k
+    // and zero the $9C ladder above.
+    reward += _enemiesKilledMagnet * (float)_enemiesKilledCount;
+    // Covered-enemy credit: half a kill while a ticking cross covers an enemy (Detonator mode,
+    // or any mode with "Covered Enemies Handled")
     reward += 1500.0f * (float)_coveredEnemies;
     // Bonus mode: the objective is the kill counter itself ($9E, +1 per kill, hashed).
     // AREA DENIAL (user, 2026-07-30: bonus C vs avoider Dolls was suboptimal): +250 per ticking
@@ -1470,6 +1559,10 @@ private:
     reward += _pendingBrickMagnet * _pendingBricks;
     reward += _pendingKillMagnet * _pendingKills;
     reward += -1.0 * _pendingHazardMagnet * _pendingHazard;
+    // Dedicated inverse-time-to-detonation gradient for the head-covering bomb (fuse mode only)
+    reward += _headFuseMagnet * _headFuseProgress;
+    // Planted-bomb-to-enemy closeness bonus (no bomb ticking -> 0; never a penalty)
+    if (_bombEnemyDist < 1e9f) reward += _bombEnemyMagnet * std::max(0.0f, 320.0f - _bombEnemyDist);
     // Returning reward
     return reward;
   }
@@ -1513,9 +1606,9 @@ private:
       const uint8_t r = _trackedTileY, c = _trackedTileX;
       const bool    rOdd = (r & 1) != 0, cOdd = (c & 1) != 0;
       // Same straddle windows as the main path (assist engages from corridor-cell edges)
-      const bool    strX = (_trackedPixX <= 2) || (_trackedPixX >= 13);
-      const bool    strY = (_trackedPixY <= 2) || (_trackedPixY >= 13);
-      const bool    bU = (cOdd || strX) && r > 1, bD = (cOdd || strX) && r < _mapRows - 2, bL = (rOdd || strY) && c > 1, bR = (rOdd || strY) && c < _mapCols - 2;
+      const bool strX = (_trackedPixX <= 2) || (_trackedPixX >= 13);
+      const bool strY = (_trackedPixY <= 2) || (_trackedPixY >= 13);
+      const bool bU = (cOdd || strX) && r > 1, bD = (cOdd || strX) && r < _mapRows - 2, bL = (rOdd || strY) && c > 1, bR = (rOdd || strY) && c < _mapCols - 2;
       if (bU) allowedInputSet.push_back(_inputU);
       if (bD) allowedInputSet.push_back(_inputD);
       if (bL) allowedInputSet.push_back(_inputL);
@@ -1543,6 +1636,15 @@ private:
         if (rOdd && c > 1) allowedInputSet.push_back(_inputLB);
         if (rOdd && c < _mapCols - 2) allowedInputSet.push_back(_inputRB);
       }
+      // Refused-A align tool (see main path below for the full rationale)
+      if (_allowCompositeDirections && nBombs > _lowMem[0x0074] && _lowMem[_mapBase + r * _mapStride + c] == 0 && (_trackedPixX != 8 || _trackedPixY != 8))
+      {
+        allowedInputSet.push_back(_inputA);
+        if (bU) allowedInputSet.push_back(_inputUA);
+        if (bD) allowedInputSet.push_back(_inputDA);
+        if (bL) allowedInputSet.push_back(_inputLA);
+        if (bR) allowedInputSet.push_back(_inputRA);
+      }
       return;
     }
     const uint8_t r = _trackedTileY, c = _trackedTileX;
@@ -1553,8 +1655,8 @@ private:
     // cell along the corridor is a crossroad and the cornering assist already engages there
     // (verified: DR from a corridor cell at offset 15 moves +2x+1y). So perpendicular
     // directions must also be offered while straddling.
-    const bool strX = (_trackedPixX <= 2) || (_trackedPixX >= 13);
-    const bool strY = (_trackedPixY <= 2) || (_trackedPixY >= 13);
+    const bool strX    = (_trackedPixX <= 2) || (_trackedPixX >= 13);
+    const bool strY    = (_trackedPixY <= 2) || (_trackedPixY >= 13);
     const bool allowUD = cOdd || strX, allowLR = rOdd || strY;
     const bool bU = allowUD && r > 1, bD = allowUD && r < _mapRows - 2, bL = allowLR && c > 1, bR = allowLR && c < _mapCols - 2;
     if (bU) allowedInputSet.push_back(_inputU);
@@ -1573,11 +1675,30 @@ private:
       if (bL || bR) allowedInputSet.push_back(_inputLR);
       if (bU || bD) allowedInputSet.push_back(_inputUD);
     }
-    // A only when a bomb slot is actually available (capacity = $74 + 1). A refused press's only
-    // effect (auto-center) is replicable by direction holds, so this prunes no positional lines.
     uint8_t activeBombs = 0;
     for (uint8_t i = 0; i < 10; i++)
       if (_lowMem[0x03A0 + i] != 0) activeBombs++;
+    // Refused-A align tool (2026-08-04; supersedes the old "auto-center is replicable by
+    // direction holds" assumption, which the align mechanic disproves). Every A press over an
+    // EMPTY tile runs the align-to-center routines (ROM $CD01: JSR $CE10/$CE1F, 1px per axis
+    // toward offset 8) BEFORE the free-slot check. At capacity the press places nothing but the
+    // nudge still fires and STACKS with same-frame movement: 2px/frame through each tile's
+    // approach half, plus a bare-A diagonal center-pull no direction combo can produce. Offered
+    // only at capacity (with a slot free, A means an actual bomb placement -- relevance-gated
+    // below), on an empty tile (handler bails otherwise), and off-center (at dead center the
+    // routines no-op). The forced-detonation cadence later in this function intentionally
+    // overrides these offers where it clears the set. Note this also runs during the doorRun
+    // endgame: the old A/B noise prune predates the align discovery, and align-A is exactly a
+    // door-approach accelerant.
+    if (_allowCompositeDirections && activeBombs > _lowMem[0x0074] && _lowMem[_mapBase + (size_t)r * _mapStride + c] == 0 && (_trackedPixX != 8 || _trackedPixY != 8))
+    {
+      allowedInputSet.push_back(_inputA);
+      if (bU) allowedInputSet.push_back(_inputUA);
+      if (bD) allowedInputSet.push_back(_inputDA);
+      if (bL) allowedInputSet.push_back(_inputLA);
+      if (bR) allowedInputSet.push_back(_inputRA);
+    }
+    // A (as a bomb placement) only when a slot is actually available (capacity = $74 + 1).
     // Detonator: B (detonate at will) is offered whenever a bomb is ticking AND the trigger
     // latch $7B is clear. ROM $CCB5: the latch (set 0x40 on each detonation) clears ONLY on a
     // frame where the ENTIRE pad reads zero -- so a null input frame is re-offered exactly when
@@ -1866,10 +1987,8 @@ private:
     jaffarCommon::logger::log("[J+]    + Kills ladder:      %+.1f (Enemies Left %u x %.0f)\n", -1.0 * _enemiesLeftMagnet * (float)*_enemiesLeft, *_enemiesLeft, _enemiesLeftMagnet);
     jaffarCommon::logger::log("[J+]    + Covered-enemy credit: %+.1f (%u covered x 1500)\n", 1500.0f * (float)_coveredEnemies, _coveredEnemies);
     {
-      uint8_t killed = 0;
-      for (uint8_t i = 0; i < _erN; i++)
-        if (_lowMem[_erST + i] >= 32 && _lowMem[_erX + i] != 0) killed++;
-      jaffarCommon::logger::log("[J+]    + Enemies killed:    %+.1f earned (%u killed x %.0f)\n", (float)killed * _enemiesLeftMagnet, killed, _enemiesLeftMagnet);
+      jaffarCommon::logger::log("[J+]    + Enemies killed:    %+.1f earned (%u killed x %.0f)\n", (float)_enemiesKilledCount * _enemiesKilledMagnet, _enemiesKilledCount,
+                                _enemiesKilledMagnet);
     }
     jaffarCommon::logger::log(
         "[J+]    + Powerup progress:  %+.1f = chain bricks %+.1f (%u/%u broken x %.0f) + crumbling %+.1f + approach %+.1f (headDist %.1f, antGain %.1f, fuse %.2f)\n",
@@ -1897,6 +2016,9 @@ private:
     jaffarCommon::logger::log("[J+]    + Powerup grab bonus: %+.1f%s\n", _grabBonus, _grabBonus == 0.0f ? " (pays +100000 once Flame Count >= 2)" : "");
     jaffarCommon::logger::log("[J+]    + Enemy approach:     %+.1f (pathDist %.1f)\n", -1.0 * _closestEnemyMagnet * _pathDistEnemy, _pathDistEnemy);
     jaffarCommon::logger::log("[J+]    + Escape penalty:    %+.1f (danger %.2f)\n", -1.0 * _bombEscapeMagnet * _bombEscapeDanger, _bombEscapeDanger);
+    jaffarCommon::logger::log("[J+]    + Head fuse:          %+.1f (progress %.3f x %.0f)\n", _headFuseMagnet * _headFuseProgress, _headFuseProgress, _headFuseMagnet);
+    jaffarCommon::logger::log("[J+]    + Bomb-enemy:         %+.1f (dist %.0f x %.0f)\n", _bombEnemyDist < 1e9f ? _bombEnemyMagnet * std::max(0.0f, 320.0f - _bombEnemyDist) : 0.0f,
+                              _bombEnemyDist < 1e9f ? _bombEnemyDist : -1.0f, _bombEnemyMagnet);
     jaffarCommon::logger::log("[J+]    + Pending kill/brick/hazard: %+.1f / %+.1f / %+.1f\n", _pendingKillMagnet * _pendingKills, _pendingBrickMagnet * _pendingBricks,
                               -1.0 * _pendingHazardMagnet * _pendingHazard);
     if (std::abs(_enemiesLeftMagnet) > 0.0f) jaffarCommon::logger::log("[J+]  + Enemies Left Magnet               Intensity: %.5f\n", _enemiesLeftMagnet);
@@ -1926,6 +2048,18 @@ private:
     {
       auto intensity = jaffarCommon::json::getNumber<float>(actionJs, "Intensity");
       rule.addAction([=, this]() { this->_exitMagnet = intensity; });
+      recognizedActionType = true;
+    }
+    if (actionType == "Set Enemies Killed Magnet")
+    {
+      auto intensity = jaffarCommon::json::getNumber<float>(actionJs, "Intensity");
+      rule.addAction([=, this]() { this->_enemiesKilledMagnet = intensity; });
+      recognizedActionType = true;
+    }
+    if (actionType == "Set Bomb Enemy Magnet")
+    {
+      auto intensity = jaffarCommon::json::getNumber<float>(actionJs, "Intensity");
+      rule.addAction([=, this]() { this->_bombEnemyMagnet = intensity; });
       recognizedActionType = true;
     }
     if (actionType == "Set Closest Enemy Magnet")
@@ -1989,12 +2123,20 @@ private:
       auto brick  = jaffarCommon::json::getNumber<float>(actionJs, "Brick Intensity");
       auto kill   = jaffarCommon::json::getNumber<float>(actionJs, "Kill Intensity");
       auto hazard = jaffarCommon::json::getNumber<float>(actionJs, "Hazard Intensity");
+      // Optional (default 0 = archived-config behavior preserved): dedicated inverse-time-to-
+      // detonation gradient for a ticking bomb whose blast covers the CURRENT powerup-chain head
+      // (pre-pickup). Pays Intensity * elapsed/160, so lineages that placed the head bomb earlier
+      // strictly dominate all fuse-wait wandering -- the generic Brick Intensity gradient
+      // (intensity/160 per frame) is too weak to order the wait against position-magnet noise.
+      float headFuse = 0.0f;
+      if (actionJs.contains("Head Fuse Intensity")) headFuse = jaffarCommon::json::getNumber<float>(actionJs, "Head Fuse Intensity");
       rule.addAction(
           [=, this]()
           {
             this->_pendingBrickMagnet  = brick;
             this->_pendingKillMagnet   = kill;
             this->_pendingHazardMagnet = hazard;
+            this->_headFuseMagnet      = headFuse;
           });
       recognizedActionType = true;
     }
@@ -2012,107 +2154,118 @@ private:
     float intensity = 0.0; // How strong the magnet is
     float pos       = 0.0; // What is the point of attraction
   };
-  pointMagnet_t                            _playerPosXMagnet;
-  pointMagnet_t                            _playerPosYMagnet;
-  float                                    _playerDistanceToPointX;
-  float                                    _playerDistanceToPointY;
-  float                                    _exitMagnet;
-  float                                    _enemiesLeftMagnet;
-  float                                    _closestEnemyMagnet;
-  float                                    _powerupMagnet;
-  float                                    _powerupProgressMagnet;
-  float                                    _pendingBrickMagnet;
-  float                                    _pendingKillMagnet;
-  float                                    _pendingHazardMagnet;
-  float                                    _bombEscapeMagnet;
-  float                                    _bombEscapeDanger;
-  float                                    _playerDistanceToExit;
-  InputSet::inputIndex_t                   _lastInput;
-  InputSet::inputIndex_t                   _nullInputIdx;
-  uint8_t*                                 _lowMem;
-  uint8_t*                                 _playerTileX;
-  uint8_t*                                 _playerTileY;
-  uint8_t*                                 _playerPixelX;
-  uint8_t*                                 _playerPixelY;
-  uint8_t*                                 _level;
-  uint8_t*                                 _lives;
-  uint8_t*                                 _bombRadius;
-  uint8_t*                                 _bombMax;
-  uint8_t*                                 _hasDetonator;
-  uint8_t*                                 _timeLeft;
-  uint8_t*                                 _enemiesLeft;
-  uint8_t*                                 _frameCounter;
-  uint8_t*                                 _rngState1;
-  uint8_t*                                 _rngState2;
-  uint8_t*                                 _rngState3;
-  uint8_t*                                 _rngState4;
-  uint16_t                                 _playerPosX;
-  uint16_t                                 _playerPosY;
-  uint8_t                                  _exitTileX;
-  uint8_t                                  _exitTileY;
-  bool                                     _exitRevealed;
-  uint8_t                                  _powerupTileX;
-  uint8_t                                  _powerupTileY;
-  uint8_t                                  _bricksLeft;
-  bool                                     _nextFrameAcceptsInput;
-  float                                    _closestEnemyDist;
-  float                                    _sumEnemyDist;
-  float                                    _pathDistEnemy;
-  float                                    _pathDistPowerup;
-  float                                    _pathDistExit;
-  float                                    _pendingBricks;
-  float                                    _pendingKills;
-  float                                    _pendingHazard;
-  uint8_t                                  _flameCount;
-  bool                                     _powerupPresent;
-  uint8_t                                  _powerupProgress;
-  uint8_t*                                 _gameEndStatus;
-  uint8_t*                                 _dyingFlag;
-  InputSet::inputIndex_t                   _inputU;
-  InputSet::inputIndex_t                   _inputD;
-  InputSet::inputIndex_t                   _inputL;
-  InputSet::inputIndex_t                   _inputR;
-  InputSet::inputIndex_t                   _inputA;
-  InputSet::inputIndex_t                   _inputB;
-  InputSet::inputIndex_t                   _inputUB;
-  InputSet::inputIndex_t                   _inputDB;
-  InputSet::inputIndex_t                   _inputLB;
-  InputSet::inputIndex_t                   _inputRB;
-  uint8_t                                  _trackedTileX;
-  uint8_t                                  _trackedTileY;
-  uint8_t                                  _trackedPixX;
-  uint8_t                                  _trackedPixY;
-  uint8_t                                  _trackedMismatch;
-  uint8_t                                  _bombLastX[10]; // last tile of a bomb per slot (for post-detonation attribution)
-  uint8_t                                  _bombLastY[10];
-  uint8_t                                  _bombShadow[10];                        // 1 while slot's flames are still burning after the slot freed
-  uint8_t                                  _bombWasTicking[10];                    // for detonation-frame edge detection
-  bool                                     _caughtInBlast;                         // latched: player inside a blast cross at detonation (pre-Flamepass survival exploit = dead end)
-  bool                                     _blastTrapped;                          // derived: Detonator held + whole reachable region inside ticking crosses = permanent zombie
-  uint8_t                                  _coveredEnemies;                        // derived: alive non-burning enemies inside ticking-bomb crosses (Detonator credit)
-  bool                                     _bonusMode;                             // config: bonus-stage kill-frenzy mode (invincible; free A/B; kill-count reward)
-  bool                                     _powerupStatBombs;                      // config: stage's power-up is Bombs
-  bool                                     _powerupStatDetonator;                  // config: stage's power-up is the Detonator ($77; B detonates at will)
-  bool                                     _powerupStatSpeed;                      // config: stage's power-up is Speed ($75; stage 4 only, 2x walk speed)
-  bool                                     _powerupStatBombpass;                   // config: stage's power-up is Bombpass ($78; walk through bombs)
-  bool                                     _powerupStatWallpass;                   // config: stage's power-up is Wallpass ($76; walk through bricks)
-  bool                                     _powerupStatFlamepass;                  // config: stage's power-up is Flamepass ($79; immune to own blasts)
-  uint8_t                                  _powerupBombsThreshold;                 // config: $74 value that counts as "grabbed" for the Bombs stat (carried count + 1)
-  uint8_t                                  _powerupFlameThreshold;                 // config: flame count that counts as "grabbed" for the Flame stat (carried count + 1)
-  uint8_t                                  _enemyRecBase;                          // config: first enemy record index (10 - rosterSize); default 3
-  uint8_t                                  _erN;                                   // derived: enemy record count
-  uint16_t                                 _erX, _erPX, _erY, _erPY, _erST, _erAI; // derived: enemy table base addresses
-  bool                                     _powerupObtained;                       // stage-appropriate grab signal (Flame>=2 or Bombs>=1)
-  bool                                     _bombPlacedInFlames;
-  bool                                     _forceImmediateBomb;
-  bool                                     _forceImmediateDetonation;
-  float                                    _anyBrickLadderReward;
-  bool                                     _disableInputRestrictions;
-  InputSet::inputIndex_t                   _inputUA, _inputDA, _inputLA, _inputRA, _inputAB;
-  InputSet::inputIndex_t                   _inputUAB, _inputDAB, _inputLAB, _inputRAB;
+  pointMagnet_t          _playerPosXMagnet;
+  pointMagnet_t          _playerPosYMagnet;
+  float                  _playerDistanceToPointX;
+  float                  _playerDistanceToPointY;
+  float                  _exitMagnet;
+  float                  _enemiesLeftMagnet;
+  float                  _closestEnemyMagnet;
+  float                  _powerupMagnet;
+  float                  _powerupProgressMagnet;
+  float                  _pendingBrickMagnet;
+  float                  _headFuseMagnet;
+  float                  _bombEnemyMagnet;
+  float                  _enemiesKilledMagnet;
+  uint8_t                _enemiesKilledCount = 0; // table-based dead-entry count (robust vs glitchy $9C)
+  float                  _bombEnemyDist;          // min px distance ticking-bomb -> alive enemy (1e9 = no ticking bomb)
+  float                  _headFuseProgress;       // max elapsed/160 among ticking bombs covering the powerup-chain head (0 in at-will mode)
+  float                  _pendingKillMagnet;
+  float                  _pendingHazardMagnet;
+  float                  _bombEscapeMagnet;
+  float                  _bombEscapeDanger;
+  float                  _playerDistanceToExit;
+  InputSet::inputIndex_t _lastInput;
+  InputSet::inputIndex_t _nullInputIdx;
+  uint8_t*               _lowMem;
+  uint8_t*               _playerTileX;
+  uint8_t*               _playerTileY;
+  uint8_t*               _playerPixelX;
+  uint8_t*               _playerPixelY;
+  uint8_t*               _level;
+  uint8_t*               _lives;
+  uint8_t*               _bombRadius;
+  uint8_t*               _bombMax;
+  uint8_t*               _hasDetonator;
+  uint8_t*               _timeLeft;
+  uint8_t*               _enemiesLeft;
+  uint8_t*               _frameCounter;
+  uint8_t*               _rngState1;
+  uint8_t*               _rngState2;
+  uint8_t*               _rngState3;
+  uint8_t*               _rngState4;
+  uint16_t               _playerPosX;
+  uint16_t               _playerPosY;
+  uint8_t                _exitTileX;
+  uint8_t                _exitTileY;
+  bool                   _exitRevealed;
+  uint8_t                _powerupTileX;
+  uint8_t                _powerupTileY;
+  uint8_t                _bricksLeft;
+  bool                   _nextFrameAcceptsInput;
+  float                  _closestEnemyDist;
+  float                  _sumEnemyDist;
+  float                  _pathDistEnemy;
+  float                  _pathDistPowerup;
+  float                  _pathDistExit;
+  float                  _pendingBricks;
+  float                  _pendingKills;
+  float                  _pendingHazard;
+  uint8_t                _flameCount;
+  bool                   _powerupPresent;
+  uint8_t                _powerupProgress;
+  uint8_t*               _gameEndStatus;
+  uint8_t*               _dyingFlag;
+  InputSet::inputIndex_t _inputU;
+  InputSet::inputIndex_t _inputD;
+  InputSet::inputIndex_t _inputL;
+  InputSet::inputIndex_t _inputR;
+  InputSet::inputIndex_t _inputA;
+  InputSet::inputIndex_t _inputB;
+  InputSet::inputIndex_t _inputUB;
+  InputSet::inputIndex_t _inputDB;
+  InputSet::inputIndex_t _inputLB;
+  InputSet::inputIndex_t _inputRB;
+  uint8_t                _trackedTileX;
+  uint8_t                _trackedTileY;
+  uint8_t                _trackedPixX;
+  uint8_t                _trackedPixY;
+  uint8_t                _trackedMismatch;
+  uint8_t                _bombLastX[10]; // last tile of a bomb per slot (for post-detonation attribution)
+  uint8_t                _bombLastY[10];
+  uint8_t                _bombShadow[10];                        // 1 while slot's flames are still burning after the slot freed
+  uint8_t                _bombWasTicking[10];                    // for detonation-frame edge detection
+  bool                   _caughtInBlast;                         // latched: player inside a blast cross at detonation (pre-Flamepass survival exploit = dead end)
+  bool                   _blastTrapped;                          // derived: Detonator held + whole reachable region inside ticking crosses = permanent zombie
+  uint8_t                _coveredEnemies;                        // derived: alive non-burning enemies inside ticking-bomb crosses (Detonator credit)
+  bool                   _bonusMode;                             // config: bonus-stage kill-frenzy mode (invincible; free A/B; kill-count reward)
+  bool                   _powerupStatBombs;                      // config: stage's power-up is Bombs
+  bool                   _powerupStatDetonator;                  // config: stage's power-up is the Detonator ($77; B detonates at will)
+  bool                   _powerupStatSpeed;                      // config: stage's power-up is Speed ($75; stage 4 only, 2x walk speed)
+  bool                   _powerupStatBombpass;                   // config: stage's power-up is Bombpass ($78; walk through bombs)
+  bool                   _powerupStatWallpass;                   // config: stage's power-up is Wallpass ($76; walk through bricks)
+  bool                   _powerupStatFlamepass;                  // config: stage's power-up is Flamepass ($79; immune to own blasts)
+  uint8_t                _powerupBombsThreshold;                 // config: $74 value that counts as "grabbed" for the Bombs stat (carried count + 1)
+  uint8_t                _powerupFlameThreshold;                 // config: flame count that counts as "grabbed" for the Flame stat (carried count + 1)
+  uint8_t                _enemyRecBase;                          // config: first enemy record index (10 - rosterSize); default 3
+  uint8_t                _erN;                                   // derived: enemy record count
+  uint16_t               _erX, _erPX, _erY, _erPY, _erST, _erAI; // derived: enemy table base addresses
+  bool                   _powerupObtained;                       // stage-appropriate grab signal (Flame>=2 or Bombs>=1)
+  bool                   _bombPlacedInFlames;
+  bool                   _forceImmediateBomb;
+  bool                   _forceImmediateDetonation;
+  float                  _anyBrickLadderReward;
+  bool                   _disableInputRestrictions;
+  InputSet::inputIndex_t _inputUA, _inputDA, _inputLA, _inputRA, _inputAB;
+  InputSet::inputIndex_t _inputUAB, _inputDAB, _inputLAB, _inputRAB;
   // Composite directions (diagonals + opposing pairs), offered only with "Allow Composite Directions"
   InputSet::inputIndex_t                   _inputUL, _inputUR, _inputDL, _inputDR, _inputLR, _inputUD;
   bool                                     _allowCompositeDirections;
+  bool                                     _coveredEnemiesHandled;
+  bool                                     _replanChainsOnGrab;
+  bool                                     _exitReplanned     = false; // grab-time exit-chain replan done (lineage state under the knob)
+  bool                                     _allEnemiesCovered = false; // all alive non-burning enemies inside ticking crosses (knob-gated)
+  bool                                     _isLoading         = false; // $0C == 0x10 (stage-load screen-off window)
   bool                                     _exitChainAlwaysActive;
   bool                                     _chainComputed = false;
   std::array<uint16_t, 64>                 _chainCells;

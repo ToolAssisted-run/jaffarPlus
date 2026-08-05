@@ -204,6 +204,24 @@ State: 4 zero-page bytes $54 (RandomCtrl1), $55 (RandomCtrl2), $56 (RandomCtrl3)
 $57 (RandomCtrl4). Called **on demand** whenever the game needs a random number, plus
 **once per frame on the title screen** (this is the pre-game manipulation lever).
 
+**v2 decode corrections/extensions (2026-08-04, verified against our ROM disasm):** the
+routine entry as we trace it is **$D670** (TASVideos' $D668 label is off by 8). All 7 RNG
+callers accounted for: (1) title screen +1/frame ($C38B), (2) board generator (below),
+(3) enemy AI walk decisions ($D365: duration from {32..128} + heading — only LIVE enemies
+draw, so **the stream freezes at the last kill** and post-clear inputs cannot reseed the
+next board), (4) penalty/timeout spawners ($D6D5).
+
+### Board generator ($CA4B) — fully decoded
+
+One RNG stream at the stage-start frame draws, IN ORDER: (1) the exit brick cell, (2) the
+powerup brick cell, (3) 50+2×level soft bricks, (4) per enemy: position then initial
+heading (AND #3 + 1). Every cell placement goes through the $CACF pick-random-empty-cell
+helper: col = AND #$1F clamped 1–31, row = AND #$0F clamped 1–11, **rerolls** on occupied
+cells and on the spawn pocket (col<3 && row<3). The rerolls make seed→board chaotic: you
+cannot predict a board from the RNG state — generate and dump it (replay ~1 s).
+`scoreBoards.py` extracts a board from a `--dumpRam` pass (`extract()`, offset past earlier
+stages) and plan-scores it (`score()`).
+
 ```asm
 PermutateRandomCtrlVars:
 $D668  lda RandomCtrl1   ; $54

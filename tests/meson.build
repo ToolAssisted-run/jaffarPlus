@@ -206,6 +206,16 @@ test('gridWalker_tolerance',
       args : [ 'checkReproduce.sh', jaffar.full_path(), jaffarPlayer.full_path(), 'gridWalker.tolerance.jaffar', '/tmp/jaffar.gw.tolerance.best.sol', '8', 'hash step tolerance=3' ],
       suite : [ 'runs', 'TestEmulator', 'gridWalker' ])
 
+# Win State Collection + Stop Frames After First Win: a 4-step window past the first win harvests
+# the later, longer wins too (dedup on "Steps" -> >= 2 saved solutions), and a Max Files cap of 1
+# must terminate the run with "Win collection complete".
+test('gridWalker_wincollect',
+      bash,
+      workdir : meson.current_source_dir() + '/testEmulator',
+      timeout: testTimeout,
+      args : [ 'checkWinCollect.sh', jaffar.full_path() ],
+      suite : [ 'runs', 'TestEmulator', 'gridWalker' ])
+
 # End On First Win State = false: two wins exist -- a shallow low-reward win at (4,0) (depth 4) and a
 # deeper high-reward win at (4,4) (depth 8). Not stopping at the first win, the search must keep the
 # higher-reward 8-move solution. (Stopping on first win would instead yield the 4-move one.)

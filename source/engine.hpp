@@ -24,6 +24,8 @@
 #include <jaffarCommon/parallel.hpp>
 #include <jaffarCommon/serializers/base.hpp>
 #include <jaffarCommon/timing.hpp>
+#include <mutex>
+#include <set>
 
 // Fine-grained per-operation timing for the engine hot loop. Each timed region costs two
 // clock_gettime calls; multiplied across millions of states processed per step this is a real
@@ -599,6 +601,41 @@ public:
   auto& getStateDb() const { return _stateDb; }
   /** @brief Returns a copy of the best win state recorded in the current step. */
   auto getStepBestWinState() const { return _stepBestWinState; }
+
+  /// @brief Number of distinct win solutions collected so far (see setWinStateCollection).
+  size_t getWinCollectedCount()
+  {
+    std::lock_guard<std::mutex> l(_winCollectLock);
+    return _winKeysSeen.size();
+  }
+  /// @brief Whether win collection is enabled and has reached its Max Files cap.
+  bool isWinCollectionFull()
+  {
+    std::lock_guard<std::mutex> l(_winCollectLock);
+    return _winCollectEnabled && _winKeysSeen.size() >= _winCollectMax;
+  }
+  /// @brief Whether win collection is enabled.
+  bool isWinCollectionEnabled() const { return _winCollectEnabled; }
+  /// @brief Win collection Max Files cap.
+  size_t getWinCollectionMax() const { return _winCollectMax; }
+
+  /**
+   * @brief Enables win-state collection: every win state's solution is saved to
+   *        pathPrefix + hex(dedup property bytes) + ".sol", first-seen per key. Configured by the
+   *        driver ("Win State Collection" in Driver Configuration); capture happens in the engine
+   *        because the worker runner holds each win state live at the moment it is produced.
+   * @param dedupProps Names of the game properties whose concatenated bytes form the dedup key.
+   * @param pathPrefix Prefix (path + basename stem) for the saved .sol files and manifest.
+   * @param maxFiles Stop collecting (and terminate the run) once this many distinct keys are saved.
+   */
+  void setWinStateCollection(const std::vector<std::string>& dedupProps, const std::string& pathPrefix, const size_t maxFiles)
+  {
+    _winDedupPropNames = dedupProps;
+    _winCollectPrefix  = pathPrefix;
+    _winCollectMax     = maxFiles;
+    _winCollectEnabled = true;
+  }
+
   /** @brief Returns a copy of the most recent manually saved solution. */
   auto getManualSaveSolution() const { return _manualSaveSolution; }
   /** @brief Returns the cumulative number of win states found so far. */
@@ -630,6 +667,8 @@ public:
                                 _droppedStatesNoStorage.load() + _droppedStatesFailedSerialization.load() + _droppedStatesCheckpoint.load());
       jaffarCommon::logger::log("[J+] Win States:                                  %lu (%5.3f%% of New States Processed) \n", _winStates.load(),
                                 100.0 * (double)_winStates.load() / (double)_totalNewStatesProcessed);
+      if (_winCollectEnabled)
+        jaffarCommon::logger::log("[J+] Win States Collected:                        %lu/%lu\n", (unsigned long)getWinCollectedCount(), (unsigned long)_winCollectMax);
       if (_refPinEnabled)
         jaffarCommon::logger::log("[J+] Reference Pin Hits (cumulative):             %lu (deepest %lu / %lu)\n", _refPinHits.load(), _refPinMaxDepthHit.load(),
                                   _refPinHashes.size());
@@ -740,6 +779,8 @@ public:
     jaffarCommon::logger::log("[J+] Win States:                                  %lu (%5.3f%% of New States Processed) \n", _winStates.load(),
                               100.0 * (double)_winStates.load() / (double)_totalNewStatesProcessed);
 
+    if (_winCollectEnabled)
+      jaffarCommon::logger::log("[J+] Win States Collected:                        %lu/%lu\n", (unsigned long)getWinCollectedCount(), (unsigned long)_winCollectMax);
     // Print state database information
     jaffarCommon::logger::log("[J+] State Database Information:\n");
     _stateDb->printInfo();
@@ -772,6 +813,24 @@ public:
   __INLINE__ size_t getFullStateSize() const { return _fullStateSize; }
 
 private:
+  /// @brief Whether win-state collection is enabled (see setWinStateCollection).
+  bool _winCollectEnabled = false;
+
+  /// @brief Names of the game properties whose bytes form the win-collection dedup key.
+  std::vector<std::string> _winDedupPropNames;
+
+  /// @brief Path prefix for saved win-collection .sol files and the manifest.
+  std::string _winCollectPrefix;
+
+  /// @brief Maximum number of distinct win solutions to collect before terminating.
+  size_t _winCollectMax = 1000;
+
+  /// @brief Dedup keys of the win solutions collected so far.
+  std::set<std::string> _winKeysSeen;
+
+  /// @brief Guards _winKeysSeen and the win-collection file writes across worker threads.
+  std::mutex _winCollectLock;
+
   /// @brief Number of base states a worker pulls from the state-DB queue per lock acquisition (batch size).
   // Number of base states a worker pulls from the shared per-NUMA state-DB queue per lock
   // acquisition (into a thread-local buffer), instead of locking once per state. On a light
@@ -1182,6 +1241,38 @@ private:
       ///////////// Best win state needs to be stored if its better than any previous one found
 
       // Check if the new win state is the best and store it in that case
+      // Win-state collection: the runner holds the live win state right now -- read the dedup
+      // key straight from its game properties and write its input history if the key is new.
+      if (_winCollectEnabled)
+      {
+        std::string key;
+        char        hx[4];
+        for (const auto& pn : _winDedupPropNames)
+        {
+          auto* prop = r.getGame()->findProperty(pn);
+          if (prop == nullptr) JAFFAR_THROW_LOGIC("[ERROR] Win State Collection dedup property '%s' not registered\n", pn.c_str());
+          const auto* bytes = (const uint8_t*)prop->getPointer();
+          for (size_t bi = 0; bi < prop->getSize(); bi++)
+          {
+            snprintf(hx, sizeof(hx), "%02x", bytes[bi]);
+            key += hx;
+          }
+        }
+        _winCollectLock.lock();
+        if (_winKeysSeen.contains(key) == false && _winKeysSeen.size() < _winCollectMax)
+        {
+          _winKeysSeen.insert(key);
+          const auto solution = r.getInputHistoryString();
+          jaffarCommon::file::saveStringToFile(solution, _winCollectPrefix + key + ".sol");
+          // No per-capture log line (screen churn): progress is reported as a collected/max
+          // counter in the regular per-step block; the manifest records key/step per capture.
+          {
+            std::ofstream mf(_winCollectPrefix + "manifest.txt", std::ios::app);
+            mf << "key " << key << " step " << r.getStepCount() << "\n";
+          }
+        }
+        _winCollectLock.unlock();
+      }
       _stepBestWinStateLock.lock();
       if (reward > _stepBestWinState.reward)
       {

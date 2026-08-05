@@ -37,9 +37,11 @@ The driver owns the top-level run loop: when to stop and what to checkpoint to d
 
 | Key | Type | Required | Description |
 |-----|------|----------|-------------|
-| `End On First Win State` | boolean | yes | If `true`, the run stops as soon as the first win state is found. If `false`, the search keeps running (up to `Max Steps`) to look for better solutions. |
+| `Stop Frames After First Win` | number | no | Stop condition on wins: `0` stops the run as soon as the first win state is found; `N > 0` keeps the search expanding `N` more steps past the first win before stopping (useful with `Win State Collection` to harvest alternate endings); absent = never stop on wins (run to `Max Steps`). |
+| `End On First Win State` | boolean | no | **Legacy alias** of `Stop Frames After First Win` (`true` → `0`, `false` → absent), kept so archived configs retain their exact semantics. New configs should use `Stop Frames After First Win`. |
 | `Max Steps` | number (uint32) | yes | Maximum search depth (steps) to execute. Use a generous bound; `0` means no step limit. Can be overridden for testing via the `JAFFAR_DRIVER_OVERRIDE_DRIVER_MAX_STEP` environment variable. |
 | `Save Intermediate Results` | object | yes | Periodic checkpointing of the best/worst solutions found so far (see below). |
+| `Win State Collection` | object | no | Save every win state's solution to disk, deduplicated by a configurable tuple of game properties (see below). |
 
 ### Driver Configuration → Save Intermediate Results
 
@@ -53,6 +55,24 @@ The driver owns the top-level run loop: when to stop and what to checkpoint to d
 > Older example configs used to carry `Best State Path` / `Worst State Path` here. The engine never
 > read them, and they are now **rejected** as unrecognized keys — they have been removed from the
 > shipped examples.
+
+### Driver Configuration → Win State Collection
+
+Saves the input history of **every** win state whose dedup key is new, as
+`<Path Prefix><hexkey>.sol`, plus a `<Path Prefix>manifest.txt` line (`key <hexkey> step <N>`)
+per capture. The dedup key is the concatenated raw bytes of the listed game properties at the
+win state — e.g. the four RNG bytes, so each distinct frozen RNG (each distinct next-stage
+board, in games where the next layout is drawn from the RNG) is captured exactly once. Progress
+appears in the per-step log as `Win States Collected: N/max`; reaching `Max Files` terminates
+the run with exit reason `Win collection complete`. Typically paired with
+`"Stop Frames After First Win": N` to bound the harvest window.
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `Enabled` | boolean | yes | Whether to collect win-state solutions. |
+| `Dedup Properties` | array of strings | yes | Game property names whose concatenated bytes form the dedup key (e.g. `["RNG State 1", "RNG State 2"]`). |
+| `Path Prefix` | string | yes | Path + basename stem for the saved `.sol` files and `manifest.txt`. |
+| `Max Files` | number | no | Cap on distinct solutions to save; hitting it ends the run (default 1000). |
 
 ---
 

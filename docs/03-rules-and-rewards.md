@@ -109,7 +109,7 @@ These five action `Type`s are available to every game *(source: `source/game.hpp
 | `Type` | Extra keys | Effect |
 |--------|-----------|--------|
 | `Add Reward` | `Value` (number) | Add `Value` to the state's reward. Negative values penalize. |
-| `Trigger Win` | — | This state is a solution; the search can stop (per `End On First Win State`). |
+| `Trigger Win` | — | This state is a solution; the search can stop (per `Stop Frames After First Win`). |
 | `Trigger Fail` | — | Prune this state; it is never expanded. Use it to kill dead ends (death, out-of-bounds, a wrong room). |
 | `Trigger Checkpoint` | `Tolerance` (number) | Record a milestone (see [below](#checkpoints-and-tolerance)). |
 | `Trigger Save Solution` | `Path` (string) | Write the current solution to `Path` when the rule fires. Handy for capturing the route to a milestone mid-run. |

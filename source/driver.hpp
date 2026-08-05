@@ -41,6 +41,8 @@ public:
   {
     winStateFound = 0, ///< Found a win state
 
+    winCollectionFull = 7, ///< Win-state collection reached its Max Files cap
+
     outOfStates = 1, ///< Engine ran out of states
 
     maximumStepReached = 2, ///< Maximum step reached
@@ -77,7 +79,38 @@ public:
     auto driverConfig = jaffarCommon::json::popObject(configRemaining, "Driver Configuration");
 
     // Getting end win delay config
-    _endOnFirstWinState = jaffarCommon::json::popBoolean(driverConfig, "End On First Win State");
+    // Stop condition on wins: "Stop Frames After First Win" = N keeps the search expanding N more
+    // steps past the FIRST win before stopping. 0 = stop immediately; absent/-1 = never stop on
+    // wins (run to Max Steps). Pairs naturally with "Win State Collection" below to harvest every
+    // distinct ending inside the window (e.g. board reseeding: distinct frozen RNG = distinct
+    // next layout). The legacy boolean "End On First Win State" is accepted as an alias
+    // (true -> 0, false -> -1) so archived configs keep their exact semantics.
+    _stopFramesAfterFirstWin = -1;
+    if (driverConfig.contains("End On First Win State")) _stopFramesAfterFirstWin = jaffarCommon::json::popBoolean(driverConfig, "End On First Win State") ? 0 : -1;
+    if (driverConfig.contains("Stop Frames After First Win"))
+      _stopFramesAfterFirstWin = (ssize_t)jaffarCommon::json::popNumber<size_t>(driverConfig, "Stop Frames After First Win");
+    // Optional: save EVERY win state's solution, deduplicated by a configurable tuple of game
+    // properties. Driver-owned config; the engine performs the capture at the moment each win
+    // state is produced (the worker runner still holds it live).
+    if (driverConfig.contains("Win State Collection"))
+    {
+      auto                     wc      = jaffarCommon::json::popObject(driverConfig, "Win State Collection");
+      auto                     enabled = jaffarCommon::json::popBoolean(wc, "Enabled");
+      std::vector<std::string> props;
+      for (const auto& n : jaffarCommon::json::getArray<nlohmann::json>(wc, "Dedup Properties")) props.push_back(n.get<std::string>());
+      wc.erase("Dedup Properties");
+      auto   prefix = jaffarCommon::json::popString(wc, "Path Prefix");
+      size_t maxF   = wc.contains("Max Files") ? jaffarCommon::json::popNumber<size_t>(wc, "Max Files") : 1000;
+      jaffarCommon::json::checkEmpty(wc, "Driver Configuration > Win State Collection");
+      // The engine does not exist yet at parse time -- stash and apply after construction below
+      if (enabled)
+      {
+        _winCollectProps  = props;
+        _winCollectPrefix = prefix;
+        _winCollectMax    = maxF;
+        _winCollectArm    = true;
+      }
+    }
 
     // Getting maximum number of steps (zero is not established)
     _maxSteps = jaffarCommon::json::popNumber<uint32_t>(driverConfig, "Max Steps");
@@ -159,6 +192,7 @@ public:
 
     // Creating engine from the configuration
     _engine = std::make_unique<Engine>(emulatorConfig, gameConfig, runnerConfig, engineConfig);
+    if (_winCollectArm) _engine->setWinStateCollection(_winCollectProps, _winCollectPrefix, _winCollectMax);
   }
 
   /// @brief Destroys the driver.
@@ -324,7 +358,13 @@ public:
     while (true)
     {
       // If found winning state, report it now
-      if (_endOnFirstWinState && _engine->getWinStatesFound() > 0)
+      if (_engine->isWinCollectionFull())
+      {
+        exitReason = exitReason_t::winCollectionFull;
+        break;
+      }
+      if (_engine->getWinStatesFound() > 0 && _firstWinStep < 0) _firstWinStep = (ssize_t)_currentStep;
+      if (_stopFramesAfterFirstWin >= 0 && _firstWinStep >= 0 && (ssize_t)_currentStep >= _firstWinStep + _stopFramesAfterFirstWin)
       {
         exitReason = exitReason_t::winStateFound;
         break;
@@ -754,7 +794,17 @@ private:
 
   size_t _currentStep; ///< Counter for the number of steps performed; the initial state counts as step zero.
 
-  bool _endOnFirstWinState; ///< Whether to end the run on the first win state found.
+  ssize_t _stopFramesAfterFirstWin = -1; ///< Stop N steps after the first win (0 = immediately; -1 = never stop on wins)
+
+  ssize_t _firstWinStep = -1; ///< Step at which the first win was found
+
+  bool _winCollectArm = false; ///< Whether "Win State Collection" was enabled in the config (applied to the engine post-construction)
+
+  std::vector<std::string> _winCollectProps; ///< Win-state collection: dedup property names
+
+  std::string _winCollectPrefix; ///< Win-state collection: output path prefix
+
+  size_t _winCollectMax = 1000; ///< Win-state collection: Max Files cap
 
   size_t _winStatesFound; ///< Total number of win states found so far.
 

@@ -1,12 +1,18 @@
 {
     "Driver Configuration": {
-        "Stop Frames After First Win": 0,
+        "Stop Frames After First Win": 4,
         "Max Steps": 64,
         "Save Intermediate Results": {
             "Enabled": true,
             "Frequency (s)": 1.0,
-            "Best Solution Path": "/tmp/jaffar.gridwalker.best.sol",
-            "Worst Solution Path": "/tmp/jaffar.gridwalker.worst.sol"
+            "Best Solution Path": "/tmp/jaffar.gw.wincollect.best.sol",
+            "Worst Solution Path": "/tmp/jaffar.gw.wincollect.worst.sol"
+        },
+        "Win State Collection": {
+            "Enabled": true,
+            "Dedup Properties": [ "Steps" ],
+            "Path Prefix": "/tmp/jaffar.gw.wincollect_",
+            "Max Files": 100
         }
     },
     "Engine Configuration": {
@@ -69,42 +75,33 @@
         ],
         "Hash Properties": [
             "Pos X",
-            "Pos Y"
+            "Pos Y",
+            "Steps"
         ],
         "Rules": [
             {
-                "Label": 100,
-                "Conditions": [
-                    { "Property": "Pos X", "Op": "==", "Value": 2 },
-                    { "Property": "Pos Y", "Op": "==", "Value": 2 }
-                ],
-                "Satisfies": [],
-                "Actions": [
-                    { "Type": "Trigger Fail" }
-                ]
-            },
-            {
-                "Label": 200,
-                "Conditions": [
-                    { "Property": "Pos X", "Op": "==", "Value": 4 }
-                ],
-                "Satisfies": [],
-                "Actions": [
-                    { "Type": "Add Reward", "Value": 100.0 },
-                    { "Type": "Trigger Checkpoint", "Tolerance": 8 },
-                    { "Type": "Trigger Save Solution", "Path": "/tmp/jaffar.gridwalker.win.sol" }
-                ]
-            },
-            {
                 "Label": 300,
                 "Conditions": [
-                    { "Property": "Pos X", "Op": "==", "Value": 4 },
-                    { "Property": "Pos Y", "Op": "==", "Value": 4 }
+                    {
+                        "Property": "Pos X",
+                        "Op": "==",
+                        "Value": 4
+                    },
+                    {
+                        "Property": "Pos Y",
+                        "Op": "==",
+                        "Value": 4
+                    }
                 ],
-                "Satisfies": [ 200 ],
+                "Satisfies": [],
                 "Actions": [
-                    { "Type": "Add Reward", "Value": 100000.0 },
-                    { "Type": "Trigger Win" }
+                    {
+                        "Type": "Add Reward",
+                        "Value": 100000.0
+                    },
+                    {
+                        "Type": "Trigger Win"
+                    }
                 ]
             }
         ],

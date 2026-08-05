@@ -77,6 +77,18 @@ public:
   };
 
   /**
+   * @brief Finds a registered game property by name.
+   * @param propertyName The property's registered name.
+   * @return Pointer to the property, or nullptr if not registered.
+   */
+  __INLINE__ Property* findProperty(const std::string& propertyName)
+  {
+    const auto h = jaffarCommon::hash::hashString(propertyName);
+    if (_propertyMap.contains(h) == false) return nullptr;
+    return _propertyMap[h].get();
+  }
+
+  /**
    * @brief Returns a comma-separated list of the property names registered for this game.
    * @details Intended for use in error messages when a configured property name is not found.
    * @return The registered property names joined by ", ".

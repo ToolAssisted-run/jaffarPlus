@@ -87,3 +87,5 @@ examples/genesis/microMachines/*.bizhawk.ram
 examples/genesis/microMachines/*.bizhawk.vram
 examples/genesis/microMachines/race01.bizhawk.ram
 examples/genesis/microMachines/*.vram
+__pycache__/
+*.mp4

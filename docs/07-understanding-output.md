@@ -25,13 +25,14 @@ The last line the engine prints is the one you usually care about most:
 Step 154 - Exit Reason: Solution found.
 ```
 
-`Exit Reason` is one of three values, and it is also the process exit code:
+`Exit Reason` is one of these values, and it is also the process exit code:
 
 | Exit reason | Code | Meaning |
 |---|---|---|
-| `Solution found.` | 0 | A state satisfied a `Trigger Win` rule (and `End On First Win State` was on). The winning solution was written to the configured output path. |
+| `Solution found.` | 0 | A state satisfied a `Trigger Win` rule (and the `Stop Frames After First Win` window elapsed). The winning solution was written to the configured output path. |
 | `Engine ran out of states.` | 1 | The reachable, non-duplicate state space was **exhausted** without a win. The search is complete — no solution exists under the current rules/inputs/hashing. |
 | `Maximum step count reached.` | 2 | The search hit `Max Steps` before finding a win or exhausting the space. It was cut off, **not** completed — raise `Max Steps` (or improve guidance) to go further. |
+| `Win collection complete (Max Files reached).` | 7 | `Win State Collection` was enabled and collected its `Max Files` cap of distinct win solutions. |
 
 > The shell `$?` after a backgrounded pipeline reflects the *last* command, not `jaffar`. Read the
 > `Exit Reason` line itself, not the exit code of a wrapping command.
@@ -88,7 +89,7 @@ done this step and in total:
 | `New States Processed` | Successor states *produced* by expanding them (in millions). |
 | `Base/New States Performance` | Throughput in Mstates/s — your headline speed number. |
 | `Normal States` | New states kept as ordinary frontier states. |
-| `Win States` | New states that satisfied a win rule. **`> 0` means a solution exists**, even if `End On First Win State` is off and the run continues. |
+| `Win States` | New states that satisfied a win rule. **`> 0` means a solution exists**, even if the run is configured to continue past wins (`Stop Frames After First Win` absent or > 0). |
 | `Failed States` | New states killed by a `Trigger Fail` rule (pruned). |
 | `Repeated States` | New states discarded as **duplicates** (already-seen hash). A high percentage (e.g. 90%+) means the search is re-deriving the same positions — normal for combat/cycles, but if it dominates and the count is small, the reachable space is tiny. |
 | `Dropped States (No Storage Available)` | States discarded because the **state database is full** (see below). Non-zero means you are memory-bound — raise the budget or shrink the state. |

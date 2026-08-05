@@ -124,7 +124,7 @@ optimal solution is exactly 8 moves, which makes it a perfect first run.
 
 The engine explores the reachable grid positions and, because best-first search returns a shortest
 path, finds an optimal 8-move solution. By default it stops on the first win
-(`"End On First Win State": true`) and writes the solution to `/tmp/jaffar.gridwalker.best.sol`
+(`"Stop Frames After First Win": 0`) and writes the solution to `/tmp/jaffar.gridwalker.best.sol`
 (set by `"Best Solution Path"`).
 
 ## Reading the output

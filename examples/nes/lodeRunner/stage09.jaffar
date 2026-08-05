@@ -1,0 +1,1083 @@
+{
+ "Driver Configuration": {
+  "End On First Win State": true,
+  "Max Steps": 1300,
+  "Save Intermediate Results": {
+   "Enabled": true,
+   "Frequency (s)": 1.0,
+   "Best Solution Path": "/tmp/jaffar.best.sol",
+   "Worst Solution Path": "/tmp/jaffar.worst.sol"
+  }
+ },
+ "Engine Configuration": {
+  "State Database": {
+   "Max Size (Mb)": 30000
+  },
+  "Hash Database": {
+   "Max Store Count": 2,
+   "Max Store Size (Mb)": 4000,
+   "Enabled": true
+  }
+ },
+ "Emulator Configuration": {
+  "Emulator Name": "QuickerNES",
+  "Use Flat Code Map": true,
+  "SRAM Block Size": 8192,
+  "Rom File Path": "Lode Runner (U) [!].nes",
+  "Rom File SHA1": "EA09AEC11EFC4B42EBC644EA243C2284001FE34F",
+  "Initial State File Path": "",
+  "Initial Sequence File Path": "stage09.initial.sol",
+  "Initial RAM Data File Path": "",
+  "Controller 1 Type": "Joypad",
+  "Controller 2 Type": "None",
+  "Disabled State Properties": [
+   "SPRT",
+   "NTAB",
+   "CHRR",
+   "SRAM"
+  ],
+  "Nametable Block Size": 0,
+  "Precise State Timing": false
+ },
+ "Runner Configuration": {
+  "Hash Step Tolerance": 4,
+  "Show Empty Input Slots": true,
+  "Show Allowed Inputs": true,
+  "Bypass Hash Calculation": false,
+  "Store Input History": {
+   "Type": "Raw",
+   "Max Size": 2000
+  },
+  "Allowed Input Sets": [
+   {
+    "Conditions": [],
+    "Inputs": [
+     "|..|........|",
+     "|..|U.......|",
+     "|..|.D......|",
+     "|..|..L.....|",
+     "|..|...R....|",
+     "|..|.......A|",
+     "|..|......B.|",
+     "|..|..L....A|",
+     "|..|..L...B.|",
+     "|..|...R...A|",
+     "|..|...R..B.|"
+    ],
+    "Stop Input Evaluation": false
+   }
+  ],
+  "Test Candidate Inputs": false,
+  "Candidate Input Sets": [],
+  "Frameskip": {
+   "Rate": 0,
+   "Use Custom Input": false,
+   "Custom Input": ""
+  }
+ },
+ "Game Configuration": {
+  "Game Name": "NES / Lode Runner",
+  "Frame Rate": 60.1,
+  "Bypass Emulator State": false,
+  "Last Input Step Reward": 0.0,
+  "Hash Timers": false,
+  "Hash Camera": false,
+  "Hash Enemy Offsets": false,
+  "Hash Player Offsets": true,
+  "Print Properties": [
+   "Current Level",
+   "Play Mode",
+   "Player X",
+   "Player Y",
+   "Player Alive",
+   "Gold Remaining",
+   "Gold Collected",
+   "Spawn Timer"
+  ],
+  "Hash Properties": [],
+  "Rules": [
+   {
+    "Label": 1900,
+    "Description": "Order guard: 'Central Chest A' must not be collected before the tower chest (pocket-first is a proven grave)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Central Chest A",
+      "Op": "==",
+      "Value": 0
+     },
+     {
+      "Property": "Tower Chest",
+      "Op": "==",
+      "Value": 7
+     },
+     {
+      "Property": "Play Mode",
+      "Op": "==",
+      "Value": 1
+     },
+     {
+      "Property": "Current Level",
+      "Op": "==",
+      "Value": 9
+     },
+     {
+      "Property": "Gold Remaining",
+      "Op": ">=",
+      "Value": 1
+     },
+     {
+      "Property": "Gold Remaining",
+      "Op": "<=",
+      "Value": 3
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Fail"
+     }
+    ]
+   },
+   {
+    "Label": 1901,
+    "Description": "Order guard: 'Central Chest B' must not be collected before the tower chest (pocket-first is a proven grave)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Central Chest B",
+      "Op": "==",
+      "Value": 0
+     },
+     {
+      "Property": "Tower Chest",
+      "Op": "==",
+      "Value": 7
+     },
+     {
+      "Property": "Play Mode",
+      "Op": "==",
+      "Value": 1
+     },
+     {
+      "Property": "Current Level",
+      "Op": "==",
+      "Value": 9
+     },
+     {
+      "Property": "Gold Remaining",
+      "Op": ">=",
+      "Value": 1
+     },
+     {
+      "Property": "Gold Remaining",
+      "Op": "<=",
+      "Value": 3
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Fail"
+     }
+    ]
+   },
+   {
+    "Label": 1902,
+    "Description": "Order guard: 'Low Chest' must not be collected before the tower chest (pocket-first is a proven grave)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Low Chest",
+      "Op": "==",
+      "Value": 0
+     },
+     {
+      "Property": "Tower Chest",
+      "Op": "==",
+      "Value": 7
+     },
+     {
+      "Property": "Play Mode",
+      "Op": "==",
+      "Value": 1
+     },
+     {
+      "Property": "Current Level",
+      "Op": "==",
+      "Value": 9
+     },
+     {
+      "Property": "Gold Remaining",
+      "Op": ">=",
+      "Value": 1
+     },
+     {
+      "Property": "Gold Remaining",
+      "Op": "<=",
+      "Value": 3
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Fail"
+     }
+    ]
+   },
+   {
+    "Label": 1000,
+    "Description": "Always: each chest off the map dominates all shaping",
+    "Satisfies": [],
+    "Conditions": [],
+    "Actions": [
+     {
+      "Type": "Set Initial Gold",
+      "Value": 4
+     },
+     {
+      "Type": "Set Gold Magnet",
+      "Intensity": 100000.0
+     }
+    ]
+   },
+   {
+    "Label": 2001,
+    "Description": "Waypoint A (chest-1 leg): top of left ladder",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 4
+     },
+     {
+      "Property": "Player X",
+      "Op": "<=",
+      "Value": 1.5
+     },
+     {
+      "Property": "Player Y",
+      "Op": "<=",
+      "Value": 2.0
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Add Reward",
+      "Value": 10000.0
+     }
+    ]
+   },
+   {
+    "Label": 2002,
+    "Description": "Waypoint B (chest-1 leg): right end of the top rope",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 4
+     },
+     {
+      "Property": "Player X",
+      "Op": ">=",
+      "Value": 23.5
+     },
+     {
+      "Property": "Player Y",
+      "Op": "<=",
+      "Value": 2.0
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Add Reward",
+      "Value": 20000.0
+     }
+    ]
+   },
+   {
+    "Label": 1101,
+    "Description": "Chest-1 leg routing: get to the top-left ladder head",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 4
+     },
+     {
+      "Property": "Player Y",
+      "Op": ">=",
+      "Value": 2.5
+     },
+     {
+      "Property": "Player X",
+      "Op": "<=",
+      "Value": 20.0
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Set Point Magnet",
+      "Intensity": 10.0,
+      "X": 0.0,
+      "Y": 1.0
+     }
+    ]
+   },
+   {
+    "Label": 1102,
+    "Description": "Chest-1 leg routing: cross the top rope rightward",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 4
+     },
+     {
+      "Property": "Player Y",
+      "Op": "<=",
+      "Value": 2.4
+     },
+     {
+      "Property": "Player X",
+      "Op": "<=",
+      "Value": 23.4
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Set Point Magnet",
+      "Intensity": 10.0,
+      "X": 25.0,
+      "Y": 1.0
+     }
+    ]
+   },
+   {
+    "Label": 1103,
+    "Description": "Chest-1 leg: tower excavation zone (dig down to the tower chest)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 4
+     },
+     {
+      "Property": "Player X",
+      "Op": ">=",
+      "Value": 20.5
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Set Point Magnet",
+      "Intensity": 10.0,
+      "X": 23.0,
+      "Y": 4.0
+     },
+     {
+      "Type": "Set Dig Progress Magnet",
+      "Intensity": 100.0,
+      "Radius": 3.0
+     }
+    ]
+   },
+   {
+    "Label": 2003,
+    "Description": "Waypoint D (mid leg): bottom of right ladder",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 3
+     },
+     {
+      "Property": "Player X",
+      "Op": ">=",
+      "Value": 24.0
+     },
+     {
+      "Property": "Player Y",
+      "Op": ">=",
+      "Value": 10.0
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Add Reward",
+      "Value": 30000.0
+     }
+    ]
+   },
+   {
+    "Label": 2004,
+    "Description": "Waypoint E (mid leg): traversed left along the lower corridor",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 3
+     },
+     {
+      "Property": "Player X",
+      "Op": "<=",
+      "Value": 2.5
+     },
+     {
+      "Property": "Player Y",
+      "Op": ">=",
+      "Value": 10.5
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Add Reward",
+      "Value": 40000.0
+     }
+    ]
+   },
+   {
+    "Label": 2005,
+    "Description": "Waypoint F (mid leg): back at top of left ladder",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 3
+     },
+     {
+      "Property": "Player X",
+      "Op": "<=",
+      "Value": 1.5
+     },
+     {
+      "Property": "Player Y",
+      "Op": "<=",
+      "Value": 2.0
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Add Reward",
+      "Value": 50000.0
+     }
+    ]
+   },
+   {
+    "Label": 2006,
+    "Description": "Waypoint G (mid leg): rope above the central excavation",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 3
+     },
+     {
+      "Property": "Player X",
+      "Op": ">=",
+      "Value": 12.0
+     },
+     {
+      "Property": "Player X",
+      "Op": "<=",
+      "Value": 14.0
+     },
+     {
+      "Property": "Player Y",
+      "Op": "<=",
+      "Value": 2.0
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Add Reward",
+      "Value": 60000.0
+     }
+    ]
+   },
+   {
+    "Label": 1104,
+    "Description": "Mid leg routing: leave the tower area downward (right ladder)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 3
+     },
+     {
+      "Property": "Player X",
+      "Op": ">=",
+      "Value": 20.0
+     },
+     {
+      "Property": "Player Y",
+      "Op": "<=",
+      "Value": 9.9
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Set Point Magnet",
+      "Intensity": 10.0,
+      "X": 25.0,
+      "Y": 11.0
+     }
+    ]
+   },
+   {
+    "Label": 1105,
+    "Description": "Mid leg routing: traverse the lower corridor leftward",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 3
+     },
+     {
+      "Property": "Player Y",
+      "Op": ">=",
+      "Value": 10.0
+     },
+     {
+      "Property": "Player X",
+      "Op": ">=",
+      "Value": 2.6
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Set Point Magnet",
+      "Intensity": 10.0,
+      "X": 0.0,
+      "Y": 11.0
+     }
+    ]
+   },
+   {
+    "Label": 1106,
+    "Description": "Mid leg routing: climb the left ladder",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 3
+     },
+     {
+      "Property": "Player X",
+      "Op": "<=",
+      "Value": 2.5
+     },
+     {
+      "Property": "Player Y",
+      "Op": ">=",
+      "Value": 2.5
+     },
+     {
+      "Property": "Player Y",
+      "Op": "<=",
+      "Value": 9.9
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Set Point Magnet",
+      "Intensity": 10.0,
+      "X": 0.0,
+      "Y": 1.0
+     }
+    ]
+   },
+   {
+    "Label": 1107,
+    "Description": "Mid leg routing: rope rightward to above the central mass",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 3
+     },
+     {
+      "Property": "Player Y",
+      "Op": "<=",
+      "Value": 2.4
+     },
+     {
+      "Property": "Player X",
+      "Op": ">=",
+      "Value": 2.6
+     },
+     {
+      "Property": "Player X",
+      "Op": "<=",
+      "Value": 19.9
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Set Point Magnet",
+      "Intensity": 10.0,
+      "X": 13.0,
+      "Y": 1.0
+     }
+    ]
+   },
+   {
+    "Label": 1108,
+    "Description": "Central excavation zone (chests 2+3 entombed in the brick mass)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "<=",
+      "Value": 3
+     },
+     {
+      "Property": "Gold Remaining",
+      "Op": ">=",
+      "Value": 1
+     },
+     {
+      "Property": "Player X",
+      "Op": ">=",
+      "Value": 9.0
+     },
+     {
+      "Property": "Player X",
+      "Op": "<=",
+      "Value": 18.0
+     },
+     {
+      "Property": "Player Y",
+      "Op": ">=",
+      "Value": 2.5
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Set Dig Progress Magnet",
+      "Intensity": 100.0,
+      "Radius": 3.0
+     },
+     {
+      "Type": "Set Nearest Chest Magnet",
+      "Intensity": 10.0
+     }
+    ]
+   },
+   {
+    "Label": 2007,
+    "Description": "Waypoint H (last leg): back at top of left ladder",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 1
+     },
+     {
+      "Property": "Player X",
+      "Op": "<=",
+      "Value": 1.5
+     },
+     {
+      "Property": "Player Y",
+      "Op": "<=",
+      "Value": 2.0
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Add Reward",
+      "Value": 70000.0
+     }
+    ]
+   },
+   {
+    "Label": 2008,
+    "Description": "Waypoint I (last leg): rope above the final shaft",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 1
+     },
+     {
+      "Property": "Player X",
+      "Op": ">=",
+      "Value": 8.0
+     },
+     {
+      "Property": "Player X",
+      "Op": "<=",
+      "Value": 10.0
+     },
+     {
+      "Property": "Player Y",
+      "Op": "<=",
+      "Value": 2.0
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Add Reward",
+      "Value": 80000.0
+     }
+    ]
+   },
+   {
+    "Label": 1109,
+    "Description": "Last leg routing: exit excavation leftward and climb the left ladder",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 1
+     },
+     {
+      "Property": "Player X",
+      "Op": "<=",
+      "Value": 8.9
+     },
+     {
+      "Property": "Player Y",
+      "Op": ">=",
+      "Value": 2.5
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Set Point Magnet",
+      "Intensity": 10.0,
+      "X": 0.0,
+      "Y": 1.0
+     }
+    ]
+   },
+   {
+    "Label": 1110,
+    "Description": "Last leg routing: rope rightward to the final shaft entry",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 1
+     },
+     {
+      "Property": "Player Y",
+      "Op": "<=",
+      "Value": 2.4
+     },
+     {
+      "Property": "Player X",
+      "Op": ">=",
+      "Value": 2.6
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Set Point Magnet",
+      "Intensity": 10.0,
+      "X": 9.0,
+      "Y": 1.0
+     }
+    ]
+   },
+   {
+    "Label": 1111,
+    "Description": "Last leg: final excavation zone (chest in the interior pocket)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 1
+     },
+     {
+      "Property": "Player X",
+      "Op": ">=",
+      "Value": 9.0
+     },
+     {
+      "Property": "Player X",
+      "Op": "<=",
+      "Value": 17.0
+     },
+     {
+      "Property": "Player Y",
+      "Op": ">=",
+      "Value": 2.5
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Set Dig Progress Magnet",
+      "Intensity": 100.0,
+      "Radius": 3.0
+     },
+     {
+      "Type": "Set Nearest Chest Magnet",
+      "Intensity": 10.0
+     }
+    ]
+   },
+   {
+    "Label": 1112,
+    "Description": "All chests banked: exit via the top-left ladder",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 0
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Set Point Magnet",
+      "Intensity": 50.0,
+      "X": 0.0,
+      "Y": 1.0
+     }
+    ]
+   },
+   {
+    "Label": 1998,
+    "Description": "Fail on player death",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Player Alive",
+      "Op": "==",
+      "Value": 0
+     },
+     {
+      "Property": "Play Mode",
+      "Op": "==",
+      "Value": 1
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Fail"
+     }
+    ]
+   },
+   {
+    "Label": 1997,
+    "Description": "Fail if play stops mid-level (level-select menu wandering)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Play Mode",
+      "Op": "==",
+      "Value": 0
+     },
+     {
+      "Property": "Gold Remaining",
+      "Op": ">",
+      "Value": 0
+     },
+     {
+      "Property": "Gold Remaining",
+      "Op": "<",
+      "Value": 250
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Fail"
+     }
+    ]
+   },
+   {
+    "Label": 1999,
+    "Description": "Win: level 9 fully completed",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Current Level",
+      "Op": "==",
+      "Value": 10
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Win"
+     }
+    ]
+   },
+   {
+    "Label": 3001,
+    "Description": "Checkpoint: tower chest collected",
+    "Conditions": [
+     {
+      "Property": "Tower Chest",
+      "Op": "==",
+      "Value": 0
+     },
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 3
+     },
+     {
+      "Property": "Play Mode",
+      "Op": "==",
+      "Value": 1
+     },
+     {
+      "Property": "Current Level",
+      "Op": "==",
+      "Value": 9
+     }
+    ],
+    "Satisfies": [],
+    "Actions": [
+     {
+      "Type": "Trigger Checkpoint",
+      "Tolerance": 200
+     }
+    ]
+   },
+   {
+    "Label": 3002,
+    "Description": "Checkpoint: down to 2 chests",
+    "Conditions": [
+     {
+      "Property": "Tower Chest",
+      "Op": "==",
+      "Value": 0
+     },
+     {
+      "Property": "Gold Remaining",
+      "Op": "<=",
+      "Value": 2
+     },
+     {
+      "Property": "Gold Remaining",
+      "Op": ">=",
+      "Value": 1
+     },
+     {
+      "Property": "Play Mode",
+      "Op": "==",
+      "Value": 1
+     },
+     {
+      "Property": "Current Level",
+      "Op": "==",
+      "Value": 9
+     }
+    ],
+    "Satisfies": [],
+    "Actions": [
+     {
+      "Type": "Trigger Checkpoint",
+      "Tolerance": 200
+     }
+    ]
+   },
+   {
+    "Label": 3003,
+    "Description": "Checkpoint: down to 1 chest",
+    "Conditions": [
+     {
+      "Property": "Tower Chest",
+      "Op": "==",
+      "Value": 0
+     },
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 1
+     },
+     {
+      "Property": "Play Mode",
+      "Op": "==",
+      "Value": 1
+     },
+     {
+      "Property": "Current Level",
+      "Op": "==",
+      "Value": 9
+     }
+    ],
+    "Satisfies": [],
+    "Actions": [
+     {
+      "Type": "Trigger Checkpoint",
+      "Tolerance": 200
+     }
+    ]
+   },
+   {
+    "Label": 3004,
+    "Description": "Checkpoint: all chests collected",
+    "Conditions": [
+     {
+      "Property": "Tower Chest",
+      "Op": "==",
+      "Value": 0
+     },
+     {
+      "Property": "Gold Remaining",
+      "Op": "==",
+      "Value": 0
+     },
+     {
+      "Property": "Play Mode",
+      "Op": "==",
+      "Value": 1
+     },
+     {
+      "Property": "Current Level",
+      "Op": "==",
+      "Value": 9
+     }
+    ],
+    "Satisfies": [],
+    "Actions": [
+     {
+      "Type": "Trigger Checkpoint",
+      "Tolerance": 200
+     }
+    ]
+   }
+  ],
+  "Watch Tiles": [
+   {
+    "Name": "Tower Chest",
+    "X": 23,
+    "Y": 4
+   },
+   {
+    "Name": "Central Chest A",
+    "X": 12,
+    "Y": 7
+   },
+   {
+    "Name": "Central Chest B",
+    "X": 15,
+    "Y": 7
+   },
+   {
+    "Name": "Low Chest",
+    "X": 15,
+    "Y": 10
+   }
+  ]
+ }
+}

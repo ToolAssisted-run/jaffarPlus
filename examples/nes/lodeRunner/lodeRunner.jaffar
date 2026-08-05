@@ -1,0 +1,154 @@
+{
+ "Driver Configuration": {
+  "End On First Win State": true,
+  "Max Steps": 50000,
+  "Save Intermediate Results": {
+   "Enabled": true,
+   "Frequency (s)": 1.0,
+   "Best Solution Path": "/tmp/jaffar.best.sol",
+   "Worst Solution Path": "/tmp/jaffar.worst.sol"
+  }
+ },
+ "Engine Configuration": {
+  "State Database": {
+   "Max Size (Mb)": 1000
+  },
+  "Hash Database": {
+   "Max Store Count": 2,
+   "Max Store Size (Mb)": 1000,
+   "Enabled": true
+  }
+ },
+ "Emulator Configuration": {
+  "Emulator Name": "QuickerNES",
+  "Use Flat Code Map": true,
+  "SRAM Block Size": 8192,
+  "Rom File Path": "Lode Runner (U) [!].nes",
+  "Rom File SHA1": "EA09AEC11EFC4B42EBC644EA243C2284001FE34F",
+  "Initial State File Path": "",
+  "Initial Sequence File Path": "",
+  "Initial RAM Data File Path": "",
+  "Controller 1 Type": "Joypad",
+  "Controller 2 Type": "None",
+  "Disabled State Properties": [
+   "SPRT",
+   "NTAB",
+   "CHRR",
+   "SRAM"
+  ],
+  "Nametable Block Size": 0,
+  "Precise State Timing": false
+ },
+ "Runner Configuration": {
+  "Hash Step Tolerance": 4,
+  "Show Empty Input Slots": true,
+  "Show Allowed Inputs": true,
+  "Bypass Hash Calculation": false,
+  "Store Input History": {
+   "Type": "Raw",
+   "Max Size": 50000
+  },
+  "Allowed Input Sets": [
+   {
+    "Conditions": [],
+    "Inputs": [
+     "|..|........|",
+     "|..|U.......|",
+     "|..|.D......|",
+     "|..|..L.....|",
+     "|..|...R....|",
+     "|..|UD......|",
+     "|..|U.L.....|",
+     "|..|U..R....|",
+     "|..|.DL.....|",
+     "|..|.D.R....|",
+     "|..|.......A|",
+     "|..|......B.|",
+     "|..|..L....A|",
+     "|..|..L...B.|",
+     "|..|...R...A|",
+     "|..|...R..B.|",
+     "|..|....S...|",
+     "|..|.....s..|",
+     "|..|.....s.A|",
+     "|..|.....sB.|",
+     "|..|..L..s..|",
+     "|..|...R.s..|"
+    ],
+    "Stop Input Evaluation": false
+   }
+  ],
+  "Test Candidate Inputs": false,
+  "Candidate Input Sets": [],
+  "Frameskip": {
+   "Rate": 0,
+   "Use Custom Input": false,
+   "Custom Input": ""
+  }
+ },
+ "Game Configuration": {
+  "Game Name": "NES / Lode Runner",
+  "Frame Rate": 60.1,
+  "Bypass Emulator State": false,
+  "Last Input Step Reward": 0.0,
+  "Hash Timers": true,
+  "Hash Camera": true,
+  "Print Properties": [
+   "Current Level",
+   "Play Mode",
+   "Game Speed",
+   "Player X",
+   "Player Y",
+   "Player Alive",
+   "Gold Remaining",
+   "Gold Collected",
+   "Spawn Timer",
+   "Global Timer"
+  ],
+  "Hash Properties": [],
+  "Rules": [
+   {
+    "Label": 1998,
+    "Description": "Fail on player death",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Player Alive",
+      "Op": "==",
+      "Value": 0
+     },
+     {
+      "Property": "Play Mode",
+      "Op": "==",
+      "Value": 1
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Fail"
+     }
+    ]
+   },
+   {
+    "Label": 1999,
+    "Description": "Win: never fires in replay mode (placeholder for per-level search configs)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Current Level",
+      "Op": "==",
+      "Value": 255
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Win"
+     }
+    ]
+   }
+  ],
+  "Hash Enemy Offsets": true,
+  "Hash Player Offsets": true,
+  "Watch Tiles": []
+ }
+}

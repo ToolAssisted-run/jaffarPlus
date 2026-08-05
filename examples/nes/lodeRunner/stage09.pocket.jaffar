@@ -1,0 +1,170 @@
+{
+ "Driver Configuration": {
+  "End On First Win State": true,
+  "Max Steps": 500,
+  "Save Intermediate Results": {
+   "Enabled": true,
+   "Frequency (s)": 1.0,
+   "Best Solution Path": "/tmp/jaffar.best.sol",
+   "Worst Solution Path": "/tmp/jaffar.worst.sol"
+  }
+ },
+ "Engine Configuration": {
+  "State Database": {
+   "Max Size (Mb)": 20000
+  },
+  "Hash Database": {
+   "Max Store Count": 2,
+   "Max Store Size (Mb)": 4000,
+   "Enabled": true
+  }
+ },
+ "Emulator Configuration": {
+  "Emulator Name": "QuickerNES",
+  "Use Flat Code Map": true,
+  "SRAM Block Size": 8192,
+  "Rom File Path": "Lode Runner (U) [!].nes",
+  "Rom File SHA1": "EA09AEC11EFC4B42EBC644EA243C2284001FE34F",
+  "Initial State File Path": "",
+  "Initial Sequence File Path": "stage09.pocket.initial.sol",
+  "Initial RAM Data File Path": "",
+  "Controller 1 Type": "Joypad",
+  "Controller 2 Type": "None",
+  "Disabled State Properties": [
+   "SPRT",
+   "NTAB",
+   "CHRR",
+   "SRAM"
+  ],
+  "Nametable Block Size": 0,
+  "Precise State Timing": false
+ },
+ "Runner Configuration": {
+  "Hash Step Tolerance": 4,
+  "Show Empty Input Slots": true,
+  "Show Allowed Inputs": true,
+  "Bypass Hash Calculation": false,
+  "Store Input History": {
+   "Type": "Raw",
+   "Max Size": 2000
+  },
+  "Allowed Input Sets": [
+   {
+    "Conditions": [],
+    "Inputs": [
+     "|..|........|",
+     "|..|U.......|",
+     "|..|.D......|",
+     "|..|..L.....|",
+     "|..|...R....|",
+     "|..|.......A|",
+     "|..|......B.|",
+     "|..|..L....A|",
+     "|..|..L...B.|",
+     "|..|...R...A|",
+     "|..|...R..B.|"
+    ],
+    "Stop Input Evaluation": false
+   }
+  ],
+  "Test Candidate Inputs": false,
+  "Candidate Input Sets": [],
+  "Frameskip": {
+   "Rate": 0,
+   "Use Custom Input": false,
+   "Custom Input": ""
+  }
+ },
+ "Game Configuration": {
+  "Game Name": "NES / Lode Runner",
+  "Frame Rate": 60.1,
+  "Bypass Emulator State": false,
+  "Last Input Step Reward": 0.0,
+  "Hash Timers": false,
+  "Hash Camera": false,
+  "Hash Enemy Offsets": false,
+  "Hash Player Offsets": true,
+  "Print Properties": [
+   "Current Level",
+   "Play Mode",
+   "Player X",
+   "Player Y",
+   "Player Alive",
+   "Gold Remaining",
+   "Gold Collected",
+   "Spawn Timer"
+  ],
+  "Hash Properties": [],
+  "Rules": [
+   {
+    "Label": 1000,
+    "Description": "Always: chest reward + dig shaping + gradient",
+    "Satisfies": [],
+    "Conditions": [],
+    "Actions": [
+     {
+      "Type": "Set Initial Gold",
+      "Value": 4
+     },
+     {
+      "Type": "Set Gold Magnet",
+      "Intensity": 100000.0
+     },
+     {
+      "Type": "Set Dig Progress Magnet",
+      "Intensity": 100.0,
+      "Radius": 4.0
+     },
+     {
+      "Type": "Set Nearest Chest Magnet",
+      "Intensity": 10.0
+     }
+    ]
+   },
+   {
+    "Label": 1998,
+    "Description": "Fail on player death",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Player Alive",
+      "Op": "==",
+      "Value": 0
+     },
+     {
+      "Property": "Play Mode",
+      "Op": "==",
+      "Value": 1
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Fail"
+     }
+    ]
+   },
+   {
+    "Label": 1999,
+    "Description": "Win: reached 2 chests remaining (descent to the lower pocket proven)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": "<=",
+      "Value": 2
+     },
+     {
+      "Property": "Gold Remaining",
+      "Op": ">=",
+      "Value": 1
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Win"
+     }
+    ]
+   }
+  ]
+ }
+}

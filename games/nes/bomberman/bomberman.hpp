@@ -621,8 +621,20 @@ private:
       }
     _powerupPresent = (_powerupTileX != 255);
 
-    // (6) Brick-chain plan (once per run) + current chain status
-    if (_chainComputed == false && (_powerupTileX != 255 || _exitTileX != 255))
+    // (6) Brick-chain plan (once per stage) + current chain status
+    // The load window ($0C == 0x10) resets the latch: a seed that replays through EARLIER stages
+    // would otherwise latch the FIRST stage's plan and never recompute for the searched stage --
+    // its powerup/exit cells aren't in the stale chain, so the chain reward aims at the previous
+    // board's cells (and the map overlay shows 'U' instead of the chain-head 'H'). The reset also
+    // fires on stage-card screen-offs (old board still in $0200); that intermediate plan is
+    // discarded by the next load window, and the last computation always happens on the searched
+    // stage's final board.
+    if (_isLoading)
+    {
+      _chainComputed = false;
+      _exitReplanned = false;
+    }
+    else if (_chainComputed == false && (_powerupTileX != 255 || _exitTileX != 255))
     {
       computeChainPlan();
       _initialBricks = _bricksLeft; // stage-constant baseline for the any-brick ladder

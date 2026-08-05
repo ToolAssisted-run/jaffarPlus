@@ -206,6 +206,15 @@ test('gridWalker_tolerance',
       args : [ 'checkReproduce.sh', jaffar.full_path(), jaffarPlayer.full_path(), 'gridWalker.tolerance.jaffar', '/tmp/jaffar.gw.tolerance.best.sol', '8', 'hash step tolerance=3' ],
       suite : [ 'runs', 'TestEmulator', 'gridWalker' ])
 
+# Reference-reward pruning: states below the reference trace are dropped per-state in the engine
+# workers; the on-pace lineage survives and still yields the 8-move optimum.
+test('gridWalker_reference_prune',
+      bash,
+      workdir : meson.current_source_dir() + '/testEmulator',
+      timeout: testTimeout,
+      args : [ 'checkReferencePrune.sh', jaffar.full_path() ],
+      suite : [ 'runs', 'TestEmulator', 'gridWalker' ])
+
 # Win State Collection + Stop Frames After First Win: a 4-step window past the first win harvests
 # the later, longer wins too (dedup on "Steps" -> >= 2 saved solutions), and a Max Files cap of 1
 # must terminate the run with "Win collection complete".

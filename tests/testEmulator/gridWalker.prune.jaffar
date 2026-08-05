@@ -1,0 +1,113 @@
+{
+    "Driver Configuration": {
+        "Stop Frames After First Win": 0,
+        "Max Steps": 12,
+        "Save Intermediate Results": {
+            "Enabled": true,
+            "Frequency (s)": 1.0,
+            "Best Solution Path": "/tmp/jaffar.gw.prune.best.sol",
+            "Worst Solution Path": "/tmp/jaffar.gw.prune.worst.sol"
+        },
+        "Reference Reward Floor": {
+            "Enabled": false,
+            "Tolerance": 0.0,
+            "Solution File": "/tmp/jaffar.gw.prune.ref.sol"
+        }
+    },
+    "Engine Configuration": {
+        "Hash Database": {
+            "Max Store Count": 2,
+            "Max Store Size (Mb)": 100,
+            "Enabled": true
+        },
+        "State Database": {
+            "Max Size (Mb)": 100
+        },
+        "Reference Reward Prune": {
+            "Enabled": true,
+            "Tolerance": 0.5
+        }
+    },
+    "Emulator Configuration": {
+        "Emulator Name": "TestEmulator",
+        "Grid Width": 5,
+        "Grid Height": 5,
+        "Start X": 0,
+        "Start Y": 0
+    },
+    "Runner Configuration": {
+        "Hash Step Tolerance": 0,
+        "Show Empty Input Slots": false,
+        "Show Allowed Inputs": false,
+        "Bypass Hash Calculation": false,
+        "Store Input History": {
+            "Type": "Raw",
+            "Max Size": 64
+        },
+        "Allowed Input Sets": [
+            {
+                "Conditions": [],
+                "Inputs": [
+                    "|U|",
+                    "|D|",
+                    "|L|",
+                    "|R|"
+                ],
+                "Stop Input Evaluation": false
+            }
+        ],
+        "Test Candidate Inputs": false,
+        "Candidate Input Sets": [],
+        "Frameskip": {
+            "Rate": 0,
+            "Use Custom Input": false,
+            "Custom Input": ""
+        }
+    },
+    "Game Configuration": {
+        "Game Name": "Test / GridWalker",
+        "Frame Rate": 60.0,
+        "Goal X": 4,
+        "Goal Y": 4,
+        "Print Properties": [
+            "Pos X",
+            "Pos Y",
+            "Distance",
+            "Steps",
+            "Goal Reached"
+        ],
+        "Hash Properties": [
+            "Pos X",
+            "Pos Y",
+            "Steps"
+        ],
+        "Rules": [
+            {
+                "Label": 300,
+                "Conditions": [
+                    {
+                        "Property": "Pos X",
+                        "Op": "==",
+                        "Value": 4
+                    },
+                    {
+                        "Property": "Pos Y",
+                        "Op": "==",
+                        "Value": 4
+                    }
+                ],
+                "Satisfies": [],
+                "Actions": [
+                    {
+                        "Type": "Add Reward",
+                        "Value": 100000.0
+                    },
+                    {
+                        "Type": "Trigger Win"
+                    }
+                ]
+            }
+        ],
+        "Bypass Emulator State": false
+    }
+}

@@ -56,6 +56,26 @@ The driver owns the top-level run loop: when to stop and what to checkpoint to d
 > read them, and they are now **rejected** as unrecognized keys — they have been removed from the
 > shipped examples.
 
+### Driver Configuration → Reference Reward Floor
+
+Optional. Compares the search against a reference solution's per-step reward trace. The trace
+comes from `Solution File` (a .sol replayed internally through the live reward function — the
+recommended form) or `Path` (a precomputed one-reward-per-line file, legacy).
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `Enabled` | boolean | yes | Enables the run-level **cancel** check: the run stops (`bestBelowReference`) when the best state falls below the reference at the current step beyond `Tolerance`. |
+| `Tolerance` | number | yes | Allowed slack for the cancel check (set ≥ the reference's largest one-step reward transient). |
+| `Step Grace` | number | no | Compare against the reference G steps earlier (bounded time slack for discrete-jump rewards). Default 0. |
+| `Solution File` | string | one of | Reference .sol; its per-step trace is computed at init by replaying it through this run's own runner/game. |
+| `Path` | string | one of | Precomputed reward trace file (legacy). |
+| `Cancel If Reference Below Worst` | boolean | no | Also cancel when the reference falls below the worst kept state (evicted from the frontier). Default false. |
+| `Below Worst Margin` | number | no | Margin for the below-worst check (typically the Reference Pinning bonus). Default 0. |
+
+The reference trace defined here is also the input to the engine-side `Reference Reward Prune`
+section (see Engine Configuration) — a floor with `Enabled: false` plus a `Solution File` is a
+valid way to supply the trace for pruning without the cancel check.
+
 ### Driver Configuration → Win State Collection
 
 Saves the input history of **every** win state whose dedup key is new, as
@@ -102,6 +122,42 @@ explained in [Search Concepts & Tuning](04-search-concepts.md); the keys are:
 | `Max Store Size (Mb)` | number | yes* | Memory budget (in MB) for the hash database. Read only when `Enabled` is `true`. Override via `JAFFAR_ENGINE_OVERRIDE_MAX_HASHDB_SIZE_MB`. |
 
 \* Required when `Hash Database` > `Enabled` is `true`.
+
+### Engine Configuration → Reference Pinning
+
+Optional. Anchors the exact reference lineage in the search: a produced state whose hash matches
+the reference's state at its depth (within `Lookahead` steps ahead) and byte-verifies against the
+exact captured reference states (available when the driver's floor uses `Solution File`) is
+"pinned" — once per depth, it bypasses hash deduplication and receives `Bonus` extra ordering
+reward, so the reference lineage provably survives. The log reports
+`Reference Pin Hits (cumulative): N (deepest D / L)`; D tracking the step count 1:1 proves the
+reference line is being carried. **When combined with `Reference Reward Prune`, set `Bonus` to
+roughly the prune `Tolerance`**: the trace-riding reference is the floor of the admitted band,
+and a small bonus lets DB-full eviction (which drops the lowest-ranked states) kill it first.
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `Enabled` | boolean | yes | Whether to pin the reference lineage. |
+| `Path` | string | yes | Per-depth hash file, produced by `jaffar-player <config> <ref.sol> --dumpHashes <path>`. |
+| `Bonus` | number | yes | Ordering-reward bonus for the pinned state at each depth (≈ prune Tolerance when pruning). |
+| `Lookahead` | number | yes | Also pin states that reach the reference state up to this many steps early. |
+| `Lookahead Bonus` | number | yes | Extra bonus per step of earliness. |
+
+### Engine Configuration → Reference Reward Prune
+
+Optional **greedy pruning mode**: every produced state whose reward falls below the reference
+trace at its depth (beyond `Tolerance`) is dropped in the engine workers — only lineages
+decisively keeping pace with the reference survive, so the frontier stays small and exploration
+goes deep. A polish mode for refining a known solution, not for exploration. Win states and the
+pinned reference lineage are exempt. The per-depth trace itself is supplied by the driver's
+`Reference Reward Floor` section (`Solution File` or `Path`; the floor's own `Enabled` may be
+`false` to prune without the cancel check). Dropped states are reported as
+`Dropped States (Below Reference)`.
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `Enabled` | boolean | yes | Whether to prune produced states that fall below the reference trace. |
+| `Tolerance` | number | yes | Allowed slack below the trace before a produced state is dropped. |
 
 ---
 

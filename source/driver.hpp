@@ -166,6 +166,7 @@ public:
       // Legacy precomputed-trace file: load it now. (The "Solution File" form defers to initialize(), once the
       // runner/game exist to replay it.) Files are runtime artifacts, so skip the read under --dryRun
       // (JAFFAR_IS_DRY_RUN): validate the config shape but don't depend on the cwd-relative file being present.
+      _referenceTracePath = refPath;
       if (_referenceFloorEnabled && _referenceSolutionPath.empty() && std::getenv("JAFFAR_IS_DRY_RUN") == nullptr)
       {
         std::ifstream f(refPath);
@@ -237,7 +238,8 @@ public:
     // reward function the search uses. Depth 0 (the initial post-initial-sequence state, i.e. the search root)
     // is recorded first, then one reward per applied input, so _referenceReward[N] is the reference's floor
     // reward at search depth N -- aligned with _bestStateFloorReward, which the run loop compares against it.
-    if (_referenceFloorEnabled && _referenceSolutionPath.empty() == false && std::getenv("JAFFAR_IS_DRY_RUN") == nullptr)
+    const bool referencePruneRequested = _engine->isReferencePruneRequested();
+    if ((_referenceFloorEnabled || referencePruneRequested) && _referenceSolutionPath.empty() == false && std::getenv("JAFFAR_IS_DRY_RUN") == nullptr)
     {
       // Load the reference solution (.sol files are null-separated input strings, as the player reads them)
       std::string solutionString;
@@ -326,6 +328,27 @@ public:
 
       jaffarCommon::logger::log("[J+] Reference reward floor computed from solution '%s': %lu steps, tolerance %.4f\n", _referenceSolutionPath.c_str(), _referenceReward.size(),
                                 _referenceFloorTolerance);
+    }
+
+    // Arm reference pruning in the engine now that the trace exists. The trace source is the
+    // driver's "Reference Reward Floor" (Solution File replayed above, or the legacy "Path" file --
+    // loaded here if the floor itself is disabled and only the engine-side prune needs it).
+    if (referencePruneRequested)
+    {
+      if (_referenceReward.empty() && _referenceTracePath.empty() == false && std::getenv("JAFFAR_IS_DRY_RUN") == nullptr)
+      {
+        std::ifstream f(_referenceTracePath);
+        if (f.good() == false) JAFFAR_THROW_RUNTIME("[ERROR] Could not open 'Reference Reward Floor' > 'Path': '%s'\n", _referenceTracePath.c_str());
+        float v;
+        while (f >> v) _referenceReward.push_back(v);
+      }
+      if (_referenceReward.empty() && std::getenv("JAFFAR_IS_DRY_RUN") == nullptr)
+        JAFFAR_THROW_LOGIC("[ERROR] 'Reference Reward Prune' is enabled but the 'Reference Reward Floor' section provides no trace ('Solution File' or 'Path')\n");
+      if (_referenceReward.empty() == false)
+      {
+        _engine->setReferencePruneTrace(_referenceReward);
+        jaffarCommon::logger::log("[J+] Reference pruning armed: %lu-step trace supplied to the engine\n", _referenceReward.size());
+      }
     }
   }
 
@@ -728,13 +751,15 @@ public:
       jaffarCommon::logger::log("[J+] Current Reward (Win / Worst):                %.6f / %.6f (Diff: %.6f)\n", _bestStateReward, _worstStateReward,
                                 _bestStateReward - _worstStateReward);
 
-    // When a reference reward floor is active, show the reference reward at this step and how the best
-    // compares to it (positive = best ahead of the reference, negative = best behind), for easy human review.
-    if (_referenceFloorEnabled)
+    // When a reference trace exists (floor cancel and/or engine-side pruning), show the reference
+    // reward at this step and how the best compares to it (positive = best ahead of the reference,
+    // negative = best behind), for easy human review.
+    if (_referenceReward.empty() == false)
     {
       if (_currentStep < _referenceReward.size())
-        jaffarCommon::logger::log("[J+] Reference Reward (Ref / Best-Ref):           %.6f (Best-Ref %+.6f, tol %.4f) [step %lu / %lu ref steps]\n", _referenceReward[_currentStep],
-                                  _bestStateFloorReward - _referenceReward[_currentStep], _referenceFloorTolerance, _currentStep, _referenceReward.size());
+        jaffarCommon::logger::log("[J+] Reference Reward (Ref / Best-Ref):           %.6f (Best-Ref %+.6f, floor tol %.4f) [step %lu / %lu ref steps]\n",
+                                  _referenceReward[_currentStep], _bestStateFloorReward - _referenceReward[_currentStep], _referenceFloorTolerance, _currentStep,
+                                  _referenceReward.size());
       else
         jaffarCommon::logger::log("[J+] Reference Reward (Ref / Best-Ref):           (none: step %lu beyond reference trace of %lu steps)\n", _currentStep,
                                   _referenceReward.size());
@@ -817,13 +842,15 @@ private:
 
   float _worstStateReward; ///< Reward for the worst state found so far.
 
-  bool               _referenceFloorEnabled;       ///< Whether the reference reward floor cancel is active.
-  float              _referenceFloorTolerance;     ///< Allowed shortfall of best below the reference per step.
-  uint32_t           _referenceFloorStepGrace = 0; ///< Compare best against the reference this many steps earlier (bounded time slack for jumpy rewards).
-  bool               _cancelIfReferenceBelowWorst; ///< Opt-in: cancel when the reference reward drops below the worst kept state (reference evicted).
-  float              _referenceBelowWorstMargin;   ///< Margin added to the reference before the below-worst comparison (typically the pinning bonus).
-  std::vector<float> _referenceReward;             ///< Per-step reference reward floor (index = step).
-  std::string        _referenceSolutionPath;       ///< Optional reference solution (.sol) replayed at init to build @ref _referenceReward.
+  bool     _referenceFloorEnabled;       ///< Whether the reference reward floor cancel is active.
+  float    _referenceFloorTolerance;     ///< Allowed shortfall of best below the reference per step.
+  uint32_t _referenceFloorStepGrace = 0; ///< Compare best against the reference this many steps earlier (bounded time slack for jumpy rewards).
+  bool     _cancelIfReferenceBelowWorst; ///< Opt-in: cancel when the reference reward drops below the worst kept state (reference evicted).
+  float    _referenceBelowWorstMargin;   ///< Margin added to the reference before the below-worst comparison (typically the pinning bonus).
+
+  std::string        _referenceTracePath;    ///< Legacy precomputed-trace file path (loaded on demand if only the engine-side prune needs it)
+  std::vector<float> _referenceReward;       ///< Per-step reference reward floor (index = step).
+  std::string        _referenceSolutionPath; ///< Optional reference solution (.sol) replayed at init to build @ref _referenceReward.
 
   /// @brief Fraction of the input-history trie's hard ceiling at which the run stops gracefully (high-water
   /// mark). One step's growth (~ live-states nodes) is far below the remaining headroom at this level, so the

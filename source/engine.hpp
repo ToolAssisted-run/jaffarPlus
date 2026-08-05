@@ -170,6 +170,18 @@ public:
       }
     }
 
+    // Reference-reward pruning (greedy polish mode): drop every produced non-win state whose floor
+    // reward falls below the reference trace at its depth beyond Tolerance. The trace itself comes
+    // from the driver's "Reference Reward Floor" source (Solution File or Path) -- the driver arms
+    // it via setReferencePruneTrace() once the trace exists; until then the prune is inert.
+    if (engineConfigRemaining.contains("Reference Reward Prune"))
+    {
+      auto pruneJs       = jaffarCommon::json::popObject(engineConfigRemaining, "Reference Reward Prune");
+      _refPruneRequested = jaffarCommon::json::popBoolean(pruneJs, "Enabled");
+      _refPruneTolerance = jaffarCommon::json::popNumber<float>(pruneJs, "Tolerance");
+      jaffarCommon::json::checkEmpty(pruneJs, "Engine Configuration > Reference Reward Prune");
+    }
+
     // Any remaining Engine key is unrecognized
     jaffarCommon::json::checkEmpty(engineConfigRemaining, "Engine Configuration");
 
@@ -218,6 +230,7 @@ public:
     _droppedStatesNoStorage           = 0;
     _droppedStatesFailedSerialization = 0;
     _droppedStatesCheckpoint          = 0;
+    _droppedStatesBelowReference      = 0;
     _repeatedStates                   = 0;
     _failedStates                     = 0;
     _winStates                        = 0;
@@ -460,6 +473,7 @@ public:
       _droppedStatesNoStorage += a.droppedStatesNoStorage;
       _droppedStatesFailedSerialization += a.droppedStatesFailedSerialization;
       _droppedStatesCheckpoint += a.droppedStatesCheckpoint;
+      _droppedStatesBelowReference += a.droppedStatesBelowReference;
     }
 
     // Advancing hash database state
@@ -636,6 +650,25 @@ public:
     _winCollectEnabled = true;
   }
 
+  /// @brief Whether "Reference Reward Prune" is enabled in the engine configuration (the driver
+  ///        checks this to know it must supply the reference trace).
+  bool isReferencePruneRequested() const { return _refPruneRequested; }
+
+  /**
+   * @brief Arms reference-reward pruning with the per-depth trace: every produced non-win state
+   *        whose floor reward falls below the trace at its depth (beyond the configured Tolerance)
+   *        is dropped instead of stored. A greedy polish mode: only lineages decisively at or above
+   *        a known solution survive, so the frontier stays small and exploration goes deep. The
+   *        pinned reference lineage (see setReferenceStates) is exempt so the reference itself
+   *        always survives at tolerance 0. Called by the driver once the trace exists.
+   * @param trace Per-depth floor-reward trace of the reference solution (index 0 = the seed state).
+   */
+  void setReferencePruneTrace(const std::vector<float>& trace)
+  {
+    _refPruneTrace   = trace;
+    _refPruneEnabled = true;
+  }
+
   /** @brief Returns a copy of the most recent manually saved solution. */
   auto getManualSaveSolution() const { return _manualSaveSolution; }
   /** @brief Returns the cumulative number of win states found so far. */
@@ -658,23 +691,29 @@ public:
     // Compact mode: the handful of lines observers actually use, then out. Grep-stable labels.
     if (_compactLog)
     {
-      jaffarCommon::logger::log("[J+] Elapsed Time (Step/Total):                   %9.3fs / %9.3fs\n", 1.0e-6 * (double)(_currentStepTime), 1.0e-6 * (double)(_totalRunningTime));
-      jaffarCommon::logger::log("[J+] Checkpoint (Level/Tolerance/Cutoff):         %lu / %lu / %lu\n", _checkpointLevel.load(), _checkpointTolerance.load(),
+      jaffarCommon::logger::log("[J+]  + Elapsed Time (Step/Total):                   %9.3fs / %9.3fs\n", 1.0e-6 * (double)(_currentStepTime),
+                                1.0e-6 * (double)(_totalRunningTime));
+      jaffarCommon::logger::log("[J+]  + Checkpoint (Level/Tolerance/Cutoff):         %lu / %lu / %lu\n", _checkpointLevel.load(), _checkpointTolerance.load(),
                                 _checkpointCutoff.load());
-      jaffarCommon::logger::log("[J+] New States Processed:                        %.3f Mstates (Total: %.3f Mstates) @ %.3f Mstates/s\n", 1.0e-6 * (double)_stepNewStatesProcessed,
-                                1.0e-6 * (double)_totalNewStatesProcessed, 1.0e-6 * (double)_stepNewStatesProcessed / (1.0e-6 * (double)_currentStepTime));
-      jaffarCommon::logger::log("[J+] States (fail/rep/drop cumulative):           %lu / %lu / %lu\n", _failedStates.load(), _repeatedStates.load(),
-                                _droppedStatesNoStorage.load() + _droppedStatesFailedSerialization.load() + _droppedStatesCheckpoint.load());
-      jaffarCommon::logger::log("[J+] Win States:                                  %lu (%5.3f%% of New States Processed) \n", _winStates.load(),
+      jaffarCommon::logger::log("[J+]  + New States Processed:                        %.3f Mstates (Total: %.3f Mstates) @ %.3f Mstates/s\n",
+                                1.0e-6 * (double)_stepNewStatesProcessed, 1.0e-6 * (double)_totalNewStatesProcessed,
+                                1.0e-6 * (double)_stepNewStatesProcessed / (1.0e-6 * (double)_currentStepTime));
+      jaffarCommon::logger::log("[J+]  + States (fail/rep/drop cumulative):           %lu / %lu / %lu\n", _failedStates.load(), _repeatedStates.load(),
+                                _droppedStatesNoStorage.load() + _droppedStatesFailedSerialization.load() + _droppedStatesCheckpoint.load() + _droppedStatesBelowReference.load());
+      jaffarCommon::logger::log("[J+]  + Win States:                                  %lu (%5.3f%% of New States Processed) \n", _winStates.load(),
                                 100.0 * (double)_winStates.load() / (double)_totalNewStatesProcessed);
       if (_winCollectEnabled)
-        jaffarCommon::logger::log("[J+] Win States Collected:                        %lu/%lu\n", (unsigned long)getWinCollectedCount(), (unsigned long)_winCollectMax);
+        jaffarCommon::logger::log("[J+]  + Win States Collected:                        %lu/%lu\n", (unsigned long)getWinCollectedCount(), (unsigned long)_winCollectMax);
+      if (_refPruneEnabled)
+        jaffarCommon::logger::log("[J+]  + Dropped States (Below Reference):            %lu (%5.3f%% of New States Processed, prune tol %.1f) \n",
+                                  _droppedStatesBelowReference.load(), 100.0 * (double)_droppedStatesBelowReference.load() / (double)_totalNewStatesProcessed, _refPruneTolerance);
       if (_refPinEnabled)
-        jaffarCommon::logger::log("[J+] Reference Pin Hits (cumulative):             %lu (deepest %lu / %lu)\n", _refPinHits.load(), _refPinMaxDepthHit.load(),
+        jaffarCommon::logger::log("[J+]  + Reference Pin Hits (cumulative):             %lu (deepest %lu / %lu)\n", _refPinHits.load(), _refPinMaxDepthHit.load(),
                                   _refPinHashes.size());
-      jaffarCommon::logger::log("[J+] State Db States:                             %lu (%.2f / %.2f GB)\n", _stateDb->getStateCount(),
+      jaffarCommon::logger::log("[J+]  + State Db States:                             %lu (%.2f / %.2f GB, %.1f%% full)\n", _stateDb->getStateCount(),
                                 (double)(_stateDb->getStateCount() * _stateDb->getStateSizeInDatabase()) / (1024.0 * 1024.0 * 1024.0),
-                                (double)_stateDb->getMaxBudgetBytes() / (1024.0 * 1024.0 * 1024.0));
+                                (double)_stateDb->getMaxBudgetBytes() / (1024.0 * 1024.0 * 1024.0),
+                                100.0 * (double)(_stateDb->getStateCount() * _stateDb->getStateSizeInDatabase()) / (double)_stateDb->getMaxBudgetBytes());
       return;
     }
     // Printing information
@@ -770,6 +809,9 @@ public:
                               100.0 * (double)_droppedStatesFailedSerialization.load() / (double)_totalNewStatesProcessed);
     jaffarCommon::logger::log("[J+] Dropped States (Checkpoint):                 %lu (%5.3f%% of New States Processed) \n", _droppedStatesCheckpoint.load(),
                               100.0 * (double)_droppedStatesCheckpoint.load() / (double)_totalNewStatesProcessed);
+    if (_refPruneEnabled)
+      jaffarCommon::logger::log("[J+] Dropped States (Below Reference):            %lu (%5.3f%% of New States Processed, prune tol %.1f) \n", _droppedStatesBelowReference.load(),
+                                100.0 * (double)_droppedStatesBelowReference.load() / (double)_totalNewStatesProcessed, _refPruneTolerance);
     jaffarCommon::logger::log("[J+] Failed States:                               %lu (%5.3f%% of New States Processed) \n", _failedStates.load(),
                               100.0 * (double)_failedStates.load() / (double)_totalNewStatesProcessed);
     jaffarCommon::logger::log("[J+] Repeated States:                             %lu (%5.3f%% of New States Processed) \n", _repeatedStates.load(),
@@ -831,6 +873,18 @@ private:
   /// @brief Guards _winKeysSeen and the win-collection file writes across worker threads.
   std::mutex _winCollectLock;
 
+  /// @brief Whether "Reference Reward Prune" was enabled in the engine configuration.
+  bool _refPruneRequested = false;
+
+  /// @brief Whether reference-reward pruning is armed (requested AND trace supplied).
+  bool _refPruneEnabled = false;
+
+  /// @brief Per-depth floor-reward trace of the reference solution for pruning.
+  std::vector<float> _refPruneTrace;
+
+  /// @brief Allowed slack below the reference trace before a state is pruned.
+  float _refPruneTolerance = 0.0f;
+
   /// @brief Number of base states a worker pulls from the state-DB queue per lock acquisition (batch size).
   // Number of base states a worker pulls from the shared per-NUMA state-DB queue per lock
   // acquisition (into a thread-local buffer), instead of locking once per state. On a light
@@ -858,6 +912,7 @@ private:
     droppedNoStorage,           ///< No free state slot was available to store the new state.
     droppedFailedSerialization, ///< Pushing the state into the database failed (e.g. serialization error).
     droppedCheckpoint,          ///< State did not meet the current checkpoint level past the cutoff step.
+    droppedBelowReference,      ///< State's reward fell below the reference trace at its depth (beyond the prune tolerance).
     failed,                     ///< Resulting state was classified as a loss.
     normal,                     ///< Resulting state was a normal state and was stored.
     win                         ///< Resulting state was a win state.
@@ -917,6 +972,7 @@ private:
     size_t droppedStatesNoStorage;           ///< Number of states dropped for lack of free storage.
     size_t droppedStatesFailedSerialization; ///< Number of states dropped due to failed serialization.
     size_t droppedStatesCheckpoint;          ///< Number of states dropped for not meeting the checkpoint.
+    size_t droppedStatesBelowReference;      ///< Number of states dropped for falling below the reference reward trace.
 
     /// @brief Resets all timers and counters to zero.
     __INLINE__ void reset() { *this = threadAccumulator_t{}; }
@@ -1058,6 +1114,7 @@ private:
     if (result == inputResult_t::droppedNoStorage) acc.droppedStatesNoStorage++;
     if (result == inputResult_t::droppedFailedSerialization) acc.droppedStatesFailedSerialization++;
     if (result == inputResult_t::droppedCheckpoint) acc.droppedStatesCheckpoint++;
+    if (result == inputResult_t::droppedBelowReference) acc.droppedStatesBelowReference++;
 
     // Checking whether this state's checkpoint is new. Only states that were actually stored
     // (normal/win) may raise the global level: a failed or repeated state that satisfies a
@@ -1163,24 +1220,43 @@ private:
               {
                 size_t nDiff = 0;
                 char   buf[1024];
-                int    p = 0;
+                int    p         = 0;
+                size_t firstDiff = 0;
                 for (size_t off = 0; off < scratch.size(); off++)
                   if (_refVolatileMask[off] == 0 && scratch[off] != _refStates[idx][off])
                   {
+                    if (nDiff == 0) firstDiff = off;
                     if (nDiff < 32 && p < 900) p += snprintf(buf + p, sizeof(buf) - p, " %lu(%02X!=%02X)", off, scratch[off], _refStates[idx][off]);
                     nDiff++;
                   }
                 jaffarCommon::logger::log("[J+] PIN-VERIFY MISMATCH at depth %lu: %lu UNMASKED differing bytes / %lu:%s\n", idx, nDiff, scratch.size(), buf);
+                // Hex window around the first difference, both sides, to identify the member by layout
+                const size_t w0 = firstDiff >= 32 ? firstDiff - 32 : 0, w1 = std::min(scratch.size(), firstDiff + 32);
+                char         cand[256], refb[256];
+                int          pc = 0, pr = 0;
+                for (size_t off = w0; off < w1; off++)
+                {
+                  pc += snprintf(cand + pc, sizeof(cand) - pc, "%02X", scratch[off]);
+                  pr += snprintf(refb + pr, sizeof(refb) - pr, "%02X", _refStates[idx][off]);
+                }
+                jaffarCommon::logger::log("[J+]   window [%lu..%lu) cand: %s\n[J+]   window [%lu..%lu) ref:  %s\n", w0, w1, cand, w0, w1, refb);
               }
             }
           }
           if (verified)
           {
-            pinBonus         = _refPinBonus + (float)k * _refPinLookaheadBonus;
-            isRefPin         = true;
+            // The dedup bypass (and bonus) applies ONCE per reference depth -- the CAS is the gate,
+            // not just a hit counter. Without this, any mode that collapses the frontier onto the
+            // reference path (e.g. reference-prune polishing) has EVERY lineage re-create the
+            // reference states each step, and the pinned copies -- exempt from dedup -- flood the
+            // state DB with duplicates of the same ~L reference states (measured: >80% of a 10 GB
+            // DB were copies). Later re-creations are ordinary states: the hash exists, dedup
+            // drops them, and the one anchored copy already guarantees the reference survives.
             uint8_t expected = 0;
             if (_refPinnedAtDepth[idx].compare_exchange_strong(expected, 1, std::memory_order_relaxed))
             {
+              pinBonus = _refPinBonus + (float)k * _refPinLookaheadBonus;
+              isRefPin = true;
               _refPinHits.fetch_add(1, std::memory_order_relaxed);
               _refPinMaxDepthHit.store(std::max(_refPinMaxDepthHit.load(std::memory_order_relaxed), idx), std::memory_order_relaxed);
             }
@@ -1234,6 +1310,21 @@ private:
     // Getting state reward, plus the reference-pin bonus decided before the dedup check above.
     auto reward = r.getGame()->getReward() + pinBonus;
     JAFFAR_PROF_ACC(acc.calculateReward, t6);
+
+    // Reference-reward pruning (greedy polish mode): drop any non-win child whose floor reward is
+    // below the reference trace at its depth beyond the tolerance. Children produced during this
+    // step sit at depth _currentStep + 1 (the step counter advances at the end of runStep). Win
+    // states are exempt (a win below the trace still ends the search) and so is the pinned
+    // reference lineage, which must survive at tolerance 0 despite float equality being its floor.
+    if (_refPruneEnabled && stateType != Game::stateType_t::win && isRefPin == false)
+    {
+      const size_t childDepth = _currentStep + 1;
+      if (childDepth < _refPruneTrace.size() && r.getGame()->getFloorReward() < _refPruneTrace[childDepth] - _refPruneTolerance)
+      {
+        _stateDb->returnFreeState(newStateData, threadId);
+        return inputResult_t::droppedBelowReference;
+      }
+    }
 
     // If this is a win state, register it and return
     if (stateType == Game::stateType_t::win)
@@ -1304,6 +1395,40 @@ private:
     // If this is a normal state and has possible inputs store it in the next state database
     if (stateType == Game::stateType_t::normal)
     {
+      // Debug probe (JAFFAR_DEBUG_SAMPLE_RATE=N): log every Nth stored state's identity (depth,
+      // floor reward, key game properties) and hard-check the reference-prune invariant on it.
+      // Zero overhead unless the env var is set (checked once).
+      {
+        static const long sampleRate = []
+        {
+          const char* e = std::getenv("JAFFAR_DEBUG_SAMPLE_RATE");
+          return e ? std::atol(e) : 0;
+        }();
+        if (sampleRate > 0)
+        {
+          static std::atomic<uint64_t> pushCounter{0};
+          const auto                   n  = pushCounter.fetch_add(1, std::memory_order_relaxed);
+          const float                  fr = r.getGame()->getFloorReward();
+          const size_t                 cd = _currentStep + 1;
+          if (_refPruneEnabled && cd < _refPruneTrace.size() && fr < _refPruneTrace[cd] - _refPruneTolerance)
+            jaffarCommon::logger::log("[J+] SAMPLE-VIOLATION depth %lu floorReward %.6f < trace %.6f - tol %.1f\n", cd, fr, _refPruneTrace[cd], _refPruneTolerance);
+          if (n % (uint64_t)sampleRate == 0)
+          {
+            char        props[512];
+            int         pp      = 0;
+            const char* names[] = {"Player Pos X", "Player Pos Y", "RNG State 1", "RNG State 2", "RNG State 3", "RNG State 4"};
+            for (const auto* pn : names)
+            {
+              auto* prop = r.getGame()->findProperty(pn);
+              if (prop == nullptr) continue;
+              const auto* b = (const uint8_t*)prop->getPointer();
+              for (size_t bi = 0; bi < prop->getSize() && pp < 480; bi++) pp += snprintf(props + pp, sizeof(props) - pp, "%02x", b[bi]);
+              pp += snprintf(props + pp, sizeof(props) - pp, " ");
+            }
+            jaffarCommon::logger::log("[J+] SAMPLE depth %lu reward %.6f floor %.6f hash %016lX%016lX props %s\n", cd, reward, fr, hash.first, hash.second, props);
+          }
+        }
+      }
       // If this is a normal state, push into the state database
       JAFFAR_PROF_DECL(t8);
       auto success = _stateDb->pushState(reward, r, newStateData);
@@ -1474,6 +1599,9 @@ private:
 
   /// @brief Counter for states dropped due to not meeting the checkpoint.
   std::atomic<size_t> _droppedStatesCheckpoint;
+
+  /// @brief Number of states dropped for falling below the reference reward trace (reference pruning).
+  std::atomic<size_t> _droppedStatesBelowReference;
 
   /// @brief Counter for repeated states (detected via hash collision).
   std::atomic<size_t> _repeatedStates;

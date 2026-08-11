@@ -49,7 +49,7 @@ public:
     if (_gameConfigRemaining.contains("Route Waypoints File"))
     {
       const auto p = jaffarCommon::json::popString(_gameConfigRemaining, "Route Waypoints File");
-      if (p.empty() == false)
+      if (p.empty() == false && std::getenv("JAFFAR_IS_DRY_RUN") == nullptr)
       {
         // Format: "x y g" per line -- g is the REQUIRED banked-gold count ($C4) to credit the
         // waypoint (the reference's own count when it passed that tile). Sections the route:
@@ -187,7 +187,7 @@ public:
     // a doomed shortcut instead).
     _traceMagnetIntensity = jaffarCommon::json::popNumber<float>(_gameConfigRemaining, "Trace Magnet Intensity");
     const auto tracePath  = jaffarCommon::json::popString(_gameConfigRemaining, "Trace File");
-    if (tracePath.empty() == false)
+    if (tracePath.empty() == false && std::getenv("JAFFAR_IS_DRY_RUN") == nullptr)
     {
       std::string traceData;
       if (jaffarCommon::file::loadStringFromFile(traceData, tracePath) == false) JAFFAR_THROW_LOGIC("Could not read 'Trace File': %s", tracePath.c_str());
@@ -238,7 +238,8 @@ public:
 
     // Named tiles of the $0400 layout layer exposed as properties (e.g. a specific chest: value
     // 7 while present, 0 once collected) so rules can gate on individual chests / dug bricks.
-    for (const auto& tileJs : jaffarCommon::json::popArray<nlohmann::json>(_gameConfigRemaining, "Watch Tiles"))
+    if (_gameConfigRemaining.contains("Watch Tiles"))
+      for (const auto& tileJs : jaffarCommon::json::popArray<nlohmann::json>(_gameConfigRemaining, "Watch Tiles"))
     {
       watchTile_t t;
       t.name = jaffarCommon::json::getString(tileJs, "Name");

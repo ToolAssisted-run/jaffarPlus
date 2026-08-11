@@ -155,7 +155,7 @@ public:
       // fields (beyond RAM) distinguish converging-looking states.
       if (const char* dumpDir = std::getenv("JAFFAR_DUMP_FULLSTATE_DIR"); dumpDir != nullptr)
       {
-        std::vector<uint8_t> buf(_gameStateSize);
+        std::vector<uint8_t>                 buf(_gameStateSize);
         jaffarCommon::serializer::Contiguous s(buf.data(), buf.size());
         _runner->serializeState(s);
         char path[512];

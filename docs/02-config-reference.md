@@ -69,7 +69,9 @@ recommended form) or `Path` (a precomputed one-reward-per-line file, legacy).
 | `Step Grace` | number | no | Compare against the reference G steps earlier (bounded time slack for discrete-jump rewards). Default 0. |
 | `Solution File` | string | one of | Reference .sol; its per-step trace is computed at init by replaying it through this run's own runner/game. |
 | `Path` | string | one of | Precomputed reward trace file (legacy). |
-| `Cancel If Reference Below Worst` | boolean | no | Also cancel when the reference falls below the worst kept state (evicted from the frontier). Default false. |
+| `Initial State File Path` | string | no | Reference-lineage rebase: raw state file loaded (all state properties enabled) before the floor replay, so the trace is measured on the reference's own trajectory rather than the search seed's. |
+| `Initial Sequence File Path` | string | no | Reference-lineage rebase: input sequence replayed at the emulator level (game lineage variables stay at root defaults) after the state load and before `Solution File`. Floor depth k then means "k steps after the reference's own section start". |
+| `Cancel If Reference Below Worst` | boolean | no | Surface a per-step warning tag (`ref BELOW WORST`) when the reference falls below the worst kept state (frontier no longer holds reference-level states). Warning only — no cancellation. Default false. |
 | `Below Worst Margin` | number | no | Margin for the below-worst check (typically the Reference Pinning bonus). Default 0. |
 
 The reference trace defined here is also the input to the engine-side `Reference Reward Prune`

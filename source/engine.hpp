@@ -725,8 +725,8 @@ public:
         jaffarCommon::logger::log("[J+]  + Dropped States (Below Reference):            %lu (%5.3f%% of New States Processed, prune tol %.1f) \n",
                                   _droppedStatesBelowReference.load(), 100.0 * (double)_droppedStatesBelowReference.load() / (double)_totalNewStatesProcessed, _refPruneTolerance);
       if (_refPinEnabled)
-        jaffarCommon::logger::log("[J+]  + Reference Pin Hits (cumulative):             %lu (deepest %lu / %lu; ref-depth matches seen %lu)\n", _refPinHits.load(), _refPinMaxDepthHit.load(),
-                                  _refPinHashes.size(), _refPinSeenPreDedup.load());
+        jaffarCommon::logger::log("[J+]  + Reference Pin Hits (cumulative):             %lu (deepest %lu / %lu; ref-depth matches seen %lu)\n", _refPinHits.load(),
+                                  _refPinMaxDepthHit.load(), _refPinHashes.size(), _refPinSeenPreDedup.load());
       jaffarCommon::logger::log("[J+]  + State Db States:                             %lu (%.2f / %.2f GB, %.1f%% full)\n", _stateDb->getStateCount(),
                                 (double)(_stateDb->getStateCount() * _stateDb->getStateSizeInDatabase()) / (1024.0 * 1024.0 * 1024.0),
                                 (double)_stateDb->getMaxBudgetBytes() / (1024.0 * 1024.0 * 1024.0),
@@ -900,7 +900,7 @@ private:
   std::vector<float> _refPruneTrace;
 
   /// @brief Allowed slack below the reference trace before a state is pruned.
-  float _refPruneTolerance = 0.0f;
+  float  _refPruneTolerance = 0.0f;
   size_t _refPruneStepGrace = 0; ///< Prune each state vs the reference this many steps earlier (transient-wait allowance)
 
   /// @brief Number of base states a worker pulls from the state-DB queue per lock acquisition (batch size).
@@ -1171,6 +1171,7 @@ private:
    * into the state database; failed/repeated/dropped states return the corresponding result. Also
    * updates the manual-save solution when the game requests it and the reward improves.
    * @param r        The runner holding the base state, advanced by this call.
+   * @param baseStateData Serialized base state the runner was loaded from (re-loaded on retry paths).
    * @param input    Index of the input to apply.
    * @param acc      This thread's accumulator, updated with timing measurements.
    * @param threadId Calling thread's id, used for state-database free/allocation operations.
@@ -1547,8 +1548,14 @@ public:
   /// @brief Audit accessors: the per-depth canonical reference states and the volatile-byte mask
   ///        (instance-dependent audio-ring residue) captured at floor initialization.
   const std::vector<std::vector<uint8_t>>& getRefStates() const { return _refStates; }
-  const std::vector<uint8_t>&              getRefVolatileMask() const { return _refVolatileMask; }
 
+  /// @brief Audit accessor: per-byte volatile mask (1 = instance-dependent byte) over the reference states.
+  const std::vector<uint8_t>& getRefVolatileMask() const { return _refVolatileMask; }
+
+  /// @brief Installs the per-depth canonical reference states (from the driver's floor replay) and
+  ///        derives the volatile-byte mask by re-simulating probe depths and diffing the round-trips.
+  /// @param states Per-depth serialized reference states (moved in).
+  /// @param refInputs The reference solution's input strings (used to re-simulate probe depths).
   void setReferenceStates(std::vector<std::vector<uint8_t>>&& states, const std::vector<std::string>& refInputs)
   {
     _refStates = std::move(states);

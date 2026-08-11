@@ -35,7 +35,7 @@ public:
     // Quantization mask for all timer-class hash bytes ($53, phase work, enemy timers): 3 =
     // mod-4 residues (frontier-compact), 255 = full value (luck-exact; needed where enemy-phase
     // aliasing merges future-divergent twins, e.g. narrow corridor funnels at tiny populations).
-    _timerHashMask = _gameConfigRemaining.contains("Timer Hash Mask") ? jaffarCommon::json::popNumber<uint8_t>(_gameConfigRemaining, "Timer Hash Mask") : 3;
+    _timerHashMask        = _gameConfigRemaining.contains("Timer Hash Mask") ? jaffarCommon::json::popNumber<uint8_t>(_gameConfigRemaining, "Timer Hash Mask") : 3;
     _pointMagnetTileBasis = _gameConfigRemaining.contains("Point Magnet Tile Basis") ? jaffarCommon::json::popBoolean(_gameConfigRemaining, "Point Magnet Tile Basis") : false;
 
     // Route-waypoint odometer: the reference trajectory as an ORDERED chain of tile waypoints
@@ -82,9 +82,12 @@ public:
     // climbing needs ladders; chests with no walk path fall back to Manhattan so the gradient
     // never vanishes -- excavation shaping remains the dig-progress magnet's job).
     const auto distanceMode = jaffarCommon::json::popString(_gameConfigRemaining, "Nearest Chest Distance Mode");
-    if (distanceMode == "Path") _nearestChestPathMode = true;
-    else if (distanceMode == "Manhattan") _nearestChestPathMode = false;
-    else JAFFAR_THROW_LOGIC("Unrecognized 'Nearest Chest Distance Mode': '%s' (expected 'Manhattan' or 'Path')", distanceMode.c_str());
+    if (distanceMode == "Path")
+      _nearestChestPathMode = true;
+    else if (distanceMode == "Manhattan")
+      _nearestChestPathMode = false;
+    else
+      JAFFAR_THROW_LOGIC("Unrecognized 'Nearest Chest Distance Mode': '%s' (expected 'Manhattan' or 'Path')", distanceMode.c_str());
 
     // Extra path cost for stepping through an enemy-occupied tile in Path mode (0 = ignore
     // enemies; they chase the player, so occupancy is transient -- use only a mild bias)
@@ -183,7 +186,7 @@ public:
     // enemies invisible to the path field, so its own leg score wobbles and the frontier chases
     // a doomed shortcut instead).
     _traceMagnetIntensity = jaffarCommon::json::popNumber<float>(_gameConfigRemaining, "Trace Magnet Intensity");
-    const auto tracePath = jaffarCommon::json::popString(_gameConfigRemaining, "Trace File");
+    const auto tracePath  = jaffarCommon::json::popString(_gameConfigRemaining, "Trace File");
     if (tracePath.empty() == false)
     {
       std::string traceData;
@@ -254,9 +257,9 @@ private:
     // Cycle-phase digest (activates the emulator-side refresh only when hashed)
     if (_hashCyclePhase == true)
     {
-      const auto p     = _emulator->getProperty("Cycle Phase");
-      _cyclePhase      = p.pointer;
-      _cyclePhaseSize  = p.size;
+      const auto p    = _emulator->getProperty("Cycle Phase");
+      _cyclePhase     = p.pointer;
+      _cyclePhaseSize = p.size;
     }
 
     // Global / game state
@@ -364,7 +367,7 @@ private:
 
     const uint8_t preGold = _lowMem[0x00C4];
     const uint8_t preTX = *_playerTileX, preTY = *_playerTileY;
-    const int8_t preET[3] = {(int8_t)_lowMem[0x0671], (int8_t)_lowMem[0x0672], (int8_t)_lowMem[0x0673]};
+    const int8_t  preET[3] = {(int8_t)_lowMem[0x0671], (int8_t)_lowMem[0x0672], (int8_t)_lowMem[0x0673]};
 
     // Running emulator
     _emulator->advanceState(input);
@@ -375,8 +378,10 @@ private:
     if (!_refChestOrder.empty() && _lowMem[0x00C4] > preGold && _choreoViolated == 0)
     {
       const uint8_t px = *_playerTileX, py = *_playerTileY;
-      if (_choreoMatched < _refChestOrder.size() && px == _refChestOrder[_choreoMatched].first && py == _refChestOrder[_choreoMatched].second) _choreoMatched++;
-      else _choreoViolated = 1;
+      if (_choreoMatched < _refChestOrder.size() && px == _refChestOrder[_choreoMatched].first && py == _refChestOrder[_choreoMatched].second)
+        _choreoMatched++;
+      else
+        _choreoViolated = 1;
     }
 
     // Route-waypoint odometer advance: pass waypoints strictly in order, gated by the section's
@@ -387,8 +392,7 @@ private:
       // Consume waypoints matching the PRE-advance tile first: without this, a lineage that
       // leaves its current waypoint's tile before the odometer consumed it (the start tile is
       // the guaranteed case; late gold gates are another) is falsely branded off-route.
-      while (_routeProgress < _routeWps.size() && preTX == _routeWps[_routeProgress].first && preTY == _routeWps[_routeProgress].second &&
-             preGold >= _routeWpGold[_routeProgress])
+      while (_routeProgress < _routeWps.size() && preTX == _routeWps[_routeProgress].first && preTY == _routeWps[_routeProgress].second && preGold >= _routeWpGold[_routeProgress])
         _routeProgress++;
       const auto prevProgress = _routeProgress;
       while (_routeProgress < _routeWps.size() && *_playerTileX == _routeWps[_routeProgress].first && *_playerTileY == _routeWps[_routeProgress].second &&
@@ -506,7 +510,11 @@ private:
       hashEngine.Update(_choreoViolated);
     }
     if (_digBonusReward != 0.0f) hashEngine.Update(_digBonusDone);
-    if (_digChainReward != 0.0f) { hashEngine.Update(_digChainProgress); hashEngine.Update(_digChainRampProg); }
+    if (_digChainReward != 0.0f)
+    {
+      hashEngine.Update(_digChainProgress);
+      hashEngine.Update(_digChainRampProg);
+    }
     if (_buryBonusReward != 0.0f) hashEngine.Update(_buryBonusDone);
     if (_routeWps.empty() == false)
     {
@@ -634,8 +642,8 @@ private:
     // Dig availability (code-exact, live-map reads like the handlers: entity markers matter --
     // an enemy on the side tile blocks the dig exactly as in the game code)
     const int dpy = (int)*_playerTileY;
-    _canDigLeft  = 0;
-    _canDigRight = 0;
+    _canDigLeft   = 0;
+    _canDigRight  = 0;
     if (dpy < 13 && dpy >= 1)
     {
       const int dpx = (int)*_playerTileX;
@@ -697,8 +705,8 @@ private:
         // its raw distance (weaker pull, same units).
         auto smoothed = [&](const float* field) -> std::pair<float, int>
         {
-          float best_ = field[pty * _mapW + ptx] + std::abs(_playerX - ((float)ptx + 0.5f)) + std::abs(_playerY - ((float)pty + 0.5f));
-          int   cell_ = pty * _mapW + ptx;
+          float     best_    = field[pty * _mapW + ptx] + std::abs(_playerX - ((float)ptx + 0.5f)) + std::abs(_playerY - ((float)pty + 0.5f));
+          int       cell_    = pty * _mapW + ptx;
           const int nb[4][2] = {{ptx - 1, pty}, {ptx + 1, pty}, {ptx, pty - 1}, {ptx, pty + 1}};
           for (size_t i = 0; i < 4; i++)
           {
@@ -717,8 +725,8 @@ private:
         };
         const auto [dG, cellG] = smoothed(_chestField);
         const auto [dC, cellC] = smoothed(_chestFieldC);
-        const float effG = dG;
-        const float effC = dC * _carriedGoldWeight;
+        const float effG       = dG;
+        const float effC       = dC * _carriedGoldWeight;
         if (effG < _unreachable && (dC >= _unreachable || effG <= effC))
         {
           best    = effG;
@@ -775,8 +783,7 @@ private:
           {
             if (used[j] == true) continue;
             float d = _goldPairDist[cur][j];
-            if (d >= _unreachable)
-              d = std::abs((float)_goldSourceX[cur] - (float)_goldSourceX[j]) + std::abs((float)_goldSourceY[cur] - (float)_goldSourceY[j]);
+            if (d >= _unreachable) d = std::abs((float)_goldSourceX[cur] - (float)_goldSourceX[j]) + std::abs((float)_goldSourceY[cur] - (float)_goldSourceY[j]);
             if (_goldSourceCarried[j] == true) d *= _carriedGoldWeight;
             if (nxt < 0 || d < bd)
             {
@@ -798,9 +805,9 @@ private:
     // Assemble the per-source reward contributions ONCE per state evaluation; both the reward
     // sum (calculateGameSpecificReward) and the log breakdown (printInfoImpl) read these members,
     // so the formulas exist in exactly one place.
-    _bankedChests       = countBankedChests();
-    _digProgression     = (_digProgressMagnet != 0.0f) ? digProgressionSum() : 0.0f;
-    _digKillBonus       = (_digProgressMagnet != 0.0f) ? digKillBonus() : 0.0f;
+    _bankedChests   = countBankedChests();
+    _digProgression = (_digProgressMagnet != 0.0f) ? digProgressionSum() : 0.0f;
+    _digKillBonus   = (_digProgressMagnet != 0.0f) ? digKillBonus() : 0.0f;
 
     // REFERENCE family: choreography-matched pickups (position-by-position against the
     // reference's $C4 event sequence, tracked in advanceStateImpl), paid at w_ref strength.
@@ -813,8 +820,8 @@ private:
     // rem-progress term this totals a full chest credit; out-of-order player grabs still
     // earn only the exploratory fraction.
     const uint32_t playerBanked = _lowMem[0x00C4];
-    _surrenderedChests   = (_bankedChests > playerBanked) ? (_bankedChests - playerBanked) : 0;
-    _rewardGoldSurrender = _referenceStrategyWeight * _goldMagnet * (float)_surrenderedChests;
+    _surrenderedChests          = (_bankedChests > playerBanked) ? (_bankedChests - playerBanked) : 0;
+    _rewardGoldSurrender        = _referenceStrategyWeight * _goldMagnet * (float)_surrenderedChests;
 
     // One-off dig bonus: full value latches at completion (the dig registry only records
     // COMPLETED holes). While the bonus-cell dig is IN PROGRESS, a ramp pays half at dig start
@@ -824,7 +831,8 @@ private:
     _rewardDigBonus = 0.0f;
     if (_digBonusReward != 0.0f)
     {
-      if (_digBonusDone == 1) _rewardDigBonus = _digBonusReward;
+      if (_digBonusDone == 1)
+        _rewardDigBonus = _digBonusReward;
       else
       {
         const uint8_t prog = _lowMem[0x00A0];
@@ -832,8 +840,7 @@ private:
         {
           const uint8_t px = *_playerTileX, py = *_playerTileY;
           const uint8_t tx = ((_lowMem[0x0702] & 0x40) != 0) ? (uint8_t)(px + 1) : (uint8_t)(px - 1);
-          if (tx == _digBonusCellX && (uint8_t)(py + 1) == _digBonusCellY)
-            _rewardDigBonus = 0.5f * _digBonusReward + (0.5f * _digBonusReward * (float)prog) / 12.0f;
+          if (tx == _digBonusCellX && (uint8_t)(py + 1) == _digBonusCellY) _rewardDigBonus = 0.5f * _digBonusReward + (0.5f * _digBonusReward * (float)prog) / 12.0f;
         }
       }
     }
@@ -859,13 +866,13 @@ private:
     }
 
     // EXPLORATORY family at (1 - w_ref) strength
-    _rewardGoldBanked   = (1.0f - _referenceStrategyWeight) * _goldMagnet * (float)_bankedChests;
-    _rewardPointMagnet  = -1.0f * _pointMagnet.intensity * _playerDistanceToPoint;
+    _rewardGoldBanked  = (1.0f - _referenceStrategyWeight) * _goldMagnet * (float)_bankedChests;
+    _rewardPointMagnet = -1.0f * _pointMagnet.intensity * _playerDistanceToPoint;
     _rewardTraceMagnet = 0.0f;
     if (_traceMagnetIntensity != 0.0f && !_tracePoints.empty())
     {
-      const size_t idx = std::min((size_t)_currentStep, _tracePoints.size() - 1);
-      const float  d   = std::abs(_tracePoints[idx].first - _playerX) + std::abs(_tracePoints[idx].second - _playerY);
+      const size_t idx   = std::min((size_t)_currentStep, _tracePoints.size() - 1);
+      const float  d     = std::abs(_tracePoints[idx].first - _playerX) + std::abs(_tracePoints[idx].second - _playerY);
       _rewardTraceMagnet = -1.0f * _traceMagnetIntensity * d;
     }
     _rewardChoreoLeg = 0.0f;
@@ -881,9 +888,11 @@ private:
       }
       const int ptx = std::min((int)*_playerTileX, _mapW - 1);
       const int pty = std::max(1, std::min((int)*_playerTileY, 13));
-      float d = _choreoLegField[pty * _mapW + ptx];
-      if (d >= _unreachable) d = std::abs((float)tgt.first - _playerX) + std::abs((float)tgt.second - _playerY);
-      else d += std::abs(_playerX - ((float)ptx + 0.5f)) + std::abs(_playerY - ((float)pty + 0.5f));
+      float     d   = _choreoLegField[pty * _mapW + ptx];
+      if (d >= _unreachable)
+        d = std::abs((float)tgt.first - _playerX) + std::abs((float)tgt.second - _playerY);
+      else
+        d += std::abs(_playerX - ((float)ptx + 0.5f)) + std::abs(_playerY - ((float)pty + 0.5f));
       _rewardChoreoLeg = -1.0f * _choreoLegIntensity * d;
     }
     // Exit magnet: sole endgame distance gradient once all gold is banked ($93 == 0 in the
@@ -900,9 +909,11 @@ private:
       }
       const int ptx = std::min((int)*_playerTileX, _mapW - 1);
       const int pty = std::max(1, std::min((int)*_playerTileY, 13));
-      float d = _exitField[pty * _mapW + ptx];
-      if (d >= _unreachable) d = std::abs((float)_exitX - _playerX) + std::abs((float)_exitY - _playerY);
-      else d += std::abs(_playerX - ((float)ptx + 0.5f)) + std::abs(_playerY - ((float)pty + 0.5f));
+      float     d   = _exitField[pty * _mapW + ptx];
+      if (d >= _unreachable)
+        d = std::abs((float)_exitX - _playerX) + std::abs((float)_exitY - _playerY);
+      else
+        d += std::abs(_playerX - ((float)ptx + 0.5f)) + std::abs(_playerY - ((float)pty + 0.5f));
       _rewardExitMagnet = -1.0f * _exitMagnetIntensity * d;
     }
 
@@ -920,8 +931,8 @@ private:
     _rewardLastInput    = _lastInputStepReward * (float)_lastInputStep;
     {
       const int px = (int)*_playerTileX, py = (int)*_playerTileY;
-      auto live  = [&](const int x, const int y) -> uint8_t { return (x >= 0 && x < _mapW && y >= 1 && y <= 13) ? _lowMem[0x0200 + y * 28 + x] : 1; };
-      auto isSol = [&](const uint8_t v) -> bool { return v == 1 || v == 2; };
+      auto      live       = [&](const int x, const int y) -> uint8_t { return (x >= 0 && x < _mapW && y >= 1 && y <= 13) ? _lowMem[0x0200 + y * 28 + x] : 1; };
+      auto      isSol      = [&](const uint8_t v) -> bool { return v == 1 || v == 2; };
       _playerTrappedInHole = 0;
       // PREDICTIVE doom check: no air control exists, so a fall's landing cell is determined
       // the moment the support is lost. Resolve the landing cell down the player's column
@@ -968,8 +979,8 @@ private:
         }
       }
     }
-    _groundedGold       = 0;
-    _carriedGold        = 0;
+    _groundedGold = 0;
+    _carriedGold  = 0;
     for (size_t y = 1; y <= 13; y++)
       for (size_t x = 0; x < 28; x++)
         if (_lowMem[0x0400 + y * 28 + x] == 0x07) _groundedGold++;
@@ -979,11 +990,15 @@ private:
     // Debug instrument for the trace monotonicity study: JAFFAR_DUMP_COMPONENTS=<file> appends
     // one component line per state evaluation (aligned with the floor-trace steps during the
     // init-time reference replay). Inert when the env var is unset.
-    static FILE* compOut = []() { const char* p = getenv("JAFFAR_DUMP_COMPONENTS"); return (p != nullptr) ? fopen(p, "w") : (FILE*)nullptr; }();
+    static FILE* compOut = []()
+    {
+      const char* p = getenv("JAFFAR_DUMP_COMPONENTS");
+      return (p != nullptr) ? fopen(p, "w") : (FILE*)nullptr;
+    }();
     if (compOut != nullptr)
     {
-      fprintf(compOut, "%u\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%u\t%u\n", _bankedChests, _rewardGoldBanked, _nearestChestDistance, _goldChainTotal, _rewardNearestChest, _rewardPointMagnet,
-              _digProgression, _digKillBonus, _groundedGold, _carriedGold);
+      fprintf(compOut, "%u\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%u\t%u\n", _bankedChests, _rewardGoldBanked, _nearestChestDistance, _goldChainTotal, _rewardNearestChest,
+              _rewardPointMagnet, _digProgression, _digKillBonus, _groundedGold, _carriedGold);
       fflush(compOut);
     }
   }
@@ -1088,15 +1103,17 @@ private:
       const int vx = vIdx % _mapW, vy = vIdx / _mapW;
       // Cost of the forward step INTO v (edge u->v), optionally penalizing enemy-held tiles
       const float stepCost = 1.0f + ((_enemyPathCost != 0.0f && enemyAtTile(vx, vy) == true) ? _enemyPathCost : 0.0f);
-      const int nb[4][2] = {{vx - 1, vy}, {vx + 1, vy}, {vx, vy - 1}, {vx, vy + 1}};
+      const int   nb[4][2] = {{vx - 1, vy}, {vx + 1, vy}, {vx, vy - 1}, {vx, vy + 1}};
       for (size_t i = 0; i < 4; i++)
       {
         const int ux = nb[i][0], uy = nb[i][1];
         if (ux < 0 || ux >= _mapW || uy < 1 || uy > 13) continue;
         if (isSolidTile(useLayout ? _lowMem[0x0400 + uy * 28 + ux] : terrainAt(ux, uy)) == true) continue;
-        if (useLayout ? canMoveLayout(ux, uy, vx, vy) : canMove(ux, uy, vx, vy)) {} else continue;
-        const float nd = d + stepCost;
-        const int uIdx = uy * _mapW + ux;
+        if (useLayout ? canMoveLayout(ux, uy, vx, vy) : canMove(ux, uy, vx, vy)) {}
+        else
+          continue;
+        const float nd   = d + stepCost;
+        const int   uIdx = uy * _mapW + ux;
         if (nd < fieldOut[uIdx])
         {
           fieldOut[uIdx] = nd;
@@ -1115,7 +1132,7 @@ private:
   // position joins the cache key (more misses, still cheap).
   void computeChestPathField()
   {
-    uint8_t key[16];
+    uint8_t      key[16];
     MetroHash128 h;
     h.Update(&_lowMem[0x0200], 0x0388);
     const bool carriers = anyCarrier();
@@ -1187,8 +1204,7 @@ private:
       for (size_t j = 0; j < _goldSourceCount; j++)
       {
         runReverseDijkstra(&_goldSourceX[j], &_goldSourceY[j], 1, _goldTmpField, nullptr, true);
-        for (size_t i = 0; i < _goldSourceCount; i++)
-          _goldPairDist[i][j] = _goldTmpField[(int)_goldSourceY[i] * _mapW + (int)_goldSourceX[i]];
+        for (size_t i = 0; i < _goldSourceCount; i++) _goldPairDist[i][j] = _goldTmpField[(int)_goldSourceY[i] * _mapW + (int)_goldSourceX[i]];
       }
 
     memcpy(_chestFieldKey, key, 16);
@@ -1244,7 +1260,7 @@ private:
     // 182 = measured slot-spawn counter (171) + the animation-end credit (11): the anim->refill
     // handoff is seamless, so a hole's lifecycle credit is monotone from first dig frame to closure.
     constexpr float REFILL_INIT = 182.0f;
-    auto nearGold = [&](const float hx, const float hy) -> bool
+    auto            nearGold    = [&](const float hx, const float hy) -> bool
     {
       for (size_t y = 1; y <= 13; y++)
         for (size_t x = 0; x < 28; x++)
@@ -1281,8 +1297,7 @@ private:
       }
     }
     for (size_t j = 0; j < 8; j++)
-      if (_lowMem[0x06E0 + j] != 0 && nearGold((float)_lowMem[0x06A0 + j], (float)_lowMem[0x06C0 + j]))
-        sum += REFILL_INIT - (float)_lowMem[0x06E0 + j];
+      if (_lowMem[0x06E0 + j] != 0 && nearGold((float)_lowMem[0x06A0 + j], (float)_lowMem[0x06C0 + j])) sum += REFILL_INIT - (float)_lowMem[0x06E0 + j];
     return sum;
   }
 
@@ -1291,10 +1306,7 @@ private:
   __INLINE__ float digKillBonus() const { return 183.0f * (float)_lowMem[0x00C5]; }
 
   // Chests already banked, clamped over the exit-climb $93 underflow (see the gold magnet)
-  __INLINE__ uint8_t countBankedChests() const
-  {
-    return *_goldRemaining > _initialGold ? _initialGold : (uint8_t)(_initialGold - *_goldRemaining);
-  }
+  __INLINE__ uint8_t countBankedChests() const { return *_goldRemaining > _initialGold ? _initialGold : (uint8_t)(_initialGold - *_goldRemaining); }
 
   // Sums the per-component contributions assembled in ruleUpdatePostHook. Component semantics:
   // gold banked (clamped over the exit-climb $93 underflow -- unclamped, winning lineages score
@@ -1344,18 +1356,17 @@ private:
       jaffarCommon::logger::log("[J+]      + Choreo pickups:   %+.1f (%u/%lu matched in ref order%s [player picked %u] x %.0f x %.2f)\n", _rewardGoldBankedRef, _choreoMatched,
                                 _refChestOrder.size(), _choreoViolated ? " VIOLATED" : "", _lowMem[0x00C4], _goldMagnet, _referenceStrategyWeight);
     if (_digChainReward != 0.0f)
-      jaffarCommon::logger::log("[J+]      + Dig chain:        %+.1f (%u / %lu cells dug x %.0f, gold gate %u%s)\n", _rewardDigChain, _digChainProgress,
-                                _digChainCells.size(), _digChainReward, _digChainGoldGate,
-                                (_rewardDigChain > _digChainReward * (float)_digChainProgress) ? ", digging..." : "");
+      jaffarCommon::logger::log("[J+]      + Dig chain:        %+.1f (%u / %lu cells dug x %.0f, gold gate %u%s)\n", _rewardDigChain, _digChainProgress, _digChainCells.size(),
+                                _digChainReward, _digChainGoldGate, (_rewardDigChain > _digChainReward * (float)_digChainProgress) ? ", digging..." : "");
     if (!_refChestOrder.empty() || _surrenderedChests > 0)
       if (_digBonusReward != 0.0f)
         jaffarCommon::logger::log("[J+]      + Dig bonus:        %+.1f (cell (%u,%u) %s)\n", _rewardDigBonus, _digBonusCellX, _digBonusCellY,
                                   _digBonusDone ? "DUG" : (_rewardDigBonus > 0.0f ? "digging..." : "not dug"));
-      if (_buryBonusReward != 0.0f)
-        jaffarCommon::logger::log("[J+]      + Bury bonus:       %+.1f (carrier in (%u,%u): %s)\n", _rewardBuryBonus, _digBonusCellX, _digBonusCellY,
-                                  _buryBonusDone ? "BURIED" : "not yet");
-      jaffarCommon::logger::log("[J+]      + Surrendered gold: %+.1f (%u chests surrendered by trapped carriers x %.0f x %.2f)\n", _rewardGoldSurrender, _surrenderedChests, _goldMagnet,
-                                _referenceStrategyWeight);
+    if (_buryBonusReward != 0.0f)
+      jaffarCommon::logger::log("[J+]      + Bury bonus:       %+.1f (carrier in (%u,%u): %s)\n", _rewardBuryBonus, _digBonusCellX, _digBonusCellY,
+                                _buryBonusDone ? "BURIED" : "not yet");
+    jaffarCommon::logger::log("[J+]      + Surrendered gold: %+.1f (%u chests surrendered by trapped carriers x %.0f x %.2f)\n", _rewardGoldSurrender, _surrenderedChests,
+                              _goldMagnet, _referenceStrategyWeight);
     if (std::abs(_pointMagnet.intensity) > 0.0f)
       jaffarCommon::logger::log("[J+]      + Leg magnet:       %+.1f (target (%.1f,%.1f), dist %.3f x %.0f)\n", _rewardPointMagnet, _pointMagnet.x, _pointMagnet.y,
                                 _playerDistanceToPoint, _pointMagnet.intensity);
@@ -1380,17 +1391,17 @@ private:
       int  p = 0;
       for (size_t c = 0; c < _chainHopCount && p < (int)sizeof(chain) - 20; c++) p += snprintf(chain + p, sizeof(chain) - p, " + %.2fx%.1f", _chainHopWeight[c], _chainHopDist[c]);
       jaffarCommon::logger::log("[J+]      + Nearest gold:     %+.1f (%s: %.2fx%.3f%s, x %.0f x %.2f; sources: %lu grounded + %lu carried)\n", _rewardNearestChest,
-                                _nearestChestPathMode ? "path" : "manhattan", _lookaheadWeights[0], _nearestChestDistance, _chainHopCount > 0 ? chain : "",
-                                _nearestChestMagnet, 1.0f - _referenceStrategyWeight, _groundedGold, _carriedGold);
+                                _nearestChestPathMode ? "path" : "manhattan", _lookaheadWeights[0], _nearestChestDistance, _chainHopCount > 0 ? chain : "", _nearestChestMagnet,
+                                1.0f - _referenceStrategyWeight, _groundedGold, _carriedGold);
     }
     jaffarCommon::logger::log("[J+]    + NEUTRAL:\n");
     if (_enemyRepulsionIntensity != 0.0f)
-      jaffarCommon::logger::log("[J+]      + Enemy repulsion:  %+.1f (active enemies within r=%.1f, x %.1f)\n", _rewardEnemyRepulsion, _enemyRepulsionRadius, _enemyRepulsionIntensity);
+      jaffarCommon::logger::log("[J+]      + Enemy repulsion:  %+.1f (active enemies within r=%.1f, x %.1f)\n", _rewardEnemyRepulsion, _enemyRepulsionRadius,
+                                _enemyRepulsionIntensity);
     if (_digProgressMagnet != 0.0f)
       jaffarCommon::logger::log("[J+]    + Dig progress:      %+.1f (lifecycle sum %.1f + kill bonus %.0f [%u kill(s)], x %.2f, radius %.1f)\n", _rewardDigProgress,
                                 _digProgression, _digKillBonus, _lowMem[0x00C5], _digProgressMagnet, _digProgressRadius);
-    if (_lastInputStepReward != 0.0f)
-      jaffarCommon::logger::log("[J+]    + Last-input term:   %+.1f (step %u x %.2f)\n", _rewardLastInput, _lastInputStep, _lastInputStepReward);
+    if (_lastInputStepReward != 0.0f) jaffarCommon::logger::log("[J+]    + Last-input term:   %+.1f (step %u x %.2f)\n", _rewardLastInput, _lastInputStep, _lastInputStepReward);
     if (_stopProcessingReward) jaffarCommon::logger::log("[J+]    + (reward processing stopped: terminal state, only last-input term applies)\n");
   }
 
@@ -1498,31 +1509,31 @@ private:
 
   // Per-source reward contributions, assembled once per state evaluation in ruleUpdatePostHook
   // and read by both calculateGameSpecificReward (sum) and printInfoImpl (breakdown log)
-  float   _rewardGoldBanked   = 0.0f;
-  float   _digBonusReward     = 0.0f; ///< One-off reward for digging the "Dig Bonus Cell" (0 = disabled)
-  uint8_t _digBonusCellX      = 255;  ///< Target cell X of the one-off dig bonus
-  uint8_t _digBonusCellY      = 255;  ///< Target cell Y of the one-off dig bonus
-  uint8_t _digBonusDone       = 0;    ///< Latch: bonus cell has been dug (serialized + hashed)
-  std::vector<std::pair<uint8_t, uint8_t>> _digChainCells;         ///< Ordered cells for the dig chain
-  float                                    _digChainReward   = 0.0f; ///< Reward per chain cell dug in order (0 = disabled)
-  uint8_t                                  _digChainGoldGate = 0;    ///< Minimum banked gold before chain cells can latch
-  uint8_t                                  _digChainProgress = 0;    ///< Chain cells dug in order so far (serialized + hashed)
-  float                                    _rewardDigChain   = 0.0f; ///< Current dig-chain reward contribution (latched + in-progress ramp)
-  uint8_t                                  _digChainRampProg = 0;    ///< High-water dig-animation counter for the current chain cell (serialized + hashed)
-  uint8_t _digBonusStarted    = 0;    ///< Derived (postHook): bonus-cell dig underway or done; rule-visible property
-  float   _buryBonusReward    = 0.0f; ///< One-off reward for a carrying enemy buried in the bonus cell (0 = disabled)
-  uint8_t _buryBonusDone      = 0;    ///< Latch: carrier stood in the bonus hole (serialized + hashed)
-  float   _rewardBuryBonus    = 0.0f; ///< Current bury-bonus reward contribution
-  float   _rewardDigBonus     = 0.0f; ///< Current dig-bonus reward contribution
-  float   _rewardPointMagnet  = 0.0f;
-  float   _rewardNearestChest = 0.0f;
-  float   _rewardDigProgress  = 0.0f;
-  float   _rewardLastInput    = 0.0f;
-  uint8_t _bankedChests       = 0;
-  float   _digProgression     = 0.0f;
-  float   _digKillBonus       = 0.0f;
-  size_t  _groundedGold       = 0;
-  size_t  _carriedGold        = 0;
+  float                                    _rewardGoldBanked = 0.0f;
+  float                                    _digBonusReward   = 0.0f;   ///< One-off reward for digging the "Dig Bonus Cell" (0 = disabled)
+  uint8_t                                  _digBonusCellX    = 255;    ///< Target cell X of the one-off dig bonus
+  uint8_t                                  _digBonusCellY    = 255;    ///< Target cell Y of the one-off dig bonus
+  uint8_t                                  _digBonusDone     = 0;      ///< Latch: bonus cell has been dug (serialized + hashed)
+  std::vector<std::pair<uint8_t, uint8_t>> _digChainCells;             ///< Ordered cells for the dig chain
+  float                                    _digChainReward     = 0.0f; ///< Reward per chain cell dug in order (0 = disabled)
+  uint8_t                                  _digChainGoldGate   = 0;    ///< Minimum banked gold before chain cells can latch
+  uint8_t                                  _digChainProgress   = 0;    ///< Chain cells dug in order so far (serialized + hashed)
+  float                                    _rewardDigChain     = 0.0f; ///< Current dig-chain reward contribution (latched + in-progress ramp)
+  uint8_t                                  _digChainRampProg   = 0;    ///< High-water dig-animation counter for the current chain cell (serialized + hashed)
+  uint8_t                                  _digBonusStarted    = 0;    ///< Derived (postHook): bonus-cell dig underway or done; rule-visible property
+  float                                    _buryBonusReward    = 0.0f; ///< One-off reward for a carrying enemy buried in the bonus cell (0 = disabled)
+  uint8_t                                  _buryBonusDone      = 0;    ///< Latch: carrier stood in the bonus hole (serialized + hashed)
+  float                                    _rewardBuryBonus    = 0.0f; ///< Current bury-bonus reward contribution
+  float                                    _rewardDigBonus     = 0.0f; ///< Current dig-bonus reward contribution
+  float                                    _rewardPointMagnet  = 0.0f;
+  float                                    _rewardNearestChest = 0.0f;
+  float                                    _rewardDigProgress  = 0.0f;
+  float                                    _rewardLastInput    = 0.0f;
+  uint8_t                                  _bankedChests       = 0;
+  float                                    _digProgression     = 0.0f;
+  float                                    _digKillBonus       = 0.0f;
+  size_t                                   _groundedGold       = 0;
+  size_t                                   _carriedGold        = 0;
 
   // Game-Specific values
   float _nearestChestDistance = 0.0;
@@ -1553,7 +1564,7 @@ private:
 
   // PROVISIONAL: whether to hash the entire 2KB LRAM (see ctor)
   bool _hashFullLram;
-  bool                    _hashInputLatch                  = true;
+  bool _hashInputLatch = true;
 
   // Pointer/size of the emulator's "Cycle Phase" digest (valid when _hashCyclePhase)
   uint8_t* _cyclePhase     = nullptr;
@@ -1572,73 +1583,73 @@ private:
   float _enemyPathCost = 0.0f;
 
   // Path-mode distance field scratch (derived cache -- never serialized nor hashed)
-  static constexpr int    _mapW        = 28;
-  static constexpr int    _mapH        = 14; // rows 0..13; row 0 unused
-  static constexpr float  _unreachable = 1.0e9f;
-  static constexpr size_t _maxGold     = 8;
-  float                   _chestField[_mapW * _mapH]       = {};
-  float                   _chestFieldC[_mapW * _mapH]      = {};
-  uint8_t                 _chestFieldOriginC[_mapW * _mapH] = {};
-  bool                    _goldSourceCarried[_maxGold]     = {};
-  size_t                  _groundedSourceCount             = 0;
-  float                   _carriedGoldWeight               = 0.5f;
-  float                   _referenceStrategyWeight         = 0.0f;
-  std::vector<std::pair<uint8_t, uint8_t>> _refChestOrder;
-  uint32_t                _orderedPrefix                   = 0;
-  uint8_t                 _choreoMatched                   = 0;
-  uint8_t                 _choreoViolated                  = 0;
-  uint8_t                 _playerTrappedInHole             = 0;
-  float                   _rewardGoldBankedRef             = 0.0f;
-  uint32_t                _surrenderedChests               = 0;
-  float                   _rewardGoldSurrender             = 0.0f;
-  float                   _enemyRepulsionIntensity         = 0.0f;
-  float                   _enemyRepulsionRadius            = 0.0f;
-  float                   _rewardEnemyRepulsion            = 0.0f;
+  static constexpr int                       _mapW                             = 28;
+  static constexpr int                       _mapH                             = 14; // rows 0..13; row 0 unused
+  static constexpr float                     _unreachable                      = 1.0e9f;
+  static constexpr size_t                    _maxGold                          = 8;
+  float                                      _chestField[_mapW * _mapH]        = {};
+  float                                      _chestFieldC[_mapW * _mapH]       = {};
+  uint8_t                                    _chestFieldOriginC[_mapW * _mapH] = {};
+  bool                                       _goldSourceCarried[_maxGold]      = {};
+  size_t                                     _groundedSourceCount              = 0;
+  float                                      _carriedGoldWeight                = 0.5f;
+  float                                      _referenceStrategyWeight          = 0.0f;
+  std::vector<std::pair<uint8_t, uint8_t>>   _refChestOrder;
+  uint32_t                                   _orderedPrefix           = 0;
+  uint8_t                                    _choreoMatched           = 0;
+  uint8_t                                    _choreoViolated          = 0;
+  uint8_t                                    _playerTrappedInHole     = 0;
+  float                                      _rewardGoldBankedRef     = 0.0f;
+  uint32_t                                   _surrenderedChests       = 0;
+  float                                      _rewardGoldSurrender     = 0.0f;
+  float                                      _enemyRepulsionIntensity = 0.0f;
+  float                                      _enemyRepulsionRadius    = 0.0f;
+  float                                      _rewardEnemyRepulsion    = 0.0f;
   std::vector<std::pair<uint16_t, uint16_t>> _hashLramRanges;
-  float                   _choreoLegIntensity              = 0.0f;
-  float                   _traceMagnetIntensity            = 0.0f;
-  std::vector<std::pair<float, float>> _tracePoints;
-  float                   _rewardTraceMagnet               = 0.0f;
-  float                   _rewardChoreoLeg                 = 0.0f;
-  float                   _choreoLegField[_mapW * _mapH]   = {};
-  uint8_t                 _timerHashMask                   = 3;    ///< "Timer Hash Mask": quantization mask for timer-class hash bytes
-  bool                    _pointMagnetTileBasis            = false; ///< "Point Magnet Tile Basis": tile-Manhattan point magnets (sub-pixel-wobble-free)
-  std::vector<std::pair<uint8_t, uint8_t>> _routeWps;               ///< Ordered route waypoints ("Route Waypoints File")
-  std::vector<uint8_t>    _routeWpGold;                             ///< Required banked-gold count per waypoint (section gates)
-  float                   _routeWpReward                   = 0.0f;  ///< Reward per waypoint passed ("Route Waypoint Reward")
-  float                   _routeNextPull                   = 0.0f;  ///< Small tile pull toward the next waypoint ("Route Next Pull")
-  uint16_t                _routeProgress                   = 0;     ///< Waypoints passed in order (lineage state: serialized + hashed)
-  uint8_t                 _routeSubBest                    = 0;     ///< High-water eighth-tile proximity toward the next waypoint (lineage state)
-  uint8_t                 _routeViolated                   = 0;     ///< Latch: player changed tile off the exact route order (lineage state; rule-visible)
-  uint8_t                 _enemyDropWatchX                 = 255;   ///< "Enemy Drop Watch" tile X (255 = off)
-  uint8_t                 _enemyDropWatchY                 = 255;   ///< "Enemy Drop Watch" tile Y
-  uint8_t                 _enemyDropDone                   = 0;     ///< Latch: an enemy relinquished its gold at the watched tile (lineage state)
-  uint8_t                 _goldAtWatch                     = 0;     ///< Derived (postHook): grounded gold currently present at the watch tile
-  float                   _goldDepositReward               = 0.0f;  ///< "Gold Deposit Reward": one-off for the deposit having happened (0 = off)
-  uint8_t                 _goldDeposited                   = 0;     ///< Latch: a gold has appeared at the watch tile (lineage state)
-  float                   _rewardGoldDeposit               = 0.0f;  ///< Current deposit reward contribution
-  float                   _rewardRoute                     = 0.0f;  ///< Current route-odometer reward contribution
-  float                   _exitMagnetIntensity             = 0.0f; ///< Exit pull strength ("Exit Magnet Intensity", 0 = off)
-  uint8_t                 _exitX                           = 0;    ///< Exit cell X ("Exit Position")
-  uint8_t                 _exitY                           = 1;    ///< Exit cell Y ("Exit Position")
-  float                   _rewardExitMagnet                = 0.0f; ///< Current exit-magnet contribution
-  uint8_t                 _exitFieldKey[0x0388]            = {};   ///< Map snapshot keying the cached exit field
-  float                   _exitField[_mapW * _mapH]        = {};   ///< Cached exit path field
-  uint8_t                 _choreoLegKey[0x0388]            = {};
-  size_t                  _choreoLegTarget                 = (size_t)-1;
-  uint8_t                 _chestFieldOrigin[_mapW * _mapH] = {};
-  float                   _goldTmpField[_mapW * _mapH]     = {};
-  bool                    _chestFieldValid                 = false;
-  uint8_t                 _chestFieldKey[16]               = {};
-  uint8_t                 _goldSourceX[_maxGold]           = {};
-  uint8_t                 _goldSourceY[_maxGold]           = {};
-  size_t                  _goldSourceCount                 = 0;
-  float                   _goldPairDist[_maxGold][_maxGold] = {};
-  std::vector<float>      _lookaheadWeights;
-  float                   _goldChainTotal            = 0.0f;
-  size_t                  _chainHopCount             = 0;
-  float                   _chainHopDist[_maxGold]    = {};
-  float                   _chainHopWeight[_maxGold]  = {};
+  float                                      _choreoLegIntensity   = 0.0f;
+  float                                      _traceMagnetIntensity = 0.0f;
+  std::vector<std::pair<float, float>>       _tracePoints;
+  float                                      _rewardTraceMagnet             = 0.0f;
+  float                                      _rewardChoreoLeg               = 0.0f;
+  float                                      _choreoLegField[_mapW * _mapH] = {};
+  uint8_t                                    _timerHashMask                 = 3;       ///< "Timer Hash Mask": quantization mask for timer-class hash bytes
+  bool                                       _pointMagnetTileBasis          = false;   ///< "Point Magnet Tile Basis": tile-Manhattan point magnets (sub-pixel-wobble-free)
+  std::vector<std::pair<uint8_t, uint8_t>>   _routeWps;                                ///< Ordered route waypoints ("Route Waypoints File")
+  std::vector<uint8_t>                       _routeWpGold;                             ///< Required banked-gold count per waypoint (section gates)
+  float                                      _routeWpReward                    = 0.0f; ///< Reward per waypoint passed ("Route Waypoint Reward")
+  float                                      _routeNextPull                    = 0.0f; ///< Small tile pull toward the next waypoint ("Route Next Pull")
+  uint16_t                                   _routeProgress                    = 0;    ///< Waypoints passed in order (lineage state: serialized + hashed)
+  uint8_t                                    _routeSubBest                     = 0;    ///< High-water eighth-tile proximity toward the next waypoint (lineage state)
+  uint8_t                                    _routeViolated                    = 0;    ///< Latch: player changed tile off the exact route order (lineage state; rule-visible)
+  uint8_t                                    _enemyDropWatchX                  = 255;  ///< "Enemy Drop Watch" tile X (255 = off)
+  uint8_t                                    _enemyDropWatchY                  = 255;  ///< "Enemy Drop Watch" tile Y
+  uint8_t                                    _enemyDropDone                    = 0;    ///< Latch: an enemy relinquished its gold at the watched tile (lineage state)
+  uint8_t                                    _goldAtWatch                      = 0;    ///< Derived (postHook): grounded gold currently present at the watch tile
+  float                                      _goldDepositReward                = 0.0f; ///< "Gold Deposit Reward": one-off for the deposit having happened (0 = off)
+  uint8_t                                    _goldDeposited                    = 0;    ///< Latch: a gold has appeared at the watch tile (lineage state)
+  float                                      _rewardGoldDeposit                = 0.0f; ///< Current deposit reward contribution
+  float                                      _rewardRoute                      = 0.0f; ///< Current route-odometer reward contribution
+  float                                      _exitMagnetIntensity              = 0.0f; ///< Exit pull strength ("Exit Magnet Intensity", 0 = off)
+  uint8_t                                    _exitX                            = 0;    ///< Exit cell X ("Exit Position")
+  uint8_t                                    _exitY                            = 1;    ///< Exit cell Y ("Exit Position")
+  float                                      _rewardExitMagnet                 = 0.0f; ///< Current exit-magnet contribution
+  uint8_t                                    _exitFieldKey[0x0388]             = {};   ///< Map snapshot keying the cached exit field
+  float                                      _exitField[_mapW * _mapH]         = {};   ///< Cached exit path field
+  uint8_t                                    _choreoLegKey[0x0388]             = {};
+  size_t                                     _choreoLegTarget                  = (size_t)-1;
+  uint8_t                                    _chestFieldOrigin[_mapW * _mapH]  = {};
+  float                                      _goldTmpField[_mapW * _mapH]      = {};
+  bool                                       _chestFieldValid                  = false;
+  uint8_t                                    _chestFieldKey[16]                = {};
+  uint8_t                                    _goldSourceX[_maxGold]            = {};
+  uint8_t                                    _goldSourceY[_maxGold]            = {};
+  size_t                                     _goldSourceCount                  = 0;
+  float                                      _goldPairDist[_maxGold][_maxGold] = {};
+  std::vector<float>                         _lookaheadWeights;
+  float                                      _goldChainTotal           = 0.0f;
+  size_t                                     _chainHopCount            = 0;
+  float                                      _chainHopDist[_maxGold]   = {};
+  float                                      _chainHopWeight[_maxGold] = {};
   std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, std::greater<std::pair<float, int>>> _chestFieldQueue;
 
   // Datatype for a config-declared watched tile of the $0400 layout layer

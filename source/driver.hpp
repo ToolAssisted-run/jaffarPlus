@@ -485,22 +485,36 @@ public:
           {
             _engine->getStateDb()->loadStateIntoRunner(*_runner, _bestStateStorage.data());
             std::vector<uint8_t> st(_runner->getStateSize());
-            { jaffarCommon::serializer::Contiguous ser(st.data(), st.size()); _runner->serializeState(ser); }
-            { jaffarCommon::deserializer::Contiguous des(st.data(), st.size()); _runner->deserializeState(des); }
-            { jaffarCommon::serializer::Contiguous ser(st.data(), st.size()); _runner->serializeState(ser); }
-            const auto& ref = refStates[floorRefStep];
-            size_t total = 0, volat = 0;
+            {
+              jaffarCommon::serializer::Contiguous ser(st.data(), st.size());
+              _runner->serializeState(ser);
+            }
+            {
+              jaffarCommon::deserializer::Contiguous des(st.data(), st.size());
+              _runner->deserializeState(des);
+            }
+            {
+              jaffarCommon::serializer::Contiguous ser(st.data(), st.size());
+              _runner->serializeState(ser);
+            }
+            const auto& ref   = refStates[floorRefStep];
+            size_t      total = 0, volat = 0;
             std::string offs;
             for (size_t i = 0; i < std::min(st.size(), ref.size()); i++)
               if (st[i] != ref[i])
               {
                 total++;
-                if (i < mask.size() && mask[i] != 0) { volat++; continue; }
+                if (i < mask.size() && mask[i] != 0)
+                {
+                  volat++;
+                  continue;
+                }
                 if (offs.size() < 400) offs += " " + std::to_string(i) + "(" + std::to_string(ref[i]) + "->" + std::to_string(st[i]) + ")";
               }
-            jaffarCommon::logger::log("[J+] FLOOR AUDIT step %lu: best-vs-ref diffs=%lu (volatile-masked=%lu, causal=%lu); causal offsets:%s\n", _currentStep, total, volat, total - volat,
-                                      offs.c_str());
-            jaffarCommon::logger::log("[J+] FLOOR AUDIT rewards: bestFloor=%.6f bestSearch=%.6f refFloor=%.6f\n", _bestStateFloorReward, _bestStateReward, _referenceReward[floorRefStep]);
+            jaffarCommon::logger::log("[J+] FLOOR AUDIT step %lu: best-vs-ref diffs=%lu (volatile-masked=%lu, causal=%lu); causal offsets:%s\n", _currentStep, total, volat,
+                                      total - volat, offs.c_str());
+            jaffarCommon::logger::log("[J+] FLOOR AUDIT rewards: bestFloor=%.6f bestSearch=%.6f refFloor=%.6f\n", _bestStateFloorReward, _bestStateReward,
+                                      _referenceReward[floorRefStep]);
           }
         }
         jaffarCommon::logger::log("[J+] Best (%.6f) fell below reference floor (%.6f, tol %.4f, grace %u steps) at step %lu by %.6f -- cancelling.\n", _bestStateFloorReward,
@@ -788,17 +802,26 @@ public:
     // volatile-residue mask -- localizes the step where the reference-follower leaves the frontier.
     if (std::getenv("JAFFAR_FLOOR_AUDIT") != nullptr && _referenceFloorEnabled)
     {
-      const auto& refStates = _engine->getRefStates();
-      const auto& mask      = _engine->getRefVolatileMask();
-      const size_t depth    = _currentStep;
+      const auto&  refStates = _engine->getRefStates();
+      const auto&  mask      = _engine->getRefVolatileMask();
+      const size_t depth     = _currentStep;
       if (depth < refStates.size() && refStates[depth].size() > 0)
       {
         std::vector<uint8_t> st(_runner->getStateSize());
-        { jaffarCommon::serializer::Contiguous ser(st.data(), st.size()); _runner->serializeState(ser); }
-        { jaffarCommon::deserializer::Contiguous des(st.data(), st.size()); _runner->deserializeState(des); }
-        { jaffarCommon::serializer::Contiguous ser(st.data(), st.size()); _runner->serializeState(ser); }
-        const auto& ref = refStates[depth];
-        size_t causal = 0;
+        {
+          jaffarCommon::serializer::Contiguous ser(st.data(), st.size());
+          _runner->serializeState(ser);
+        }
+        {
+          jaffarCommon::deserializer::Contiguous des(st.data(), st.size());
+          _runner->deserializeState(des);
+        }
+        {
+          jaffarCommon::serializer::Contiguous ser(st.data(), st.size());
+          _runner->serializeState(ser);
+        }
+        const auto& ref    = refStates[depth];
+        size_t      causal = 0;
         std::string offs;
         for (size_t i = 0; i < std::min(st.size(), ref.size()); i++)
           if (st[i] != ref[i] && (i >= mask.size() || mask[i] == 0))
@@ -856,8 +879,8 @@ public:
       {
         // The cancel check compares against the reference Step-Grace steps EARLIER; print that
         // graced margin too whenever grace is active, so the display always matches the check.
-        const size_t floorRefStep = _currentStep >= _referenceFloorStepGrace ? _currentStep - _referenceFloorStepGrace : 0;
-        const char* belowWorstTag = _referenceBelowWorstNow ? " [ref BELOW WORST -- frontier?]" : "";
+        const size_t floorRefStep  = _currentStep >= _referenceFloorStepGrace ? _currentStep - _referenceFloorStepGrace : 0;
+        const char*  belowWorstTag = _referenceBelowWorstNow ? " [ref BELOW WORST -- frontier?]" : "";
         if (_referenceFloorStepGrace > 0)
           jaffarCommon::logger::log(
               "[J+] Reference Reward (Ref / Best-Ref):           %.6f (Best-Ref %+.6f; graced check vs step %lu: %+.6f, floor tol %.4f) [step %lu / %lu ref steps]%s\n",
@@ -969,17 +992,17 @@ private:
 
   float _worstStateReward; ///< Reward for the worst state found so far.
 
-  bool     _referenceFloorEnabled;       ///< Whether the reference reward floor cancel is active.
-  float    _referenceFloorTolerance;     ///< Allowed shortfall of best below the reference per step.
-  uint32_t _referenceFloorStepGrace = 0; ///< Compare best against the reference this many steps earlier (bounded time slack for jumpy rewards).
-  bool     _cancelIfReferenceBelowWorst; ///< Opt-in: enable the below-worst check (surfaced as a log addendum, not a cancel).
-  float    _referenceBelowWorstMargin;   ///< Margin added to the reference before the below-worst comparison (typically the pinning bonus).
+  bool     _referenceFloorEnabled;          ///< Whether the reference reward floor cancel is active.
+  float    _referenceFloorTolerance;        ///< Allowed shortfall of best below the reference per step.
+  uint32_t _referenceFloorStepGrace = 0;    ///< Compare best against the reference this many steps earlier (bounded time slack for jumpy rewards).
+  bool     _cancelIfReferenceBelowWorst;    ///< Opt-in: enable the below-worst check (surfaced as a log addendum, not a cancel).
+  float    _referenceBelowWorstMargin;      ///< Margin added to the reference before the below-worst comparison (typically the pinning bonus).
   bool     _referenceBelowWorstNow = false; ///< Whether the reference is currently below the worst kept state (per-step log addendum).
 
-  std::string        _referenceTracePath;    ///< Legacy precomputed-trace file path (loaded on demand if only the engine-side prune needs it)
-  std::vector<float> _referenceReward;
-  std::vector<int>   _referenceStateType;       ///< Per-step reference reward floor (index = step).
-  std::string        _referenceSolutionPath; ///< Optional reference solution (.sol) replayed at init to build @ref _referenceReward.
+  std::string        _referenceTracePath;                ///< Legacy precomputed-trace file path (loaded on demand if only the engine-side prune needs it)
+  std::vector<float> _referenceReward;                   ///< Per-step reference reward floor (index = step).
+  std::vector<int>   _referenceStateType;                ///< Per-step reference state type (normal/win/fail) recorded during the floor replay.
+  std::string        _referenceSolutionPath;             ///< Optional reference solution (.sol) replayed at init to build @ref _referenceReward.
   std::string        _referenceFloorInitialStatePath;    ///< Optional raw state file rebasing the floor replay onto the reference's own lineage.
   std::string        _referenceFloorInitialSequencePath; ///< Optional emulator-level prefix sequence for the reference-lineage rebase.
 

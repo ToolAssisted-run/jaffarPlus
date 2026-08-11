@@ -191,7 +191,7 @@ public:
     // no CPU registers: reproducible across instances by construction.
     if (_cyclePhaseScratch.empty() == false)
     {
-      uint8_t buf[64];
+      uint8_t      buf[64];
       const size_t n = _quickerNES->getPhaseState(buf);
       MetroHash128 h;
       h.Update(buf, n);
@@ -494,19 +494,19 @@ private:
 
   std::unique_ptr<NESInstance> _quickerNES;
 
-  bool        _useFlatCodeMap;
+  bool _useFlatCodeMap;
 
   // "Cycle Phase" digest support (see advanceStateImpl / getProperty). The scratch is sized on
   // first property request (lazy activation: inactive games pay no per-advance serialize cost);
   // the digest is zero-initialized so pre-advance reads are instance-independent.
   mutable std::vector<uint8_t> _cyclePhaseScratch;
-  mutable size_t _cyclePhaseLramOfs = SIZE_MAX; ///< Offset of the 2KB work-RAM copy inside the serialized state (located once; excluded from the phase digest)
-  uint8_t                      _cyclePhase[16] = {};
-  size_t      _NTABBlockSize;
-  size_t      _SRAMBlockSize;
-  bool        _preciseTiming = false;
-  std::string _romFilePath;
-  std::string _romFileSHA1;
+  mutable size_t               _cyclePhaseLramOfs = SIZE_MAX; ///< Offset of the 2KB work-RAM copy inside the serialized state (located once; excluded from the phase digest)
+  uint8_t                      _cyclePhase[16]    = {};
+  size_t                       _NTABBlockSize;
+  size_t                       _SRAMBlockSize;
+  bool                         _preciseTiming = false;
+  std::string                  _romFilePath;
+  std::string                  _romFileSHA1;
 
   std::string _initialStateFilePath;
   std::string _initialSequenceFilePath;

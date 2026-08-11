@@ -167,7 +167,7 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
   // --dumpNTAB: write the current nametable memory to a file and exit (transplant calibration)
   if (dumpNtabPath.empty() == false)
   {
-    auto prop = r.getGame()->getEmulator()->getProperty("NTAB");
+    auto        prop = r.getGame()->getEmulator()->getProperty("NTAB");
     std::string data((const char*)prop.pointer, prop.size);
     jaffarCommon::file::saveStringToFile(data, dumpNtabPath);
     jaffarCommon::logger::log("[J+] Dumped NTAB (%lu bytes) to %s\n", prop.size, dumpNtabPath.c_str());
@@ -188,8 +188,8 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
     {
       std::string ntabData;
       if (jaffarCommon::file::loadStringFromFile(ntabData, pokeNtabPath) == false) JAFFAR_THROW_LOGIC("[ERROR] Could not read --pokeNTAB file: %s\n", pokeNtabPath.c_str());
-      auto prop = r.getGame()->getEmulator()->getProperty("NTAB");
-      const size_t n = std::min(ntabData.size(), prop.size);
+      auto         prop = r.getGame()->getEmulator()->getProperty("NTAB");
+      const size_t n    = std::min(ntabData.size(), prop.size);
       memcpy(prop.pointer, ntabData.data(), n);
       jaffarCommon::logger::log("[J+] Poked NTAB with %lu bytes from %s\n", n, pokeNtabPath.c_str());
     }
@@ -201,7 +201,7 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
     if (savePokedStatePath.empty() == false)
     {
       const size_t advanceN = savePokedStateStepStr.empty() ? 0 : parseUInt(savePokedStateStepStr, "--savePokedStateStep");
-      size_t advanced = 0;
+      size_t       advanced = 0;
       for (const auto& inp : solutionSequence)
       {
         if (advanced >= advanceN) break;
@@ -637,7 +637,8 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
     for (ssize_t i = 0; i <= sequenceLength; i++)
     {
       jaffarCommon::hash::hash_t hash;
-      if (dumpHashesLookahead == 0) hash = p.getStateHash(i);
+      if (dumpHashesLookahead == 0)
+        hash = p.getStateHash(i);
       else
       {
         // Lookahead-aware hash (mirrors the engine's "Hash Lookahead" digest): restore the
@@ -1090,13 +1091,13 @@ int main(int argc, char* argv[])
   }
 
   // Getting screenshot options
-  terrainDrivePath = program.get<std::string>("--terrainDrive");
-  terrainSweepSpec = program.get<std::string>("--terrainSweep");
-  pokeNtabPath = program.get<std::string>("--pokeNTAB");
-  dumpNtabPath = program.get<std::string>("--dumpNTAB");
-  savePokedStatePath = program.get<std::string>("--savePokedState");
+  terrainDrivePath      = program.get<std::string>("--terrainDrive");
+  terrainSweepSpec      = program.get<std::string>("--terrainSweep");
+  pokeNtabPath          = program.get<std::string>("--pokeNTAB");
+  dumpNtabPath          = program.get<std::string>("--dumpNTAB");
+  savePokedStatePath    = program.get<std::string>("--savePokedState");
   savePokedStateStepStr = program.get<std::string>("--savePokedStateStep");
-  screenshotDir    = program.get<std::string>("--screenshotDir");
+  screenshotDir         = program.get<std::string>("--screenshotDir");
   {
     const auto stepsStr = program.get<std::string>("--screenshotSteps");
     if (stepsStr.empty() == false)
@@ -1123,7 +1124,7 @@ int main(int argc, char* argv[])
   printFinalState = program.get<bool>("--printFinalState");
 
   // Getting the per-step hash dump path (if any)
-  dumpHashesPath = program.get<std::string>("--dumpHashes");
+  dumpHashesPath      = program.get<std::string>("--dumpHashes");
   dumpHashesLookahead = (size_t)std::stoul(program.get<std::string>("--dumpHashesLookahead"));
 
   // Getting the per-step RAM dump path (if any)

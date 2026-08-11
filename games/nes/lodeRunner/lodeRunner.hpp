@@ -240,13 +240,13 @@ public:
     // 7 while present, 0 once collected) so rules can gate on individual chests / dug bricks.
     if (_gameConfigRemaining.contains("Watch Tiles"))
       for (const auto& tileJs : jaffarCommon::json::popArray<nlohmann::json>(_gameConfigRemaining, "Watch Tiles"))
-    {
-      watchTile_t t;
-      t.name = jaffarCommon::json::getString(tileJs, "Name");
-      t.x    = jaffarCommon::json::getNumber<size_t>(tileJs, "X");
-      t.y    = jaffarCommon::json::getNumber<size_t>(tileJs, "Y");
-      _watchTiles.push_back(t);
-    }
+      {
+        watchTile_t t;
+        t.name = jaffarCommon::json::getString(tileJs, "Name");
+        t.x    = jaffarCommon::json::getNumber<size_t>(tileJs, "X");
+        t.y    = jaffarCommon::json::getNumber<size_t>(tileJs, "Y");
+        _watchTiles.push_back(t);
+      }
   }
 
 private:

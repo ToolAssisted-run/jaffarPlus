@@ -150,6 +150,35 @@ public:
       if (i < inputSequence.size()) _runner->advanceState(step.inputIndex);
       if (i == inputSequence.size()) _runner->advanceState(_sequence.rbegin()->inputIndex);
 
+      // Diagnostic (JAFFAR_DUMP_FULLSTATE_DIR=<dir>): write each step's full serialized state to
+      // <dir>/state<step>.bin. Diffing two replays' dumps at equal depth pinpoints which emulator
+      // fields (beyond RAM) distinguish converging-looking states.
+      if (const char* dumpDir = std::getenv("JAFFAR_DUMP_FULLSTATE_DIR"); dumpDir != nullptr)
+      {
+        std::vector<uint8_t> buf(_gameStateSize);
+        jaffarCommon::serializer::Contiguous s(buf.data(), buf.size());
+        _runner->serializeState(s);
+        char path[512];
+        snprintf(path, sizeof(path), "%s/state%04lu.bin", dumpDir, i + 1);
+        jaffarCommon::file::saveStringToFile(std::string((char*)buf.data(), buf.size()), path);
+      }
+
+      // Diagnostic (JAFFAR_ROUNDTRIP_PER_STEP=1): serialize+deserialize the runner after every
+      // advance, mimicking the engine's store/reload dynamics. Diffing a --dumpHashes file produced
+      // with this flag against a normal one pinpoints where round-trip advancing forks from live.
+      if (std::getenv("JAFFAR_ROUNDTRIP_PER_STEP") != nullptr)
+      {
+        std::vector<uint8_t> rt(_gameStateSize);
+        {
+          jaffarCommon::serializer::Contiguous s(rt.data(), rt.size());
+          _runner->serializeState(s);
+        }
+        {
+          jaffarCommon::deserializer::Contiguous d(rt.data(), rt.size());
+          _runner->deserializeState(d);
+        }
+      }
+
       // Evaluate game rules
       _runner->getGame()->evaluateRules();
 

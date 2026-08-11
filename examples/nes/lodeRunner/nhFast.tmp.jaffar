@@ -1,0 +1,411 @@
+{
+ "Driver Configuration": {
+  "End On First Win State": true,
+  "Max Steps": 550,
+  "Reference Reward Floor": {
+   "Enabled": false,
+   "Tolerance": 0.0,
+   "Step Grace": 0,
+   "Solution File": "stage50.reference.sol",
+   "Cancel If Reference Below Worst": true,
+   "Below Worst Margin": 0.0
+  },
+  "Save Intermediate Results": {
+   "Enabled": true,
+   "Frequency (s)": 1.0,
+   "Best Solution Path": "/tmp/jaffar.best.sol",
+   "Worst Solution Path": "/tmp/jaffar.worst.sol"
+  }
+ },
+ "Engine Configuration": {
+  "State Database": {
+   "Max Size (Mb)": 30000
+  },
+  "Hash Database": {
+   "Max Store Count": 2,
+   "Max Store Size (Mb)": 16000,
+   "Enabled": true
+  },
+  "Log Verbosity": "Compact",
+  "Hash Lookahead": 0
+ },
+ "Emulator Configuration": {
+  "Rom File Path": "Lode Runner (U) [!].nes",
+  "Rom File SHA1": "EA09AEC11EFC4B42EBC644EA243C2284001FE34F",
+  "Initial State File Path": "stage50.nh48777.state",
+  "Initial Sequence File Path": "",
+  "Initial RAM Data File Path": "",
+  "Controller 1 Type": "Joypad",
+  "Controller 2 Type": "None",
+  "Emulator Name": "NesHawk"
+ },
+ "Runner Configuration": {
+  "Hash Step Tolerance": 2,
+  "Show Empty Input Slots": true,
+  "Show Allowed Inputs": true,
+  "Bypass Hash Calculation": false,
+  "Store Input History": {
+   "Type": "Raw",
+   "Max Size": 500
+  },
+  "Allowed Input Sets": [
+   {
+    "Conditions": [
+     {
+      "Property": "Player Dig State",
+      "Op": ">=",
+      "Value": 1
+     },
+     {
+      "Property": "Player Dig State",
+      "Op": "<=",
+      "Value": 10
+     }
+    ],
+    "Inputs": [
+     "|..|........|"
+    ],
+    "Stop Input Evaluation": true
+   },
+   {
+    "Conditions": [
+     {
+      "Property": "Vertical Input Useful",
+      "Op": "==",
+      "Value": 0
+     }
+    ],
+    "Inputs": [
+     "|..|........|",
+     "|..|..L.....|",
+     "|..|...R....|",
+     "|..|.......A|",
+     "|..|......B.|",
+     "|..|UD......|",
+     "|..|..LR....|",
+     "|..|..L....A|",
+     "|..|...R...A|",
+     "|..|..L...B.|",
+     "|..|...R..B.|"
+    ],
+    "Stop Input Evaluation": true
+   },
+   {
+    "Conditions": [],
+    "Inputs": [
+     "|..|........|",
+     "|..|U.......|",
+     "|..|.D......|",
+     "|..|..L.....|",
+     "|..|...R....|",
+     "|..|.......A|",
+     "|..|......B.|",
+     "|..|U.L.....|",
+     "|..|U..R....|",
+     "|..|.DL.....|",
+     "|..|.D.R....|",
+     "|..|UD......|",
+     "|..|..LR....|",
+     "|..|..L....A|",
+     "|..|...R...A|",
+     "|..|..L...B.|",
+     "|..|...R..B.|"
+    ],
+    "Stop Input Evaluation": false
+   }
+  ],
+  "Test Candidate Inputs": false,
+  "Candidate Input Sets": [],
+  "Frameskip": {
+   "Rate": 0,
+   "Use Custom Input": false,
+   "Custom Input": ""
+  }
+ },
+ "Game Configuration": {
+  "Game Name": "NES / Lode Runner",
+  "Frame Rate": 60.1,
+  "Bypass Emulator State": false,
+  "Last Input Step Reward": 0.0,
+  "Hash Timers": true,
+  "Hash Camera": false,
+  "Hash Sound State": false,
+  "Hash Cycle Phase": false,
+  "Hash Phase Work RAM": true,
+  "Hash Full LRAM": false,
+  "Hash Enemy Offsets": true,
+  "Hash Player Offsets": true,
+  "Nearest Chest Distance Mode": "Path",
+  "Enemy Path Cost": 0.0,
+  "Gold Lookahead Weights": [
+   1.0,
+   0.2,
+   0.1
+  ],
+  "Print Properties": [
+   "Current Level",
+   "Play Mode",
+   "Player X",
+   "Player Y",
+   "Player Alive",
+   "Gold Remaining",
+   "Gold Collected",
+   "Spawn Timer"
+  ],
+  "Hash Properties": [],
+  "Rules": [
+   {
+    "Label": 1000,
+    "Description": "Always: collected chests dominate all shaping; chase map chests and carried gold",
+    "Satisfies": [],
+    "Conditions": [],
+    "Actions": [
+     {
+      "Type": "Set Initial Gold",
+      "Value": 14
+     },
+     {
+      "Type": "Set Gold Magnet",
+      "Intensity": 480.0
+     },
+     {
+      "Type": "Set Nearest Chest Magnet",
+      "Intensity": 10.0
+     },
+     {
+      "Type": "Set Dig Progress Magnet",
+      "Intensity": 1.0,
+      "Radius": 3.0
+     }
+    ]
+   },
+   {
+    "Label": 1998,
+    "Description": "Fail on player death",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Player Alive",
+      "Op": "==",
+      "Value": 0
+     },
+     {
+      "Property": "Play Mode",
+      "Op": "==",
+      "Value": 1
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Fail"
+     }
+    ]
+   },
+   {
+    "Label": 1997,
+    "Description": "Fail if play stops mid-level (level-select menu wandering)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Play Mode",
+      "Op": "==",
+      "Value": 0
+     },
+     {
+      "Property": "Current Level",
+      "Op": "==",
+      "Value": 50
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Fail"
+     }
+    ]
+   },
+   {
+    "Label": 1999,
+    "Description": "WIN: stage50 complete (level counter wraps to 1)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Current Level",
+      "Op": "==",
+      "Value": 1
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Win"
+     }
+    ]
+   },
+   {
+    "Label": 1996,
+    "Description": "FAIL: irrecoverable single-hole trap (solid floor below, solid both sides)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Player Trapped In Hole",
+      "Op": "==",
+      "Value": 1
+     },
+     {
+      "Property": "Current Level",
+      "Op": "==",
+      "Value": 50
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Trigger Fail"
+     }
+    ]
+   },
+   {
+    "Label": 2001,
+    "Description": "S50 all gold: exit at (0,0)",
+    "Satisfies": [],
+    "Conditions": [
+     {
+      "Property": "Gold Remaining",
+      "Op": ">=",
+      "Value": 250
+     },
+     {
+      "Property": "Current Level",
+      "Op": "==",
+      "Value": 50
+     }
+    ],
+    "Actions": [
+     {
+      "Type": "Set Point Magnet",
+      "Intensity": 50.0,
+      "X": 0.0,
+      "Y": 0.0
+     }
+    ]
+   }
+  ],
+  "Watch Tiles": [
+   {
+    "Name": "S2 Chest 1",
+    "X": 2,
+    "Y": 3
+   },
+   {
+    "Name": "S2 Chest 2",
+    "X": 8,
+    "Y": 7
+   },
+   {
+    "Name": "S2 Chest 3",
+    "X": 3,
+    "Y": 1
+   },
+   {
+    "Name": "S2 Chest 4",
+    "X": 1,
+    "Y": 10
+   },
+   {
+    "Name": "S2 Chest 5",
+    "X": 14,
+    "Y": 6
+   },
+   {
+    "Name": "S2 Chest 6",
+    "X": 18,
+    "Y": 1
+   },
+   {
+    "Name": "S2 Chest 7",
+    "X": 23,
+    "Y": 2
+   },
+   {
+    "Name": "S2 Chest 8",
+    "X": 27,
+    "Y": 10
+   }
+  ],
+  "Carried Gold Weight": 0.5,
+  "Reference Strategy Weight": 0.9,
+  "Reference Pickup Order": [
+   [
+    0,
+    12
+   ],
+   [
+    9,
+    7
+   ],
+   [
+    12,
+    3
+   ],
+   [
+    15,
+    3
+   ],
+   [
+    25,
+    2
+   ],
+   [
+    26,
+    2
+   ],
+   [
+    27,
+    2
+   ],
+   [
+    26,
+    7
+   ],
+   [
+    26,
+    10
+   ],
+   [
+    23,
+    10
+   ],
+   [
+    22,
+    12
+   ],
+   [
+    11,
+    7
+   ],
+   [
+    6,
+    2
+   ],
+   [
+    2,
+    3
+   ]
+  ],
+  "Enemy Repulsion Intensity": 5.0,
+  "Enemy Repulsion Radius": 5.0,
+  "Choreo Leg Intensity": 15.0,
+  "Trace Magnet Intensity": 0.0,
+  "Trace File": "",
+  "Hash LRAM Ranges": [
+   [
+    160,
+    168
+   ]
+  ],
+  "Hash Input Latch": false,
+  "Dig Bonus Cell": [
+   23,
+   11
+  ],
+  "Dig Bonus Reward": 100.0
+ }
+}

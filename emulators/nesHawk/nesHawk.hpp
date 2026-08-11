@@ -275,8 +275,11 @@ public:
   }
 
   // Write the current rendered frame (_curBlit) to a 24-bit BMP. No SDL/display needed.
+  // Refreshes _curBlit from the PPU framebuffer first: the player's headless screenshot pass
+  // calls saveScreenshot without updateRendererState (QuickerNES self-refreshes; so do we).
   void saveScreenshot(const std::string& path) override
   {
+    updateRendererState(0, "");
     const int W            = NESHAWK_WIDTH;
     const int H            = NESHAWK_HEIGHT;
     const int rowSize      = ((W * 3 + 3) / 4) * 4;

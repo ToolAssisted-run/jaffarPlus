@@ -40,7 +40,7 @@
   "Precise State Timing": false
  },
  "Runner Configuration": {
-  "Hash Step Tolerance": 4,
+  "Hash Step Tolerance": 0,
   "Show Empty Input Slots": true,
   "Show Allowed Inputs": true,
   "Bypass Hash Calculation": false,
@@ -82,8 +82,17 @@
   "Last Input Step Reward": 0.0,
   "Hash Timers": false,
   "Hash Camera": false,
+  "Hash Sound State": false,
+  "Hash Cycle Phase": false,
+  "Hash Phase Work RAM": false,
+  "Hash Full LRAM": false,
   "Hash Enemy Offsets": false,
   "Hash Player Offsets": true,
+  "Nearest Chest Distance Mode": "Manhattan",
+  "Enemy Path Cost": 0.0,
+  "Gold Lookahead Weights": [
+   1.0
+  ],
   "Print Properties": [
    "Current Level",
    "Play Mode",
@@ -165,6 +174,15 @@
      }
     ]
    }
-  ]
+  ],
+  "Carried Gold Weight": 0.5,
+  "Reference Strategy Weight": 0.0,
+  "Reference Pickup Order": [],
+  "Enemy Repulsion Intensity": 0.0,
+  "Enemy Repulsion Radius": 0.0,
+  "Choreo Leg Intensity": 0.0,
+  "Trace Magnet Intensity": 0.0,
+  "Trace File": "",
+  "Hash LRAM Ranges": []
  }
 }

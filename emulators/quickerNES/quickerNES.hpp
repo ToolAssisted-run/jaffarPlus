@@ -176,7 +176,28 @@ public:
   }
 
   // State advancing function
-  void advanceStateImpl(const jaffar::input_t& input) override { _quickerNES->advanceState(input); }
+  void advanceStateImpl(const jaffar::input_t& input) override
+  {
+    _quickerNES->advanceState(input);
+
+    // Refresh the full-state digest (see the "Cycle Phase" property): a 128-bit MetroHash of the
+    // ENTIRE serialized emulator state -- perfect state identity. Hashing this makes dedup merge
+    // only true byte-identical duplicates (including all emulator-internal timing/phase state),
+    // which games with no fixed frame loop need at convergence funnels where RAM-identical but
+    // phase-different states genuinely diverge later. Derived data -- never serialized.
+    // Curated phase digest (v2): hash the core's live machine-phase snapshot -- bounded,
+    // periodic APU/PPU timing state only (frame-sequencer countdown, channel delays, burst
+    // phase, frame-length carry). No serialization residue, no absolute counters, no RAM,
+    // no CPU registers: reproducible across instances by construction.
+    if (_cyclePhaseScratch.empty() == false)
+    {
+      uint8_t buf[64];
+      const size_t n = _quickerNES->getPhaseState(buf);
+      MetroHash128 h;
+      h.Update(buf, n);
+      h.Finalize(_cyclePhase);
+    }
+  }
 
   __INLINE__ void serializeState(jaffarCommon::serializer::Base& serializer) const override { _quickerNES->serializeState(serializer); };
   __INLINE__ void deserializeState(jaffarCommon::deserializer::Base& deserializer) override { _quickerNES->deserializeState(deserializer); };
@@ -199,6 +220,18 @@ public:
     // register it and FAIL any state that jammed the CPU -- real hardware freezes there, and letting
     // the emulator's NMI revive the game would make such states emulator artifacts, not valid play.
     if (propertyName == "CPU Halt Latch") return property_t(_quickerNES->getHaltLatchPtr(), 1);
+    // Between-frame execution context digest (see advanceStateImpl). Refreshed on every LIVE
+    // advance; zeroed at construction so pre-advance reads are instance-independent.
+    if (propertyName == "Cycle Phase")
+    {
+      if (_cyclePhaseScratch.empty() == true)
+      {
+        jaffarCommon::serializer::Contiguous sizer;
+        _quickerNES->serializeState(sizer);
+        _cyclePhaseScratch.resize(sizer.getOutputSize());
+      }
+      return property_t(const_cast<uint8_t*>(_cyclePhase), sizeof(_cyclePhase));
+    }
     // Per-frame joypad ($4016/$4017) read count as a raw int: 0 right after an advance means that
     // frame polled no input (a lag frame). Not serialized -- only meaningful after a LIVE advance,
     // never after a state restore. Used to pinpoint the exact polled frame before each level's
@@ -462,6 +495,13 @@ private:
   std::unique_ptr<NESInstance> _quickerNES;
 
   bool        _useFlatCodeMap;
+
+  // "Cycle Phase" digest support (see advanceStateImpl / getProperty). The scratch is sized on
+  // first property request (lazy activation: inactive games pay no per-advance serialize cost);
+  // the digest is zero-initialized so pre-advance reads are instance-independent.
+  mutable std::vector<uint8_t> _cyclePhaseScratch;
+  mutable size_t _cyclePhaseLramOfs = SIZE_MAX; ///< Offset of the 2KB work-RAM copy inside the serialized state (located once; excluded from the phase digest)
+  uint8_t                      _cyclePhase[16] = {};
   size_t      _NTABBlockSize;
   size_t      _SRAMBlockSize;
   bool        _preciseTiming = false;

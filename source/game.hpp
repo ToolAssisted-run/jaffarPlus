@@ -609,6 +609,10 @@ public:
    */
   virtual __INLINE__ float getFloorReward() const { return _reward; }
 
+  /** @brief The input index representing "no buttons pressed" -- used by the engine's Hash
+   *         Lookahead (advance-with-null before hashing). Games override with their real null. */
+  virtual __INLINE__ InputSet::inputIndex_t getNullInputIndex() const { return 0; }
+
   /** @brief Returns the current state type (normal, win or fail). */
   __INLINE__ stateType_t getStateType() const { return _stateType; }
 

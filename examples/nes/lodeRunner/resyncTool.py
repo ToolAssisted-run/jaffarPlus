@@ -29,7 +29,7 @@ import tempfile
 import concurrent.futures
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PLAYER = os.path.join(HERE, "../../../build/jaffar-player")
+PLAYER = os.environ.get("JAFFAR_PLAYER", os.path.join(HERE, "../../../build-lodeRunner/jaffar-player"))
 CONFIG = os.path.join(HERE, "lodeRunner.jaffar")
 REFERENCE = os.path.join(HERE, "fullGameNesHawk.sol")
 NULL = "|..|........|"

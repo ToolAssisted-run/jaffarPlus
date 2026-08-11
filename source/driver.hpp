@@ -152,6 +152,15 @@ public:
       //  - "Path": a precomputed file with one reward value per line (legacy; kept for backward compatibility).
       _referenceSolutionPath = refJs.contains("Solution File") ? jaffarCommon::json::popString(refJs, "Solution File") : std::string();
       const auto refPath     = refJs.contains("Path") ? jaffarCommon::json::popString(refJs, "Path") : std::string();
+      // Optional reference-lineage rebase: when the search root and the reference live on DIFFERENT
+      // lineages (e.g. sectioned solving where the search seeds from our own previous-section win but
+      // the floor must be the reference's own trajectory), the floor replay first reloads this raw
+      // state file and replays this emulator-level prefix sequence -- exactly like the emulator's own
+      // "Initial State/Sequence File Path" pair -- and only then replays "Solution File" recording the
+      // trace. Depth k of the trace is then the reference's reward k steps after ITS OWN section start,
+      // compared against our best at k steps after OUR root: synchronized in reward, not in state.
+      _referenceFloorInitialStatePath    = refJs.contains("Initial State File Path") ? jaffarCommon::json::popString(refJs, "Initial State File Path") : std::string();
+      _referenceFloorInitialSequencePath = refJs.contains("Initial Sequence File Path") ? jaffarCommon::json::popString(refJs, "Initial Sequence File Path") : std::string();
       // Optional (default false): also cancel the instant the reference reward falls BELOW the worst kept
       // state -- i.e. the reference solution has been evicted from the frontier, so the winning line can no
       // longer be reached no matter how good "best" looks. A stricter companion to the best-below check.
@@ -259,6 +268,31 @@ public:
       auto* emulator = game->getEmulator();
       _referenceReward.clear();
 
+      // Reference-lineage rebase (see config parsing): put the emulator on the reference's OWN
+      // trajectory before replaying the slice. The raw state file is loaded with all state properties
+      // enabled (the same dance as emulator init -- state files carry the full property set), and the
+      // prefix replays at the EMULATOR level so the game module's lineage variables (route odometer,
+      // latches) stay at their root defaults, exactly as they do for the search root on its lineage.
+      if (_referenceFloorInitialStatePath.empty() == false)
+      {
+        std::string st;
+        if (jaffarCommon::file::loadStringFromFile(st, _referenceFloorInitialStatePath) == false)
+          JAFFAR_THROW_RUNTIME("[ERROR] Could not open 'Reference Reward Floor' > 'Initial State File Path': '%s'\n", _referenceFloorInitialStatePath.c_str());
+        emulator->enableAllStateProperties();
+        jaffarCommon::deserializer::Contiguous d(st.data(), st.size());
+        emulator->deserializeState(d);
+        emulator->reapplyDisabledStateProperties();
+      }
+      if (_referenceFloorInitialSequencePath.empty() == false)
+      {
+        std::string seqString;
+        if (jaffarCommon::file::loadStringFromFile(seqString, _referenceFloorInitialSequencePath) == false)
+          JAFFAR_THROW_RUNTIME("[ERROR] Could not open 'Reference Reward Floor' > 'Initial Sequence File Path': '%s'\n", _referenceFloorInitialSequencePath.c_str());
+        const auto prefixInputs = jaffarCommon::string::split(seqString, '\0');
+        for (const auto& inputString : prefixInputs)
+          if (inputString.empty() == false) emulator->advanceState(emulator->registerInput(inputString));
+      }
+
       // Per-depth serialized reference states, captured for EXACT pinning: with a quantized (coarse)
       // dedup hash, hash equality no longer identifies the reference lineage, so the engine byte-compares
       // pin candidates against these exact states (hash match = cheap pre-filter only).
@@ -289,6 +323,7 @@ public:
       game->updateGameStateType();
       game->updateReward();
       _referenceReward.push_back(game->getFloorReward());
+      _referenceStateType.push_back((int)game->getStateType());
       captureState();
 
       // Replay each input, recording the floor reward at each resulting depth. Each step first
@@ -312,12 +347,23 @@ public:
         game->updateGameStateType();
         game->updateReward();
         _referenceReward.push_back(game->getFloorReward());
+        _referenceStateType.push_back((int)game->getStateType());
         captureState();
       }
       std::vector<std::string> refInputStrings;
       for (const auto& s : referenceInputs)
         if (s.empty() == false) refInputStrings.push_back(s);
       _engine->setReferenceStates(std::move(referenceStates), refInputStrings);
+
+      // Diagnostic (JAFFAR_DUMP_REF_TRACE=<file>): write the computed per-step floor-reward trace
+      // for offline analysis (e.g. reward-function monotonicity studies).
+      if (const char* tracePath = std::getenv("JAFFAR_DUMP_REF_TRACE"); tracePath != nullptr)
+      {
+        std::string out;
+        for (size_t i = 0; i < _referenceReward.size(); i++)
+          out += std::to_string(i) + "\t" + std::to_string(_referenceReward[i]) + "\t" + std::to_string(i < _referenceStateType.size() ? _referenceStateType[i] : -1) + "\n";
+        jaffarCommon::file::saveStringToFile(out, tracePath);
+      }
 
       // Restore the runner to its initial state (and reset its step counter) for the search
       _runner->setStepCount(0);
@@ -429,6 +475,34 @@ public:
       const size_t floorRefStep = (_currentStep > _referenceFloorStepGrace) ? _currentStep - _referenceFloorStepGrace : 0;
       if (_referenceFloorEnabled && _currentStep < _referenceReward.size() && _bestStateFloorReward < _referenceReward[floorRefStep] - _referenceFloorTolerance)
       {
+        // Diagnostic (JAFFAR_FLOOR_AUDIT=1): on cancel, byte-compare the best state against the
+        // stored canonical reference state at this depth, under the volatile-residue mask.
+        if (false)
+        {
+          const auto& refStates = _engine->getRefStates();
+          const auto& mask      = _engine->getRefVolatileMask();
+          if (floorRefStep < refStates.size() && refStates[floorRefStep].size() > 0)
+          {
+            _engine->getStateDb()->loadStateIntoRunner(*_runner, _bestStateStorage.data());
+            std::vector<uint8_t> st(_runner->getStateSize());
+            { jaffarCommon::serializer::Contiguous ser(st.data(), st.size()); _runner->serializeState(ser); }
+            { jaffarCommon::deserializer::Contiguous des(st.data(), st.size()); _runner->deserializeState(des); }
+            { jaffarCommon::serializer::Contiguous ser(st.data(), st.size()); _runner->serializeState(ser); }
+            const auto& ref = refStates[floorRefStep];
+            size_t total = 0, volat = 0;
+            std::string offs;
+            for (size_t i = 0; i < std::min(st.size(), ref.size()); i++)
+              if (st[i] != ref[i])
+              {
+                total++;
+                if (i < mask.size() && mask[i] != 0) { volat++; continue; }
+                if (offs.size() < 400) offs += " " + std::to_string(i) + "(" + std::to_string(ref[i]) + "->" + std::to_string(st[i]) + ")";
+              }
+            jaffarCommon::logger::log("[J+] FLOOR AUDIT step %lu: best-vs-ref diffs=%lu (volatile-masked=%lu, causal=%lu); causal offsets:%s\n", _currentStep, total, volat, total - volat,
+                                      offs.c_str());
+            jaffarCommon::logger::log("[J+] FLOOR AUDIT rewards: bestFloor=%.6f bestSearch=%.6f refFloor=%.6f\n", _bestStateFloorReward, _bestStateReward, _referenceReward[floorRefStep]);
+          }
+        }
         jaffarCommon::logger::log("[J+] Best (%.6f) fell below reference floor (%.6f, tol %.4f, grace %u steps) at step %lu by %.6f -- cancelling.\n", _bestStateFloorReward,
                                   _referenceReward[floorRefStep], _referenceFloorTolerance, _referenceFloorStepGrace, _currentStep,
                                   _referenceReward[floorRefStep] - _referenceFloorTolerance - _bestStateFloorReward);
@@ -436,17 +510,12 @@ public:
         break;
       }
 
-      // Reference-below-worst check (opt-in): the reference reward has dropped below the WORST kept state,
-      // meaning the (un-pinned, un-bonused) reference would be evicted from the frontier. This is a WARNING
-      // only -- the pinned reference lineage may still survive via its pinning bonus, and a frontier composed
-      // entirely of states ahead of the reference is a healthy sign, not a failure. No cancellation.
-      if (_cancelIfReferenceBelowWorst && _referenceFloorEnabled && _currentStep < _referenceReward.size() &&
-          _referenceReward[_currentStep] + _referenceBelowWorstMargin < _worstStateReward)
-      {
-        jaffarCommon::logger::log(
-            "[J+] WARNING: reference (%.6f) below worst kept state (%.6f) at step %lu -- un-pinned reference would be evicted (pinned lineage survives only via its pin bonus).\n",
-            _referenceReward[_currentStep], _worstStateReward, _currentStep);
-      }
+      // Reference-below-worst (opt-in): the reference reward has dropped below the WORST kept
+      // state -- the frontier band no longer contains reference-level states (frontier likely
+      // needs increasing). Warning only; surfaced as an addendum on the per-step reference log
+      // line (no standalone message per the logging policy).
+      _referenceBelowWorstNow = _cancelIfReferenceBelowWorst && _referenceFloorEnabled && _currentStep < _referenceReward.size() &&
+                                _referenceReward[_currentStep] + _referenceBelowWorstMargin < _worstStateReward;
 
       // Input-history backing guard: the "Trie" strategy's shared node pool grows ~ live-states x depth
       // toward a hard ceiling (getInputHistoryMaxMemoryBytes). Stop GRACEFULLY at a high-water mark -- or, as
@@ -715,6 +784,33 @@ public:
     _bestStateReward      = _runner->getGame()->getReward();
     _bestStateFloorReward = _runner->getGame()->getFloorReward(); // un-biased position for the Reference Reward Floor (decoupled from the magnet)
 
+    // Diagnostic (JAFFAR_FLOOR_AUDIT=1): per-step best-vs-reference byte comparison under the
+    // volatile-residue mask -- localizes the step where the reference-follower leaves the frontier.
+    if (std::getenv("JAFFAR_FLOOR_AUDIT") != nullptr && _referenceFloorEnabled)
+    {
+      const auto& refStates = _engine->getRefStates();
+      const auto& mask      = _engine->getRefVolatileMask();
+      const size_t depth    = _currentStep;
+      if (depth < refStates.size() && refStates[depth].size() > 0)
+      {
+        std::vector<uint8_t> st(_runner->getStateSize());
+        { jaffarCommon::serializer::Contiguous ser(st.data(), st.size()); _runner->serializeState(ser); }
+        { jaffarCommon::deserializer::Contiguous des(st.data(), st.size()); _runner->deserializeState(des); }
+        { jaffarCommon::serializer::Contiguous ser(st.data(), st.size()); _runner->serializeState(ser); }
+        const auto& ref = refStates[depth];
+        size_t causal = 0;
+        std::string offs;
+        for (size_t i = 0; i < std::min(st.size(), ref.size()); i++)
+          if (st[i] != ref[i] && (i >= mask.size() || mask[i] == 0))
+          {
+            causal++;
+            if (offs.size() < 240) offs += " " + std::to_string(i) + "(" + std::to_string(ref[i]) + "->" + std::to_string(st[i]) + ")";
+          }
+        jaffarCommon::logger::log("[J+] FLOOR AUDIT step %lu: best-vs-ref causal diffs=%lu; bestFloor=%.6f refFloor=%.6f%s\n", depth, causal, _bestStateFloorReward,
+                                  depth < _referenceReward.size() ? _referenceReward[depth] : -1.0f, causal > 0 && causal < 12 ? offs.c_str() : "");
+      }
+    }
+
     // Storing best solution
     _bestSolutionStorage = _runner->getInputHistoryString();
 
@@ -757,12 +853,43 @@ public:
     if (_referenceReward.empty() == false)
     {
       if (_currentStep < _referenceReward.size())
-        jaffarCommon::logger::log("[J+] Reference Reward (Ref / Best-Ref):           %.6f (Best-Ref %+.6f, floor tol %.4f) [step %lu / %lu ref steps]\n",
-                                  _referenceReward[_currentStep], _bestStateFloorReward - _referenceReward[_currentStep], _referenceFloorTolerance, _currentStep,
-                                  _referenceReward.size());
+      {
+        // The cancel check compares against the reference Step-Grace steps EARLIER; print that
+        // graced margin too whenever grace is active, so the display always matches the check.
+        const size_t floorRefStep = _currentStep >= _referenceFloorStepGrace ? _currentStep - _referenceFloorStepGrace : 0;
+        const char* belowWorstTag = _referenceBelowWorstNow ? " [ref BELOW WORST -- frontier?]" : "";
+        if (_referenceFloorStepGrace > 0)
+          jaffarCommon::logger::log(
+              "[J+] Reference Reward (Ref / Best-Ref):           %.6f (Best-Ref %+.6f; graced check vs step %lu: %+.6f, floor tol %.4f) [step %lu / %lu ref steps]%s\n",
+              _referenceReward[_currentStep], _bestStateFloorReward - _referenceReward[_currentStep], floorRefStep, _bestStateFloorReward - _referenceReward[floorRefStep],
+              _referenceFloorTolerance, _currentStep, _referenceReward.size(), belowWorstTag);
+        else
+          jaffarCommon::logger::log("[J+] Reference Reward (Ref / Best-Ref):           %.6f (Best-Ref %+.6f, floor tol %.4f) [step %lu / %lu ref steps]%s\n",
+                                    _referenceReward[_currentStep], _bestStateFloorReward - _referenceReward[_currentStep], _referenceFloorTolerance, _currentStep,
+                                    _referenceReward.size(), belowWorstTag);
+      }
       else
         jaffarCommon::logger::log("[J+] Reference Reward (Ref / Best-Ref):           (none: step %lu beyond reference trace of %lu steps)\n", _currentStep,
                                   _referenceReward.size());
+
+      // Projected lead: the earliest reference step whose reward matches or exceeds the current
+      // best. Its gap to the current step estimates how many frames a win would save if the
+      // advantage held to the end (rough guide only -- reward is not a perfect progress clock).
+      {
+        size_t parityStep = _referenceReward.size();
+        for (size_t i = 0; i < _referenceReward.size(); i++)
+          if (_referenceReward[i] >= _bestStateFloorReward)
+          {
+            parityStep = i;
+            break;
+          }
+        if (parityStep < _referenceReward.size())
+          jaffarCommon::logger::log("[J+] Reference Parity Step:                       %lu (projected frames saved: %+ld)\n", parityStep,
+                                    (int64_t)parityStep - (int64_t)_currentStep);
+        else
+          jaffarCommon::logger::log("[J+] Reference Parity Step:                       beyond trace end (best exceeds final reference reward; projected savings >= %+ld)\n",
+                                    (int64_t)_referenceReward.size() - (int64_t)_currentStep);
+      }
     }
 
     // Printing engine information
@@ -845,12 +972,16 @@ private:
   bool     _referenceFloorEnabled;       ///< Whether the reference reward floor cancel is active.
   float    _referenceFloorTolerance;     ///< Allowed shortfall of best below the reference per step.
   uint32_t _referenceFloorStepGrace = 0; ///< Compare best against the reference this many steps earlier (bounded time slack for jumpy rewards).
-  bool     _cancelIfReferenceBelowWorst; ///< Opt-in: cancel when the reference reward drops below the worst kept state (reference evicted).
+  bool     _cancelIfReferenceBelowWorst; ///< Opt-in: enable the below-worst check (surfaced as a log addendum, not a cancel).
   float    _referenceBelowWorstMargin;   ///< Margin added to the reference before the below-worst comparison (typically the pinning bonus).
+  bool     _referenceBelowWorstNow = false; ///< Whether the reference is currently below the worst kept state (per-step log addendum).
 
   std::string        _referenceTracePath;    ///< Legacy precomputed-trace file path (loaded on demand if only the engine-side prune needs it)
-  std::vector<float> _referenceReward;       ///< Per-step reference reward floor (index = step).
+  std::vector<float> _referenceReward;
+  std::vector<int>   _referenceStateType;       ///< Per-step reference reward floor (index = step).
   std::string        _referenceSolutionPath; ///< Optional reference solution (.sol) replayed at init to build @ref _referenceReward.
+  std::string        _referenceFloorInitialStatePath;    ///< Optional raw state file rebasing the floor replay onto the reference's own lineage.
+  std::string        _referenceFloorInitialSequencePath; ///< Optional emulator-level prefix sequence for the reference-lineage rebase.
 
   /// @brief Fraction of the input-history trie's hard ceiling at which the run stops gracefully (high-water
   /// mark). One step's growth (~ live-states nodes) is far below the remaining headroom at this level, so the

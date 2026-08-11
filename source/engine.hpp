@@ -137,6 +137,13 @@ public:
     // guarantees the reference path is never the worst state (never evicted); the k>0 matches steer the
     // search to stay slightly ahead. Purely additive to the DB-ordering reward; the reference-floor
     // comparison uses the unbiased floor reward and is unaffected.
+    // Hash Lookahead: hash the state as it looks after N null-input advances instead of the
+    // current state (default 0 = off). Pending-input residue (controller latch, buffered
+    // presses, dig edge triggers, facing) materializes into RAM within a frame, so would-be
+    // divergent twins get distinct hashes WITHOUT hashing transient bits (which explodes the
+    // state DB). Cost: N extra advances + a serialize/deserialize round-trip per hashed state.
+    _hashLookahead = engineConfigRemaining.contains("Hash Lookahead") ? jaffarCommon::json::popNumber<size_t>(engineConfigRemaining, "Hash Lookahead") : 0;
+
     _refPinEnabled = false;
     if (engineConfigRemaining.contains("Reference Pinning"))
     {
@@ -146,6 +153,12 @@ public:
       _refPinLookahead      = jaffarCommon::json::popNumber<size_t>(pinJs, "Lookahead");
       _refPinLookaheadBonus = jaffarCommon::json::popNumber<float>(pinJs, "Lookahead Bonus");
       const auto pinPath    = jaffarCommon::json::popString(pinJs, "Path");
+      // Optional: byte-exact verification of hash-matched pin candidates against the captured
+      // reference states. Disable for cores whose serialize/advance round-trip accumulates
+      // gameplay-neutral drift in internal timing bytes (the drift never byte-matches the live
+      // capture, so exact verification starves the pin) -- with a discriminating game hash,
+      // hash-only pinning is sound and a tolerance-0 reference floor acts as the tripwire.
+      _refPinExactVerify = pinJs.contains("Exact Verification") ? jaffarCommon::json::popBoolean(pinJs, "Exact Verification") : true;
       jaffarCommon::json::checkEmpty(pinJs, "Engine Configuration > Reference Pinning");
       if (_refPinEnabled && std::getenv("JAFFAR_IS_DRY_RUN") == nullptr)
       {
@@ -179,6 +192,10 @@ public:
       auto pruneJs       = jaffarCommon::json::popObject(engineConfigRemaining, "Reference Reward Prune");
       _refPruneRequested = jaffarCommon::json::popBoolean(pruneJs, "Enabled");
       _refPruneTolerance = jaffarCommon::json::popNumber<float>(pruneJs, "Tolerance");
+      // Step Grace N: compare each state against the reference N steps EARLIER, so lineages may
+      // trade an accumulated lead for a transient wait (e.g. an enemy-corridor timing gate)
+      // without execution; real lateness beyond N still prunes. Mirrors the floor's knob.
+      _refPruneStepGrace = pruneJs.contains("Step Grace") ? jaffarCommon::json::popNumber<size_t>(pruneJs, "Step Grace") : 0;
       jaffarCommon::json::checkEmpty(pruneJs, "Engine Configuration > Reference Reward Prune");
     }
 
@@ -389,8 +406,8 @@ public:
     // Allocating memory for manual state saving
     _manualSaveSolution.stateData = malloc(_fullStateSize);
 
-    // Getting hash from first state
-    const auto hash = r.computeHash();
+    // Getting hash from first state (computeStateHash self-restores under Hash Lookahead)
+    const auto hash = computeStateHash(r);
 
     // Adding it to the hash DB
     if (_hashDbEnabled == true) _hashDb->insertHash(hash);
@@ -708,8 +725,8 @@ public:
         jaffarCommon::logger::log("[J+]  + Dropped States (Below Reference):            %lu (%5.3f%% of New States Processed, prune tol %.1f) \n",
                                   _droppedStatesBelowReference.load(), 100.0 * (double)_droppedStatesBelowReference.load() / (double)_totalNewStatesProcessed, _refPruneTolerance);
       if (_refPinEnabled)
-        jaffarCommon::logger::log("[J+]  + Reference Pin Hits (cumulative):             %lu (deepest %lu / %lu)\n", _refPinHits.load(), _refPinMaxDepthHit.load(),
-                                  _refPinHashes.size());
+        jaffarCommon::logger::log("[J+]  + Reference Pin Hits (cumulative):             %lu (deepest %lu / %lu; ref-depth matches seen %lu)\n", _refPinHits.load(), _refPinMaxDepthHit.load(),
+                                  _refPinHashes.size(), _refPinSeenPreDedup.load());
       jaffarCommon::logger::log("[J+]  + State Db States:                             %lu (%.2f / %.2f GB, %.1f%% full)\n", _stateDb->getStateCount(),
                                 (double)(_stateDb->getStateCount() * _stateDb->getStateSizeInDatabase()) / (1024.0 * 1024.0 * 1024.0),
                                 (double)_stateDb->getMaxBudgetBytes() / (1024.0 * 1024.0 * 1024.0),
@@ -884,6 +901,7 @@ private:
 
   /// @brief Allowed slack below the reference trace before a state is pruned.
   float _refPruneTolerance = 0.0f;
+  size_t _refPruneStepGrace = 0; ///< Prune each state vs the reference this many steps earlier (transient-wait allowance)
 
   /// @brief Number of base states a worker pulls from the state-DB queue per lock acquisition (batch size).
   // Number of base states a worker pulls from the shared per-NUMA state-DB queue per lock
@@ -1104,7 +1122,7 @@ private:
     JAFFAR_PROF_ACC(acc.runnerStateLoad, t0);
 
     // Running input
-    const auto result = runInput(r, input, acc, threadId);
+    const auto result = runInput(r, baseStateData, input, acc, threadId);
 
     // Update counters depending on the outcomes
     if (result == inputResult_t::normal) acc.normalStates++;
@@ -1158,15 +1176,24 @@ private:
    * @param threadId Calling thread's id, used for state-database free/allocation operations.
    * @return The @ref inputResult_t describing the outcome.
    */
-  __INLINE__ inputResult_t runInput(Runner& r, const InputSet::inputIndex_t input, threadAccumulator_t& acc, const size_t threadId)
+  __INLINE__ inputResult_t runInput(Runner& r, const void* baseStateData, const InputSet::inputIndex_t input, threadAccumulator_t& acc, const size_t threadId)
   {
     // Now advancing state with the provided input
     JAFFAR_PROF_DECL(t1);
     r.advanceState(input);
     JAFFAR_PROF_ACC(acc.runnerStateAdvance, t1);
 
-    // Computing runner hash
+    // Computing runner hash. With Hash Lookahead, hash the state as it looks after N null
+    // advances -- WITHOUT saving first: repeats are simply discarded in the advanced posture
+    // (the caller reloads the base state per candidate anyway), and survivors are rebuilt
+    // pristine below by re-loading the base and re-advancing the input. Dups thus pay only
+    // the lookahead advances; nobody pays serialization.
     JAFFAR_PROF_DECL(t2);
+    if (_hashLookahead > 0)
+    {
+      const auto nullIdx = r.getGame()->getNullInputIndex();
+      for (size_t i = 0; i < _hashLookahead; i++) r.advanceState(nullIdx);
+    }
     const auto hash = r.computeHash();
     JAFFAR_PROF_ACC(acc.calculateHash, t2);
 
@@ -1198,7 +1225,7 @@ private:
           // shares the reference's hash. When exact reference states are available (floor Solution File
           // replay), verify by byte comparison so only the true reference lineage is pinned.
           bool verified = true;
-          if (idx < _refStates.size() && _refStates[idx].size() > 0)
+          if (_refPinExactVerify && idx < _refStates.size() && _refStates[idx].size() > 0)
           {
             thread_local std::vector<uint8_t> scratch;
             scratch.resize(_refStates[idx].size());
@@ -1211,37 +1238,6 @@ private:
                 verified = false;
                 break;
               }
-            // One-shot diagnostic: report the first differing byte of the first failed verification.
-            if (verified == false)
-            {
-              static std::atomic<int> reported{0};
-              int                     expected = 0;
-              if (reported.compare_exchange_strong(expected, 1))
-              {
-                size_t nDiff = 0;
-                char   buf[1024];
-                int    p         = 0;
-                size_t firstDiff = 0;
-                for (size_t off = 0; off < scratch.size(); off++)
-                  if (_refVolatileMask[off] == 0 && scratch[off] != _refStates[idx][off])
-                  {
-                    if (nDiff == 0) firstDiff = off;
-                    if (nDiff < 32 && p < 900) p += snprintf(buf + p, sizeof(buf) - p, " %lu(%02X!=%02X)", off, scratch[off], _refStates[idx][off]);
-                    nDiff++;
-                  }
-                jaffarCommon::logger::log("[J+] PIN-VERIFY MISMATCH at depth %lu: %lu UNMASKED differing bytes / %lu:%s\n", idx, nDiff, scratch.size(), buf);
-                // Hex window around the first difference, both sides, to identify the member by layout
-                const size_t w0 = firstDiff >= 32 ? firstDiff - 32 : 0, w1 = std::min(scratch.size(), firstDiff + 32);
-                char         cand[256], refb[256];
-                int          pc = 0, pr = 0;
-                for (size_t off = w0; off < w1; off++)
-                {
-                  pc += snprintf(cand + pc, sizeof(cand) - pc, "%02X", scratch[off]);
-                  pr += snprintf(refb + pr, sizeof(refb) - pr, "%02X", _refStates[idx][off]);
-                }
-                jaffarCommon::logger::log("[J+]   window [%lu..%lu) cand: %s\n[J+]   window [%lu..%lu) ref:  %s\n", w0, w1, cand, w0, w1, refb);
-              }
-            }
           }
           if (verified)
           {
@@ -1268,7 +1264,17 @@ private:
 
     // If state is repeated then we are not interested in it -- UNLESS it is the reference copy we just
     // claimed, which we keep and anchor regardless (bypassing dedup for the pinned lineage).
+    // (With Hash Lookahead, repeated states are discarded while still in the advanced scratch
+    // posture -- no restore needed, per the discard-without-restore optimization.)
     if (hashExists == true && isRefPin == false) return inputResult_t::repeated;
+
+    // Survivor: rebuild the pristine child (base + input) before rules/serialization see it.
+    if (_hashLookahead > 0)
+    {
+      _stateDb->loadStateFromSlot(r, baseStateData);
+      r.setSearchStep(_currentStep);
+      r.advanceState(input);
+    }
 
     // Evaluating game rules based on the new state
     JAFFAR_PROF_DECL(t4);
@@ -1319,7 +1325,8 @@ private:
     if (_refPruneEnabled && stateType != Game::stateType_t::win && isRefPin == false)
     {
       const size_t childDepth = _currentStep + 1;
-      if (childDepth < _refPruneTrace.size() && r.getGame()->getFloorReward() < _refPruneTrace[childDepth] - _refPruneTolerance)
+      const size_t graceDepth = childDepth >= _refPruneStepGrace ? childDepth - _refPruneStepGrace : 0;
+      if (graceDepth < _refPruneTrace.size() && r.getGame()->getFloorReward() < _refPruneTrace[graceDepth] - _refPruneTolerance)
       {
         _stateDb->returnFreeState(newStateData, threadId);
         return inputResult_t::droppedBelowReference;
@@ -1496,7 +1503,9 @@ private:
 
   // Reference pinning + lookahead (see constructor). Anchors a reference lineage in the frontier and
   // rewards being 1..Lookahead frames ahead of it.
+  size_t                                  _hashLookahead        = 0;     ///< N null-advances before hashing (see "Hash Lookahead"); 0 = hash the current state.
   bool                                    _refPinEnabled        = false; ///< Whether reference pinning is active.
+  bool                                    _refPinExactVerify    = true;  ///< Whether hash-matched pin candidates are byte-verified against captured reference states.
   float                                   _refPinBonus          = 0.0f;  ///< Reward bonus for matching the reference at the state's own depth.
   size_t                                  _refPinLookahead      = 0;     ///< How many future depths to also match (being ahead).
   float                                   _refPinLookaheadBonus = 0.0f;  ///< Extra bonus per frame ahead of the reference.
@@ -1513,6 +1522,33 @@ public:
   ///        volatile-byte mask: driver-side captures carry different instance residue (unrestored buffer
   ///        bytes) than worker-produced states, so the mask is built empirically by re-producing a few
   ///        reference states through a WORKER runner and diffing. Verification compares outside the mask.
+  /// @brief Computes the dedup hash for the runner's current state, honoring "Hash Lookahead":
+  ///        with N > 0, the state is saved, advanced N times with the game's null input, hashed,
+  ///        and restored -- so transient input residue is hashed by its RAM consequences.
+  __INLINE__ jaffarCommon::hash::hash_t computeStateHash(Runner& r)
+  {
+    if (_hashLookahead == 0) return r.computeHash();
+    thread_local std::vector<uint8_t> scratch;
+    if (scratch.size() != r.getStateSize()) scratch.resize(r.getStateSize());
+    {
+      jaffarCommon::serializer::Contiguous ser(scratch.data(), scratch.size());
+      r.serializeState(ser);
+    }
+    const auto nullIdx = r.getGame()->getNullInputIndex();
+    for (size_t i = 0; i < _hashLookahead; i++) r.advanceState(nullIdx);
+    const auto h = r.computeHash();
+    {
+      jaffarCommon::deserializer::Contiguous des(scratch.data(), scratch.size());
+      r.deserializeState(des);
+    }
+    return h;
+  }
+
+  /// @brief Audit accessors: the per-depth canonical reference states and the volatile-byte mask
+  ///        (instance-dependent audio-ring residue) captured at floor initialization.
+  const std::vector<std::vector<uint8_t>>& getRefStates() const { return _refStates; }
+  const std::vector<uint8_t>&              getRefVolatileMask() const { return _refVolatileMask; }
+
   void setReferenceStates(std::vector<std::vector<uint8_t>>&& states, const std::vector<std::string>& refInputs)
   {
     _refStates = std::move(states);

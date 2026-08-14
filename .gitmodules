@@ -1,49 +1,49 @@
 [submodule "subprojects/quickerNES"]
 	path = extern/quickerNES
-	url = https://github.com/SergioMartin86/quickerNES.git
+	url = https://github.com/ToolAssisted-run/quickerNES.git
 [submodule "extern/jaffarCommon"]
 	path = extern/jaffarCommon
-	url = https://github.com/SergioMartin86/jaffarCommon.git
+	url = https://github.com/ToolAssisted-run/jaffarCommon.git
 [submodule "extern/quickerSDLPoP"]
 	path = extern/quickerSDLPoP
-	url = https://github.com/SergioMartin86/quickerSDLPoP.git
+	url = https://github.com/ToolAssisted-run/quickerSDLPoP.git
 [submodule "extern/quickerSnes9x"]
 	path = extern/quickerSnes9x
-	url = https://github.com/SergioMartin86/quickerSnes9x.git
+	url = https://github.com/ToolAssisted-run/quickerSnes9x.git
 [submodule "extern/quickerGPGX"]
 	path = extern/quickerGPGX
-	url = https://github.com/SergioMartin86/quickerGPGX.git
+	url = https://github.com/ToolAssisted-run/quickerGPGX.git
 [submodule "extern/quickerStella"]
 	path = extern/quickerStella
-	url = https://github.com/SergioMartin86/quickerStella.git
+	url = https://github.com/ToolAssisted-run/quickerStella.git
 [submodule "extern/atari2600Hawk"]
 	path = extern/atari2600Hawk
 	url = https://github.com/SergioMartin86/libAtari2600HawkTester.git
 [submodule "extern/quickerSMBC"]
 	path = extern/quickerSMBC
-	url = https://github.com/SergioMartin86/quickerSMBC.git
+	url = https://github.com/ToolAssisted-run/quickerSMBC.git
 [submodule "extern/quickerArkBot"]
 	path = extern/quickerArkBot
-	url = https://github.com/SergioMartin86/QuickerArkBot.git
+	url = https://github.com/ToolAssisted-run/QuickerArkBot.git
 [submodule "extern/quickerRAWGL"]
 	path = extern/quickerRAWGL
-	url = https://github.com/SergioMartin86/quickerRAWGL.git
+	url = https://github.com/ToolAssisted-run/quickerRAWGL.git
 [submodule "extern/QuickerNEORAW"]
 	path = extern/quickerNEORAW
-	url = https://github.com/SergioMartin86/QuickerNEORAW.git
+	url = https://github.com/ToolAssisted-run/QuickerNEORAW.git
 [submodule "extern/quickerMGBA"]
 	path = extern/quickerMGBA
-	url = https://github.com/SergioMartin86/quickerMGBA.git
+	url = https://github.com/ToolAssisted-run/quickerMGBA.git
 [submodule "extern/quickerGambatte"]
 	path = extern/quickerGambatte
-	url = https://github.com/SergioMartin86/quickerGambatte.git
+	url = https://github.com/ToolAssisted-run/quickerGambatte.git
 [submodule "extern/quickerDSDA"]
 	path = extern/quickerDSDA
-	url = https://github.com/SergioMartin86/quickerDSDA.git
+	url = https://github.com/ToolAssisted-run/quickerDSDA.git
 [submodule "extern/exciteBot"]
 	path = extern/exciteBot
-	url = https://github.com/SergioMartin86/exciteBot.git
+	url = https://github.com/ToolAssisted-run/exciteBot.git
 [submodule "extern/quickerNesHawk"]
 	path = extern/quickerNesHawk
-	url = https://github.com/SergioMartin86/QuickerNesHawk.git
+	url = https://github.com/ToolAssisted-run/QuickerNesHawk.git
 	branch = main

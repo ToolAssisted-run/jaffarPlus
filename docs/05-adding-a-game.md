@@ -20,7 +20,7 @@ same automatic class registration.
 
 Games and emulators follow a uniform shape: a class `class <Name> final : public <Base>` inside a
 known namespace, compiled behind a per-directory preprocessor guard. At configure time,
-[`genRegistry.py`](https://github.com/SergioMartin86/jaffarPlus/blob/master/genRegistry.py) globs the source tree, finds those classes, and generates two
+[`genRegistry.py`](https://github.com/ToolAssisted-run/jaffarPlus/blob/master/genRegistry.py) globs the source tree, finds those classes, and generates two
 headers — an `#include` block and a `DETECT_*` block — that `games/gameList.hpp` and
 `emulators/emulatorList.hpp` pull in. The generated files live in the build directory, so a
 single-game build (`-Dgame=`) never disturbs another build directory.
@@ -32,7 +32,7 @@ The practical upshot: **drop a new `.hpp` into the right `games/<platform>/` dir
 ## Anatomy of a game class
 
 The smallest complete example in the repo is the test game
-[`games/test/gridWalker.hpp`](https://github.com/SergioMartin86/jaffarPlus/blob/master/games/test/gridWalker.hpp). Its shape:
+[`games/test/gridWalker/gridWalker.hpp`](https://github.com/ToolAssisted-run/jaffarPlus/blob/master/games/test/gridWalker/gridWalker.hpp). Its shape:
 
 ```cpp
 #pragma once
@@ -169,7 +169,7 @@ as a game — a class `final : public Emulator` in `namespace jaffarPlus::emulat
 (selected by `-Demulator=`).
 
 The minimal, ROM-free reference implementation is
-[`emulators/testEmulator/testEmulator.hpp`](https://github.com/SergioMartin86/jaffarPlus/blob/master/emulators/testEmulator/testEmulator.hpp) — read it
+[`emulators/testEmulator/testEmulator.hpp`](https://github.com/ToolAssisted-run/jaffarPlus/blob/master/emulators/testEmulator/testEmulator.hpp) — read it
 alongside this section.
 
 ### Wiring the build
@@ -177,9 +177,9 @@ alongside this section.
 Two edits register a new core (say `MyCore`, in `emulators/myCore/`):
 
 1. **Add it as a build option** — append `'MyCore'` to the `emulator` combo's `choices` in
-   [`meson_options.txt`](https://github.com/SergioMartin86/jaffarPlus/blob/master/meson_options.txt), so `-Demulator=MyCore` is accepted.
+   [`meson_options.txt`](https://github.com/ToolAssisted-run/jaffarPlus/blob/master/meson_options.txt), so `-Demulator=MyCore` is accepted.
 
-2. **Wire its compile guards** in [`emulators/meson.build`](https://github.com/SergioMartin86/jaffarPlus/blob/master/emulators/meson.build):
+2. **Wire its compile guards** in [`emulators/meson.build`](https://github.com/ToolAssisted-run/jaffarPlus/blob/master/emulators/meson.build):
 
    ```meson
    if emulator == 'MyCore'
@@ -189,7 +189,7 @@ Two edits register a new core (say `MyCore`, in `emulators/myCore/`):
    endif
    ```
 
-   - `__JAFFAR_USE_<CORE>` is the **registration guard**. [`genRegistry.py`](https://github.com/SergioMartin86/jaffarPlus/blob/master/genRegistry.py)
+   - `__JAFFAR_USE_<CORE>` is the **registration guard**. [`genRegistry.py`](https://github.com/ToolAssisted-run/jaffarPlus/blob/master/genRegistry.py)
      derives it from the directory name, uppercased — `emulators/myCore/` → `__JAFFAR_USE_MYCORE`.
      (A few legacy names have overrides at the top of `genRegistry.py`, e.g. `quickerArkBot` →
      `__JAFFAR_USE_ARKBOT`; new cores should just follow the default convention.)

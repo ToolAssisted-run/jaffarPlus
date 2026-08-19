@@ -2,7 +2,7 @@
 
 Drives the native, byte-exact Excitebike physics model (`excitebike::Engine`) as a JaffarPlus
 emulation core, instead of emulating the NES 6502. Far faster than QuickerNES with a tiny 64-byte
-hashable state (see the [exciteBot](https://github.com/SergioMartin86/exciteBot) project and its
+hashable state (see the [exciteBot](https://github.com/ToolAssisted-run/exciteBot) project and its
 `docs/2d_engine_spec.md`).
 
 ## Source layout

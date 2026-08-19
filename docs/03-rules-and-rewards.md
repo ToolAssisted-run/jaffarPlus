@@ -41,7 +41,7 @@ engine *walk toward* that win instead of wandering the entire state space.
 ## Properties: naming game memory
 
 A **property** is a named, typed view into the game's memory. GridWalker exposes five
-*(source: [`games/test/gridWalker.hpp`](https://github.com/SergioMartin86/jaffarPlus/blob/master/games/test/gridWalker.hpp))*:
+*(source: [`games/test/gridWalker/gridWalker.hpp`](https://github.com/ToolAssisted-run/jaffarPlus/blob/master/games/test/gridWalker/gridWalker.hpp))*:
 
 | Property | Meaning |
 |----------|---------|

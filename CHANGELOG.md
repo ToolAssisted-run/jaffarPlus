@@ -113,4 +113,4 @@ Around **45 new games** were added across the cores, including (a selection):
 - Added **AddressSanitizer/UndefinedBehaviorSanitizer**, detailed-profiling, and TestEmulator
   coverage CI jobs, and pinned the clang-format style check.
 
-[2.0.0]: https://github.com/SergioMartin86/jaffarPlus/releases/tag/v2.0.0
+[2.0.0]: https://github.com/ToolAssisted-run/jaffarPlus/releases/tag/v2.0.0

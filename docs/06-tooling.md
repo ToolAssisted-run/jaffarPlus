@@ -80,7 +80,7 @@ project's tooling uses Python's Pillow).
 
 ## Rendering a solution to video
 
-[`examples/sdlpop/analysis/make_video.py`](https://github.com/SergioMartin86/jaffarPlus/blob/master/examples/sdlpop/analysis/make_video.py) drives
+[`examples/sdlpop/analysis/make_video.py`](https://github.com/ToolAssisted-run/jaffarPlus/blob/master/examples/sdlpop/analysis/make_video.py) drives
 `jaffar-player` headlessly and assembles the captured frames into a video. The output extension
 selects the encoder:
 

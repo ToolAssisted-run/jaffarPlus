@@ -34,7 +34,7 @@ used in this chapter needs neither.
 ## Getting the source
 
 ```bash
-git clone https://github.com/SergioMartin86/jaffarPlus.git
+git clone https://github.com/ToolAssisted-run/jaffarPlus.git
 cd jaffarPlus
 ```
 
@@ -78,7 +78,7 @@ QuickerMGBA  QuickerGambatte  QuickerDSDA  PipeBot  ExciteBikeNative  TestEmulat
 ```
 
 `NesHawk` is a C++ translation of BizHawk's cycle-accurate NesHawk NES core
-([QuickerNesHawk](https://github.com/SergioMartin86/QuickerNesHawk)). It is slower than `QuickerNES`
+([QuickerNesHawk](https://github.com/ToolAssisted-run/QuickerNesHawk)). It is slower than `QuickerNES`
 but validated byte-exact against the reference emulator, so it is the core to use when a search
 result must be confirmed on ground-truth NES hardware timing rather than an approximation.
 

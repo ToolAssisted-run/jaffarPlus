@@ -1,6 +1,6 @@
 site_name: JaffarPlus
 site_description: High-performance best-first search optimizer for tool-assisted speedruns (TAS)
-site_url: https://toolassisted-run.github.io/jaffarPlus/
+site_url: https://jaffarplus.toolassisted.run/
 repo_url: https://github.com/ToolAssisted-run/jaffarPlus
 repo_name: ToolAssisted-run/jaffarPlus
 docs_dir: docs
@@ -54,4 +54,4 @@ nav:
   - Tooling Reference: 06-tooling.md
   - Understanding the Output: 07-understanding-output.md
   - Jaffar Player Interface: 08-player-interface.md
-  - API Reference (C++) ↗: https://toolassisted-run.github.io/jaffarPlus/api/
+  - API Reference (C++) ↗: https://jaffarplus.toolassisted.run/api/

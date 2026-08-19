@@ -45,30 +45,30 @@ ninja -C build
     --reproduce --unattended --exitOnEnd
 ```
 
-See **[Getting Started](https://toolassisted-run.github.io/jaffarPlus/01-getting-started/)** for the full walkthrough, including how to
+See **[Getting Started](https://jaffarplus.toolassisted.run/01-getting-started/)** for the full walkthrough, including how to
 build for a specific console core and game.
 
 # Documentation
 
 📖 **Browse it online:** the manual is published at
-**https://toolassisted-run.github.io/jaffarPlus/**, with the C++ engine API reference at
-**https://toolassisted-run.github.io/jaffarPlus/api/**.
+**https://jaffarplus.toolassisted.run/**, with the C++ engine API reference at
+**https://jaffarplus.toolassisted.run/api/**.
 
-A complete user & developer manual lives in **[`docs/`](https://toolassisted-run.github.io/jaffarPlus/)**:
+A complete user & developer manual lives in **[`docs/`](https://jaffarplus.toolassisted.run/)**:
 
 | Chapter | What it covers |
 | ------- | -------------- |
-| [1. Getting Started](https://toolassisted-run.github.io/jaffarPlus/01-getting-started/) | Build JaffarPlus, run your first search (no ROM), read the output, replay a solution. |
-| [2. Configuration Reference](https://toolassisted-run.github.io/jaffarPlus/02-config-reference/) | Every section and key of a `.jaffar` file: type, default, and meaning. |
-| [3. Rules, Conditions & Rewards](https://toolassisted-run.github.io/jaffarPlus/03-rules-and-rewards/) | Steering the search: properties, conditions, reward actions, and magnets (illustrated). |
-| [4. Search Concepts & Tuning](https://toolassisted-run.github.io/jaffarPlus/04-search-concepts/) | How the search, state hashing, and NUMA/threading work — and which knobs to turn. |
-| [5. Adding a Game or Emulator](https://toolassisted-run.github.io/jaffarPlus/05-adding-a-game/) | Register a new game or emulator and expose its properties and actions. |
-| [6. Tooling Reference](https://toolassisted-run.github.io/jaffarPlus/06-tooling/) | `jaffar`, `jaffar-player`, headless screenshots, video rendering, environment overrides. |
-| [7. Understanding the Output](https://toolassisted-run.github.io/jaffarPlus/07-understanding-output/) | What every field of `jaffar`'s per-step report means, and how to read a run at a glance. |
-| [8. Jaffar Player Interface](https://toolassisted-run.github.io/jaffarPlus/08-player-interface/) | `jaffar-player`'s interactive commands, options, and workflows: replay, navigate, extract a save-state, screenshots. |
+| [1. Getting Started](https://jaffarplus.toolassisted.run/01-getting-started/) | Build JaffarPlus, run your first search (no ROM), read the output, replay a solution. |
+| [2. Configuration Reference](https://jaffarplus.toolassisted.run/02-config-reference/) | Every section and key of a `.jaffar` file: type, default, and meaning. |
+| [3. Rules, Conditions & Rewards](https://jaffarplus.toolassisted.run/03-rules-and-rewards/) | Steering the search: properties, conditions, reward actions, and magnets (illustrated). |
+| [4. Search Concepts & Tuning](https://jaffarplus.toolassisted.run/04-search-concepts/) | How the search, state hashing, and NUMA/threading work — and which knobs to turn. |
+| [5. Adding a Game or Emulator](https://jaffarplus.toolassisted.run/05-adding-a-game/) | Register a new game or emulator and expose its properties and actions. |
+| [6. Tooling Reference](https://jaffarplus.toolassisted.run/06-tooling/) | `jaffar`, `jaffar-player`, headless screenshots, video rendering, environment overrides. |
+| [7. Understanding the Output](https://jaffarplus.toolassisted.run/07-understanding-output/) | What every field of `jaffar`'s per-step report means, and how to read a run at a glance. |
+| [8. Jaffar Player Interface](https://jaffarplus.toolassisted.run/08-player-interface/) | `jaffar-player`'s interactive commands, options, and workflows: replay, navigate, extract a save-state, screenshots. |
 
 A C++ **API reference** for the engine internals is generated from the source with Doxygen — browse
-it [online](https://toolassisted-run.github.io/jaffarPlus/api/), or build it locally with
+it [online](https://jaffarplus.toolassisted.run/api/), or build it locally with
 `doxygen Doxyfile` (output in `build/doxygen/html/`).
 
 # Built-in Emulator Support

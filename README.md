@@ -108,7 +108,7 @@ Author
   + Github: https://github.com/SergioMartin86
   + Twitch: https://www.twitch.tv/eien86
   + Youtube: https://www.youtube.com/channel/UCSXpK3d6vUq58fjgF5jFoKA
-  + TASVideos: https://tasvideos.org/Users/Profile/eien86
+  + ToolAssisted: https://toolassisted.run/authors/eien86
 
 - A list of TAS movies produced by eien86 using JaffarPlus can be found [here](https://tasvideos.org/Subs-List?user=eien86&statusfilter=6)
 

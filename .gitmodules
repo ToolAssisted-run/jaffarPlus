@@ -1,6 +1,6 @@
 [submodule "subprojects/quickerNES"]
 	path = extern/quickerNES
-	url = https://github.com/ToolAssisted-run/quickerNES.git
+	url = https://github.com/ToolAssisted-run/chimera-core-quickernes.git
 [submodule "extern/jaffarCommon"]
 	path = extern/jaffarCommon
 	url = https://github.com/ToolAssisted-run/jaffarCommon.git
@@ -45,5 +45,5 @@
 	url = https://github.com/ToolAssisted-run/exciteBot.git
 [submodule "extern/quickerNesHawk"]
 	path = extern/quickerNesHawk
-	url = https://github.com/ToolAssisted-run/QuickerNesHawk.git
+	url = https://github.com/ToolAssisted-run/chimera-core-neshawk.git
 	branch = main

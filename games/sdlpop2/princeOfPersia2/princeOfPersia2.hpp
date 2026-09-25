@@ -45,12 +45,12 @@ public:
 
 private:
   // The tiles of a room (1..32) and their modifiers, as the game addresses them
-  __INLINE__ uint8_t* roomTiles(const size_t room) const { return (uint8_t*)&_s->level + (room - 1) * 30; }
+  __INLINE__ uint8_t*  roomTiles(const size_t room) const { return (uint8_t*)&_s->level + (room - 1) * 30; }
   __INLINE__ uint32_t* roomModifiers(const size_t room) const { return (uint32_t*)((uint8_t*)&_s->level + 0x348 + room * 0x78); }
 
   void registerCharacter(const std::string& name, quicker::char_type* c)
   {
-    using dt = Property::datatype_t;
+    using dt      = Property::datatype_t;
     const auto le = Property::endianness_t::little;
     registerGameProperty(name + " Pos X", &c->x, dt::dt_int16, le);
     registerGameProperty(name + " Pos Y", &c->y, dt::dt_int16, le);
@@ -71,7 +71,7 @@ private:
 
   __INLINE__ void registerGameProperties() override
   {
-    using dt = Property::datatype_t;
+    using dt      = Property::datatype_t;
     const auto le = Property::endianness_t::little;
 
     // The core's savestate, in place (it changes as the emulator's state does)
@@ -178,8 +178,8 @@ private:
     const auto& k = _s->Kid;
     jaffarCommon::logger::log("[J+]  + Level / Next Level:   %2u / %2u\n", _s->level_number, _s->counter_5cec);
     jaffarCommon::logger::log("[J+]  + Time Left:            %u minutes, %u ticks\n", _s->minutes_left, _s->clock_ticks);
-    jaffarCommon::logger::log("[J+]  + [Prince]              Room: %u, Pos: %d, %d, Row: %d, Col: %d, Frame: 0x%X, Action: %u, Dir: %d, HP: %u/%u, Alive: %d\n", k.room, k.x,
-                              k.y, k.curr_row, k.curr_col, k.frame, k.action, k.direction, k.f12, k.f13, k.alive);
+    jaffarCommon::logger::log("[J+]  + [Prince]              Room: %u, Pos: %d, %d, Row: %d, Col: %d, Frame: 0x%X, Action: %u, Dir: %d, HP: %u/%u, Alive: %d\n", k.room, k.x, k.y,
+                              k.curr_row, k.curr_col, k.frame, k.action, k.direction, k.f12, k.f13, k.alive);
     const auto& o = _s->Opp;
     if (o.room != 0)
       jaffarCommon::logger::log("[J+]  + [Opponent]            Room: %u, Pos: %d, %d, Frame: 0x%X, Char Id: %u, HP: %u/%u, Alive: %d\n", o.room, o.x, o.y, o.frame, o.charid, o.f12,

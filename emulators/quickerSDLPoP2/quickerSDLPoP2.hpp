@@ -104,15 +104,15 @@ public:
   }
 
   // No drawing (the search needs none)
-  void initializeVideoOutput() override {}
-  void finalizeVideoOutput() override {}
-  __INLINE__ void enableRendering() override {}
-  __INLINE__ void disableRendering() override {}
-  __INLINE__ void updateRendererState(const size_t stepIdx, const std::string input) override {}
-  __INLINE__ void serializeRendererState(jaffarCommon::serializer::Base& serializer) const override { serializeState(serializer); }
-  __INLINE__ void deserializeRendererState(jaffarCommon::deserializer::Base& deserializer) override { deserializeState(deserializer); }
+  void              initializeVideoOutput() override {}
+  void              finalizeVideoOutput() override {}
+  __INLINE__ void   enableRendering() override {}
+  __INLINE__ void   disableRendering() override {}
+  __INLINE__ void   updateRendererState(const size_t stepIdx, const std::string input) override {}
+  __INLINE__ void   serializeRendererState(jaffarCommon::serializer::Base& serializer) const override { serializeState(serializer); }
+  __INLINE__ void   deserializeRendererState(jaffarCommon::deserializer::Base& deserializer) override { deserializeState(deserializer); }
   __INLINE__ size_t getRendererStateSize() const override { return getStateSize(); }
-  __INLINE__ void showRender() override {}
+  __INLINE__ void   showRender() override {}
 
 private:
   std::unique_ptr<PoP2Instance> _instance;

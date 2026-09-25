@@ -384,6 +384,36 @@ jobs:
         name: meson-logs-QuickerSDLPoP
         path: build/meson-logs/
 
+  # Build (QuickerSDLPoP2). The game's files are not public: quickerSDLPoP2's movie tests run in its own
+  # repository where they are; here the engine builds with it and the examples validate (a dry run).
+  build-QuickerSDLPoP2:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Checkout jaffarCommon and QuickerSDLPoP2
+      run: |
+            git submodule init extern/jaffarCommon extern/quickerSDLPoP2
+            git submodule update extern/jaffarCommon extern/quickerSDLPoP2
+    - name: Create build directory
+      run: mkdir build
+    - name: Installing meson and ninja
+      run: python3 -m pip install meson ninja
+    - name: Updating Apt
+      run: sudo apt update
+    - name: Installing apt packages
+      run: sudo apt install libgtest-dev libnuma-dev libtbb-dev
+    - name: Run meson configuration
+      run: meson setup build -Dbuildtype=release -DuseNCurses=false -Demulator=QuickerSDLPoP2
+    - name: Building project
+      run: ninja -C build
+    - name: Validating examples
+      run: meson test ValidateExamples -C build
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: meson-logs-QuickerSDLPoP2
+        path: build/meson-logs/
+
   # Build (QuickerSnes9x)
   build-QuickerSnes9x:
     runs-on: ubuntu-latest

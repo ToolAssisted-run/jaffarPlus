@@ -401,7 +401,7 @@ jobs:
     - name: Updating Apt
       run: sudo apt update
     - name: Installing apt packages
-      run: sudo apt install libgtest-dev libnuma-dev libtbb-dev
+      run: sudo apt install libgtest-dev libnuma-dev libtbb-dev libsdl2-dev
     - name: Run meson configuration
       run: meson setup build -Dbuildtype=release -DuseNCurses=false -Demulator=QuickerSDLPoP2
     - name: Building project

@@ -47,3 +47,6 @@
 	path = extern/quickerNesHawk
 	url = https://github.com/ToolAssisted-run/chimera-core-neshawk.git
 	branch = main
+[submodule "extern/quickerSDLPoP2"]
+	path = extern/quickerSDLPoP2
+	url = https://github.com/ToolAssisted-run/quickerSDLPoP2.git

@@ -15,7 +15,7 @@ import os, re, sys, glob
 
 # --- games: directory -> platform guard, plus per-file cross-platform/sub-feature overrides ---
 GAME_DIR_GUARD = {
-    "nes":"defined(__JAFFAR_ENABLE_NES)", "sdlpop":"defined(__JAFFAR_ENABLE_SDLPOP)",
+    "nes":"defined(__JAFFAR_ENABLE_NES)", "sdlpop":"defined(__JAFFAR_ENABLE_SDLPOP)", "sdlpop2":"defined(__JAFFAR_ENABLE_SDLPOP2)",
     "snes":"defined(__JAFFAR_ENABLE_SNES)", "genesis":"defined(__JAFFAR_ENABLE_GENESIS)",
     "gamegear":"defined(__JAFFAR_ENABLE_GENESIS)", "sms":"defined(__JAFFAR_ENABLE_GENESIS)",
     "a2600":"defined(__JAFFAR_ENABLE_A2600)",

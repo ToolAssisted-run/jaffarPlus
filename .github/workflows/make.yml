@@ -390,10 +390,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Checkout jaffarCommon and QuickerSDLPoP2
+    - name: Checkout jaffarCommon and QuickerSDLPoP2 (with its SDLPoP2, the player's drawing)
       run: |
             git submodule init extern/jaffarCommon extern/quickerSDLPoP2
             git submodule update extern/jaffarCommon extern/quickerSDLPoP2
+            git -C extern/quickerSDLPoP2 submodule update --init extern/SDLPoP2
     - name: Create build directory
       run: mkdir build
     - name: Installing meson and ninja

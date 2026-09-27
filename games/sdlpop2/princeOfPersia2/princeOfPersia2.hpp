@@ -136,6 +136,10 @@ private:
     hashEngine.Update(_s->word_5cd8);
     hashEngine.Update(_s->byte_5cba);
     hashEngine.Update(_s->Kid);
+    // The prince's press states between ticks: a jump or a grab needs a fresh press
+    hashEngine.Update(_s->kid_ctrl1_saved);
+    hashEngine.Update(_s->word_8a84);
+    hashEngine.Update(_s->word_5d38);
     hashEngine.Update(_s->Opp);
     hashEngine.Update(_s->chars);
     hashEngine.Update(_s->mob_count);
@@ -208,7 +212,11 @@ private:
       auto  position  = jaffarCommon::json::getNumber<int16_t>(actionJs, "Position");
       auto  room      = jaffarCommon::json::getNumber<uint8_t>(actionJs, "Room");
       auto& magnet    = actionType == "Set Player Pos X Magnet" ? _playerPosXMagnet : _playerPosYMagnet;
-      rule.addAction([=, this, &magnet]() { magnet = pointMagnet_t{.intensity = _s->Kid.room == room ? intensity : 0.0f, .position = position}; });
+      rule.addAction(
+          [=, this, &magnet]()
+          {
+            if (_s->Kid.room == room) magnet = pointMagnet_t{.intensity = intensity, .position = position};
+          });
       return true;
     }
     if (actionType == "Set Player Direction Magnet")

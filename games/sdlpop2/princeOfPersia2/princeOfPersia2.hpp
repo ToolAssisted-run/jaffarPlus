@@ -4,6 +4,7 @@
 #include <game.hpp>
 #include <jaffarCommon/json.hpp>
 #include <quickerSDLPoP2/quickerSDLPoP2.hpp>
+#include "inputPruning.hpp"
 
 namespace jaffarPlus
 {
@@ -26,6 +27,8 @@ const size_t roomCount = 32;
  *                           animations change them every tick.
  *   "Hash Random Seed"      true: the random seed goes into the state hash (guards and some traps use it)
  *   "Hash Clock"            true: the minutes and ticks left go into the state hash
+ *   "Prune Inputs"          true: the game offers, for each state, one input of each group of inputs that lead to the
+ *                           same game (inputPruning.hpp); the script's "Allowed Input Sets" then need no inputs
  */
 class PrinceOfPersia2 final : public jaffarPlus::Game
 {
@@ -41,6 +44,7 @@ public:
     }
     _hashRandomSeed = _gameConfigRemaining.contains("Hash Random Seed") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Hash Random Seed");
     _hashClock      = _gameConfigRemaining.contains("Hash Clock") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Hash Clock");
+    _pruneInputs    = _gameConfigRemaining.contains("Prune Inputs") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Prune Inputs");
   }
 
 private:
@@ -87,6 +91,7 @@ private:
     registerGameProperty("Sword Type", &_s->byte_5cba, dt::dt_uint8, le);
     registerGameProperty("Restart Requested", &_s->word_5cd8, dt::dt_uint16, le);
     registerGameProperty("Moving Object Count", &_s->mob_count, dt::dt_uint16, le);
+    registerGameProperty("Sea Grabbed Char", &_s->byte_9276, dt::dt_uint8, le); // level 1's sea: the character it took (10 the prince, 255 none)
     registerGameProperty("Tile Animation Count", &_s->trob_count, dt::dt_uint16, le);
 
     registerCharacter("Player", &_s->Kid);
@@ -124,6 +129,51 @@ private:
     }
 
     _nullInputIdx = _emulator->registerInput("|.|......|");
+
+    // Every input, simplest first (the one offered for a group of inputs is its first): no keystroke, no Shift / Ctrl,
+    // the fewest directions
+    if (_pruneInputs)
+    {
+      std::vector<pop2Input> inputs;
+      for (int8_t k = 0; k < 2; k++)
+        for (int8_t sh = 0; sh < 3; sh++)
+          for (int8_t n = 0; n < 3; n++)
+            for (int8_t y = -1; y <= 1; y++)
+              for (int8_t x = -1; x <= 1; x++)
+                if ((x != 0) + (y != 0) == n) inputs.push_back({x, y, sh, k});
+      for (const auto& in : inputs)
+      {
+        std::string str = std::string("|") + (in.keystroke ? 'K' : '.') + "|" + (in.x < 0 ? 'L' : '.') + (in.x > 0 ? 'R' : '.') + (in.y < 0 ? 'U' : '.') +
+                          (in.y > 0 ? 'D' : '.') + (in.shift == 1 ? 'S' : '.') + (in.shift == 2 ? 'C' : '.') + "|";
+        _prunedInputs.push_back({in, _emulator->registerInput(str)});
+      }
+    }
+  }
+
+  // With "Prune Inputs": every input the game may offer (so the runner registers them and sizes its input history)
+  __INLINE__ std::set<std::string> getAllPossibleInputs() override
+  {
+    std::set<std::string> inputs;
+    for (const auto& p : _prunedInputs) inputs.insert(_emulator->getRegisteredInput(p.second).inputString);
+    return inputs;
+  }
+
+  // With "Prune Inputs": one input of each group of inputs that lead to the same game
+  __INLINE__ void getAdditionalAllowedInputs(std::vector<InputSet::inputIndex_t>& allowedInputSet) override
+  {
+    if (!_pruneInputs) return;
+    InputPruner           pruner(_s);
+    uint64_t              keys[64];
+    size_t                nKeys = 0;
+    for (const auto& p : _prunedInputs)
+    {
+      const auto k    = pruner.key(p.first);
+      bool       seen = false;
+      for (size_t i = 0; i < nKeys && !seen; i++) seen = keys[i] == k;
+      if (seen) continue;
+      keys[nKeys++] = k;
+      allowedInputSet.push_back(p.second);
+    }
   }
 
   __INLINE__ void advanceStateImpl(const InputSet::inputIndex_t input) override { _emulator->advanceState(input); }
@@ -247,6 +297,9 @@ private:
   std::vector<std::pair<size_t, size_t>> _hashTileModifiers;
   bool                                   _hashRandomSeed = false;
   bool                                   _hashClock      = false;
+  bool                                   _pruneInputs    = false;
+
+  std::vector<std::pair<pop2Input, InputSet::inputIndex_t>> _prunedInputs;
 
   pointMagnet_t _playerPosXMagnet;
   pointMagnet_t _playerPosYMagnet;

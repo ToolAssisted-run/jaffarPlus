@@ -71,6 +71,7 @@ private:
     registerGameProperty(name + " Current HP", &c->f12, dt::dt_uint8, le);
     registerGameProperty(name + " Max HP", &c->f13, dt::dt_uint8, le);
     registerGameProperty(name + " Sequence", &c->seq_id, dt::dt_uint16, le);
+    registerGameProperty(name + " Current Sequence", &c->f19, dt::dt_uint16, le); // the sequence started last (27: sinking in level 2's sand)
   }
 
   __INLINE__ void registerGameProperties() override
@@ -92,6 +93,8 @@ private:
     registerGameProperty("Restart Requested", &_s->word_5cd8, dt::dt_uint16, le);
     registerGameProperty("Moving Object Count", &_s->mob_count, dt::dt_uint16, le);
     registerGameProperty("Sea Grabbed Char", &_s->byte_9276, dt::dt_uint8, le); // level 1's sea: the character it took (10 the prince, 255 none)
+    registerGameProperty("Puzzle Answer", &_s->puzzle_answer, dt::dt_int8, le);  // level 2: the sand tile (0..5) that must stay up
+    registerGameProperty("Puzzle Chosen", &_s->byte_14a0, dt::dt_uint8, le);     // level 2: 255 until room 1 is entered
     registerGameProperty("Tile Animation Count", &_s->trob_count, dt::dt_uint16, le);
 
     registerCharacter("Player", &_s->Kid);
@@ -190,6 +193,9 @@ private:
     hashEngine.Update(_s->kid_ctrl1_saved);
     hashEngine.Update(_s->word_8a84);
     hashEngine.Update(_s->word_5d38);
+    hashEngine.Update(_s->puzzle_answer); // level 2's puzzle
+    hashEngine.Update(_s->puzzle_last);
+    hashEngine.Update(_s->byte_14a0);
     hashEngine.Update(_s->Opp);
     hashEngine.Update(_s->chars);
     hashEngine.Update(_s->mob_count);
@@ -212,6 +218,7 @@ private:
     _playerPosYMagnet.intensity = 0.0;
     _playerDirectionMagnet      = 0.0;
     _opponentHPMagnet           = 0.0;
+    _puzzleMagnet               = 0.0;
   }
 
   __INLINE__ void serializeStateImpl(jaffarCommon::serializer::Base& serializer) const override {}
@@ -224,6 +231,7 @@ private:
     reward += _playerPosYMagnet.intensity * -std::abs((float)_playerPosYMagnet.position - (float)_s->Kid.y);
     reward += (_s->Kid.direction == 0 ? 1.0f : -1.0f) * _playerDirectionMagnet;
     reward += (float)((int)_s->Opp.f13 - (int)_s->Opp.f12) * _opponentHPMagnet;
+    if (_puzzleMagnet != 0.0f) reward += _puzzleMagnet * puzzleProgress();
     return reward;
   }
 
@@ -275,6 +283,13 @@ private:
       rule.addAction([=, this]() { _playerDirectionMagnet = intensity; });
       return true;
     }
+    // "Set Puzzle Magnet": Intensity (level 2's sand puzzle: see puzzleProgress)
+    if (actionType == "Set Puzzle Magnet")
+    {
+      auto intensity = jaffarCommon::json::getNumber<float>(actionJs, "Intensity");
+      rule.addAction([=, this]() { _puzzleMagnet = intensity; });
+      return true;
+    }
     if (actionType == "Set Opponent HP Magnet")
     {
       auto intensity = jaffarCommon::json::getNumber<float>(actionJs, "Intensity");
@@ -282,6 +297,29 @@ private:
       return true;
     }
     return false;
+  }
+
+  // Level 2's puzzle (kind1.c puzzle_check): each wrong sand tile pressed down after it rose (attribute bits 0..8 clear;
+  // a sunk tile, which puzzle_check also counts as down, rises again later), the right one standing, the gate's count (bits 8..12 of room 1 position 10) and its opening (bits 0..4).
+  // The right tile pressed after it rose (bits 0..8 clear) before the count reaches 10 stays down until room 1 is entered
+  // again: -3. 0 until room 1
+  // has been entered.
+  __INLINE__ float puzzleProgress() const
+  {
+    if (_s->byte_14a0 == 0xFF) return 0.0f;
+    const auto attr = [this](int tp) { return (uint16_t)*((const uint32_t*)((const uint8_t*)&_s->level + 0x348 + 1 * 0x78) + tp); };
+    const uint16_t gate  = attr(10);
+    if ((gate & 0x1F) != 0) return 6.0f + 5.0f + (float)(gate & 0x1F); // opening: the tiles no longer matter (the sunk ones must rise to be crossed)
+    const int count = (gate >> 8) & 0x1F; // from 10 on the game presses the right tile itself
+    float          p     = 0.0f;
+    for (int i = 0; i < 6; i++)
+    {
+      const uint16_t a = attr(12 + i);
+      if (i != _s->puzzle_answer) p += (a & 0x1FF) == 0 ? 1.0f : 0.0f; // pressed after it rose (a sunk tile rises again: nothing)
+      else if ((a & 0xF) != 0 || count >= 10) p += 1.0f;
+      else if ((a & 0x1F0) == 0) p -= 3.0f;
+    }
+    return p + (float)count / 4.0f + (float)(gate & 0x1F);
   }
 
   __INLINE__ jaffarCommon::hash::hash_t getStateInputHash() override { return {0, _s->Kid.frame}; }
@@ -305,6 +343,7 @@ private:
   pointMagnet_t _playerPosYMagnet;
   float         _playerDirectionMagnet = 0.0;
   float         _opponentHPMagnet      = 0.0;
+  float         _puzzleMagnet          = 0.0;
 
   InputSet::inputIndex_t _nullInputIdx;
 };

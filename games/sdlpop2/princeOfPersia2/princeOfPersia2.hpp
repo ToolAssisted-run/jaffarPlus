@@ -27,7 +27,7 @@ const size_t roomCount = 32;
  *                           animations change them every tick.
  *   "Hash Random Seed"      true: the random seed goes into the state hash (guards and some traps use it)
  *   "Hash Clock"            true: the minutes and ticks left go into the state hash
- *   "Restart At Checkpoint" true: with "Prune Inputs", Alt+A (restart the level, input "|A|......|") is offered while the
+ *   "Restart At Checkpoint" true: with "Prune Inputs", Restart Level (the game's Alt+A, input "|R|......|") is offered while the
  *                           prince is alive in the room of the checkpoint he saved (he starts again there, standing)
  *   "Prune Inputs"          true: the game offers, for each state, one input of each group of inputs that lead to the
  *                           same game (inputPruning.hpp); the script's "Allowed Input Sets" then need no inputs
@@ -155,7 +155,7 @@ private:
                           (in.y > 0 ? 'D' : '.') + (in.shift == 1 ? 'S' : '.') + (in.shift == 2 ? 'C' : '.') + "|";
         _prunedInputs.push_back({in, _emulator->registerInput(str)});
       }
-      if (_restartAtCheckpoint) _restartInputIdx = _emulator->registerInput("|A|......|");
+      if (_restartAtCheckpoint) _restartInputIdx = _emulator->registerInput("|R|......|");
     }
   }
 
@@ -164,7 +164,7 @@ private:
   {
     std::set<std::string> inputs;
     for (const auto& p : _prunedInputs) inputs.insert(_emulator->getRegisteredInput(p.second).inputString);
-    if (_restartAtCheckpoint) inputs.insert("|A|......|");
+    if (_restartAtCheckpoint) inputs.insert("|R|......|");
     return inputs;
   }
 
@@ -185,7 +185,7 @@ private:
       allowedInputSet.push_back(p.second);
     }
 
-    // Alt+A at the checkpoint: the whole state is reloaded from it, so every input with Alt+A is the same
+    // Restart Level at the checkpoint: the whole state is reloaded from it, so it needs no other input
     if (_restartAtCheckpoint && _s->cp.used && (int8_t)_s->Kid.alive < 0)
     {
       const uint8_t* table = (const uint8_t*)&_s->level + 0x26E7; // level.c checkpoint_table: two (room, tile) pairs

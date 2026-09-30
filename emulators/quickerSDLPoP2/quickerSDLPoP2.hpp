@@ -36,8 +36,8 @@ namespace emulator
  *
  * Emulator Configuration:
  *   "Game Path"                   the folder with the game's files (PRINCE.EXE, *.DAT)
- *   "Game Version"                (optional) the DOS release to play: "1.1", "1.0", "IR" (the initial release, with its
- *                                 own files), or "Auto" (the default: the release the files are)
+ *   "Game Version"                the DOS release to play, always chosen (never taken from the files): "1.1", "1.0"
+ *                                 (both on the same files) or "IR" (the initial release, on its own files)
  *   "Start Level", "Seed"          a new game at that level (1..14) with that random seed
  *   "Initial State File"           (optional, "" none) a savestate to start from instead (quickerSDLPoP2 / SDLPoP2 format)
  *   "Initial Sequence File Path"   (optional) inputs played after that, one per line
@@ -54,7 +54,7 @@ public:
     // The instance reads "Game Path" from the configuration itself
     _instance = std::make_unique<PoP2Instance>(config);
     _gamePath = jaffarCommon::json::popString(_emulatorConfigRemaining, "Game Path");
-    if (_emulatorConfigRemaining.contains("Game Version")) jaffarCommon::json::popString(_emulatorConfigRemaining, "Game Version"); // (the instance reads it)
+    jaffarCommon::json::popString(_emulatorConfigRemaining, "Game Version"); // (required; the instance reads it)
 
     _startLevel = jaffarCommon::json::popNumber<int>(_emulatorConfigRemaining, "Start Level");
     _seed       = jaffarCommon::json::popNumber<uint32_t>(_emulatorConfigRemaining, "Seed");

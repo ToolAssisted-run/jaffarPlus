@@ -22,6 +22,7 @@
   "Emulator Configuration": {
     "Emulator Name": "QuickerSDLPoP2",
     "Game Path": "prince2",
+    "Game Version": "1.1",
     "Start Level": 1,
     "Seed": 0,
     "Initial Sequence File Path": "level01.sol",

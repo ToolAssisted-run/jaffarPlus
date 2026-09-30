@@ -27,6 +27,8 @@ const size_t roomCount = 32;
  *                           animations change them every tick.
  *   "Hash Random Seed"      true: the random seed goes into the state hash (guards and some traps use it)
  *   "Hash Clock"            true: the minutes and ticks left go into the state hash
+ *   "Restart At Checkpoint" true: with "Prune Inputs", Alt+A (restart the level, input "|A|......|") is offered while the
+ *                           prince is alive in the room of the checkpoint he saved (he starts again there, standing)
  *   "Prune Inputs"          true: the game offers, for each state, one input of each group of inputs that lead to the
  *                           same game (inputPruning.hpp); the script's "Allowed Input Sets" then need no inputs
  */
@@ -45,6 +47,8 @@ public:
     _hashRandomSeed = _gameConfigRemaining.contains("Hash Random Seed") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Hash Random Seed");
     _hashClock      = _gameConfigRemaining.contains("Hash Clock") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Hash Clock");
     _pruneInputs    = _gameConfigRemaining.contains("Prune Inputs") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Prune Inputs");
+    _restartAtCheckpoint =
+        _gameConfigRemaining.contains("Restart At Checkpoint") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Restart At Checkpoint");
   }
 
 private:
@@ -95,6 +99,7 @@ private:
     registerGameProperty("Sea Grabbed Char", &_s->byte_9276, dt::dt_uint8, le); // level 1's sea: the character it took (10 the prince, 255 none)
     registerGameProperty("Puzzle Answer", &_s->puzzle_answer, dt::dt_int8, le);  // level 2: the sand tile (0..5) that must stay up
     registerGameProperty("Puzzle Chosen", &_s->byte_14a0, dt::dt_uint8, le);     // level 2: 255 until room 1 is entered
+    registerGameProperty("Checkpoint Saved", &_s->cp.index, dt::dt_uint16, le);  // the checkpoint saved (1, 2; 0 none, and see cp.used)
     registerGameProperty("Tile Animation Count", &_s->trob_count, dt::dt_uint16, le);
 
     registerCharacter("Player", &_s->Kid);
@@ -150,6 +155,7 @@ private:
                           (in.y > 0 ? 'D' : '.') + (in.shift == 1 ? 'S' : '.') + (in.shift == 2 ? 'C' : '.') + "|";
         _prunedInputs.push_back({in, _emulator->registerInput(str)});
       }
+      if (_restartAtCheckpoint) _restartInputIdx = _emulator->registerInput("|A|......|");
     }
   }
 
@@ -158,6 +164,7 @@ private:
   {
     std::set<std::string> inputs;
     for (const auto& p : _prunedInputs) inputs.insert(_emulator->getRegisteredInput(p.second).inputString);
+    if (_restartAtCheckpoint) inputs.insert("|A|......|");
     return inputs;
   }
 
@@ -176,6 +183,13 @@ private:
       if (seen) continue;
       keys[nKeys++] = k;
       allowedInputSet.push_back(p.second);
+    }
+
+    // Alt+A at the checkpoint: the whole state is reloaded from it, so every input with Alt+A is the same
+    if (_restartAtCheckpoint && _s->cp.used && (int8_t)_s->Kid.alive < 0)
+    {
+      const uint8_t* table = (const uint8_t*)&_s->level + 0x26E7; // level.c checkpoint_table: two (room, tile) pairs
+      if (_s->cp.index >= 1 && _s->cp.index <= 2 && _s->Kid.room == table[(_s->cp.index - 1) * 2]) allowedInputSet.push_back(_restartInputIdx);
     }
   }
 
@@ -196,6 +210,8 @@ private:
     hashEngine.Update(_s->puzzle_answer); // level 2's puzzle
     hashEngine.Update(_s->puzzle_last);
     hashEngine.Update(_s->byte_14a0);
+    hashEngine.Update(_s->cp.used); // the checkpoint a restart starts from
+    hashEngine.Update(_s->cp.index);
     hashEngine.Update(_s->Opp);
     hashEngine.Update(_s->chars);
     hashEngine.Update(_s->mob_count);
@@ -336,6 +352,8 @@ private:
   bool                                   _hashRandomSeed = false;
   bool                                   _hashClock      = false;
   bool                                   _pruneInputs    = false;
+  bool                                   _restartAtCheckpoint = false;
+  InputSet::inputIndex_t                 _restartInputIdx     = 0;
 
   std::vector<std::pair<pop2Input, InputSet::inputIndex_t>> _prunedInputs;
 

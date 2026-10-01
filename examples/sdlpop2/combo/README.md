@@ -26,3 +26,5 @@ before level 3 is answered with the arrows and Shift.
   off. The prince crosses room 15's top row of walls with his sword out (frames 812..823). Chimera draws one random
   number more than QuickerSDLPoP2 between levels 2 and 3 (the copy protection), so a level 3 solution that meets the
   random numbers (the left exit's) does not play the same here; this one does not.
+- `chimera-boot-to-level4-right-glitch-mt32.txt`: the same with Sound Device roland (655 more frames at the start
+  while the MT-32 gets its timbres): level 3 at frame 1275, room 15's wall clip at frames 1467..1478, level 4 at 1880.

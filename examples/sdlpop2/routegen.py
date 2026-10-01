@@ -108,7 +108,9 @@ def build(lv, route, upto, db, init, tag, maxsteps):
     on = {c[2] for st in steps for c in st["cond"] if c[0] == "Player Room"} | {m[0] for st in steps for m in st["mags"]}
     for r in range(1, 33):
         if r not in on:
-            rules.append({"Label": 3910 + r, "Conditions": [{"Property": "Player Room", "Op": "==", "Value": r}], "Satisfies": [], "Actions": [{"Type": "Trigger Fail"}]})
+            rules.append({"Label": 3910 + r, "Conditions": [{"Property": "Player Room", "Op": "==", "Value": r},
+                                                            {"Property": "Current Level", "Op": "==", "Value": lv["next"] - 1}],   # (not the next level's rooms)
+                          "Satisfies": [], "Actions": [{"Type": "Trigger Fail"}]})
     g["Rules"] = rules
     return j
 

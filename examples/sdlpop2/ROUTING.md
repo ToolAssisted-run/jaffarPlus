@@ -93,8 +93,11 @@ skeletons (char id 4), which fall to 0 HP and rise again.
 
 | Route | Big potions | Ticks (chunks, 15 GB) | Ticks (100 GB) |
 |---|---|---|---|
-| Slow fall: 1 2 4 6 10 23 22 24 25 27 28 26 28 27 25 24 22 | none | 628 | running |
-| Potion: 1 2 4 3 7 11 7 15 10 23 22 24 25 27 28 26 28 27 25 24 22 | room 11 | 1172 | queued |
+| Slow fall: 1 2 4 6 10 23 22 24 25 27 28 26 28 27 25 24 22 | none | 628 | **592** |
+| Potion: 1 2 4 3 7 11 7 15 10 23 22 24 25 27 28 26 28 27 25 24 22 | room 11 | **1172** | 1191 (worse; chunks kept) |
+
+The level 4 used from here on is the slow-fall route (592): level 5 loads at tick 1604 (`0500/level01020304.sol`, the
+last line is the load tick), with 3/3. In Chimera's core (MT-32) level 5 starts at frame 2365.
 
 Level notes:
 
@@ -109,6 +112,39 @@ Level notes:
   route stands at room 10's col 9 before going down.
 - In quicker the level ends ("Next Level" = 5) one tick before level 5 loads; the times count to "Next Level".
 
-## Levels 5..14
+## Level 5
+
+Rooms (left to right): 22 1 23 2 9 3 4 7 10 12 on top (21 above 12); 5 6 11 18 below 4 7 10 12; 24 8 25 20 17; 13 14 15
+16; 19 below 13. Big potions: room 22 (row 2 col 4) and room 6 (row 0 col 5). The exit is the magic carpet in room 3
+(the trap tile at row 2 col 3): sitting on it (the crouched frame 109, not the plain stoop) lifts the prince through
+the hatch at row 0 col 6, which room 3's top-row plate (col 8) toggles open. The rope bridge: 7 | 10 | 12, row 1.
+
+| Route | Big potions | Ticks (chunks) |
+|---|---|---|
+| No potion: 1 23 2 9 3 4 5 8 13 14 15 16 17 18 12 10 7 4 3 | none | **1472** |
+| Potion 1: 1 23 2 9 2 23 1 22 1 23 2 9 3, then as above | room 22 | 2153 (+681) |
+| Potion 2: as above to 12, bridge collapse, 11 6 11 18 12 10 7 4 3 | room 6 | in progress |
+| Both | rooms 22, 6 | not yet |
+
+Level notes:
+
+- **No direct route:** room 3's top row (the hatch's plate) is reached only from room 4's top row, and that one only
+  from room 7's: from the start side the prince gets as far as room 4's middle row (through room 3's) and no higher.
+  Hence the loop around the bottom of the level.
+- **The bridge needs no fight** on the way to the carpet: the prince crosses 12 -> 10 -> 7 with running jumps in ~30
+  ticks; room 10's plate (row 1 col 9) opens room 7's gate.
+- **Room 2:** the gate at row 1 col 7 is held by the plate at row 2 col 2, with a loose floor right above it: bumping
+  the loose floor down jams the gate open (0xFF).
+- **Room 18:** from row 2 col 4, climbing onto the plate at row 1 col 5 costs a hit point (fatal at 1/3): the routes
+  drink room 14's small potion (row 2 col 6) first.
+- **Room 22 (potion 1):** walls on row 2 separate the potion from the gate; the way is row 1, and the loose floor at
+  row 1 col 4 must not fall: it lands on the potion and breaks it (0x0A -> 0x0E). Room 9's loose floor (row 1 col 6)
+  dropped on its plate jams room 22's gate open.
+- **Room 6 (potion 2):** room 11's gate (row 0 col 9) is held by its own plate (row 0 col 2) or room 20's (row 0 col
+  7); from room 20 it shuts before the prince gets round to it. Room 11 is reached from above by the bridge collapse
+  (bridge5.c): the prince (cols 4..6) and the skeleton (cols 5..6) together on room 10's span for 60 ticks.
+- **The level's end:** quicker loads level 6 on the tick the carpet leaves the top; level 6 starts in room 27.
+
+## Levels 6..14
 
 Not routed yet.

@@ -101,6 +101,8 @@ private:
     registerGameProperty("Puzzle Chosen", &_s->byte_14a0, dt::dt_uint8, le);     // level 2: 255 until room 1 is entered
     registerGameProperty("Checkpoint Saved", &_s->cp.index, dt::dt_uint16, le);  // the checkpoint saved (1, 2; 0 none, and see cp.used)
     registerGameProperty("Tile Animation Count", &_s->trob_count, dt::dt_uint16, le);
+    registerGameProperty("Bridge Count", &_s->word_693c, dt::dt_int16, le);       // level 5's rope bridge: ticks the prince and room 10's character stood together
+    registerGameProperty("Bridge State", &_s->bridge_693e[0], dt::dt_int16, le);  // 0 waiting, 1..3 starting, -1 collapsed
 
     registerCharacter("Player", &_s->Kid);
     registerCharacter("Opponent", &_s->Opp);
@@ -210,6 +212,8 @@ private:
     hashEngine.Update(_s->puzzle_answer); // level 2's puzzle
     hashEngine.Update(_s->puzzle_last);
     hashEngine.Update(_s->byte_14a0);
+    hashEngine.Update(_s->word_693c);   // level 5's rope bridge: its collapse count and state
+    hashEngine.Update(_s->bridge_693e);
     hashEngine.Update(_s->cp.used); // the checkpoint a restart starts from
     hashEngine.Update(_s->cp.index);
     hashEngine.Update(_s->Opp);

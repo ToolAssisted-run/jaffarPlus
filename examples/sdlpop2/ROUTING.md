@@ -122,9 +122,13 @@ the hatch at row 0 col 6, which room 3's top-row plate (col 8) toggles open. The
 | Route | Big potions | Ticks (chunks) |
 |---|---|---|
 | No potion: 1 23 2 9 3 4 5 8 13 14 15 16 17 18 12 10 7 4 3 | none | **1436** (1472 before the room 2 fix) |
-| Potion 1: 1 23 2 9 2 23 1 22 1 23 2 9 3, then as above | room 22 | 2153 (+717; before the room 2 fix) |
+| Potion 1: 1 23 2 9 2 23 1 22 1 23 2 9 3, then as above | room 22 | 2153 (+717) |
 | Potion 2: as above to 17, then 18 11 20 25 6 11 18 12 10 7 4 3 | room 6 | **1781** (+345) |
-| Both | rooms 22, 6 | not yet |
+| Both: potion 1's start to 3, then potion 2's way | rooms 22, 6 | 2556 (+1120) |
+
+Potion 1 was redone with the room 2 fix: its start got faster (room 3 at 971 instead of 1005) but arrived with 1/4
+HP instead of 2/4, and the loop to room 12 then took 72 ticks more (2191 in all); the 2153 solution is kept. Solved
+in greedy chunks, the potion routes leave HP trade-offs like that one to the final full-route runs.
 
 Level notes:
 
@@ -153,6 +157,18 @@ Level notes:
 - **The carpet** starts from a crouch that is not the landing (sequence 0x14) or the stoop (0x11); holding Down after
   landing on it starts it ~46 ticks later. (The first scripts' lift reward was outweighed by its own magnet; fixed.)
 - **The level's end:** quicker loads level 6 on the tick the carpet leaves the top; level 6 starts in room 27.
+
+## The original DOS game (checked 2026-10-01 by the OpenSamurai session, DOSBox-X oracle, 1.1)
+
+`0500/level01020304.sol` (levels 1..4) holds in the original: room, x, y, frame and HP match SDLPoP2's core on every
+tick, the restart at the checkpoint, level 3's room 13 jitter and level 4's top-row slide included. Two differences:
+
+- **Level ends take longer in DOS:** the game waits for the level-end music, which SDLPoP2's sound model (and so
+  QuickerSDLPoP2 and Chimera's core) does not: +105 ticks after level 1, +0 after 2, +94 after 3, +93 after 4 (292 over
+  the chain), whatever the inputs.
+- **The RNG drifts in DOS:** one more draw at level 3 tick 859 (sound-gated) and draws during those waits; level 4
+  starts with seed 1915662242 in DOS against 3703121395 here. An RNG-dependent route after a level end may not replay
+  in DOS as it does in Chimera.
 
 ## Levels 6..14
 

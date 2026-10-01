@@ -93,7 +93,7 @@ UP18 = [
 ]
 
 
-def around(detour6):
+def around(detour6, base=3):
     """3 -> 4 -> 5 -> 8 -> 13 -> 14 -> 15 -> 16 -> 17, then either -> 18 -> 12, or (potion 2, the canonical way) -> 17's
     gate (its loose floor dropped on its plate) -> 20 -> 25 (top right) -> up into 6 (the potion) -> 11 (its plate opens
     its gate) -> 18 (top row) -> 12; then -> 10 (the bridge) -> 7 -> 4 (top row) -> 3 (top row: the hatch) -> the carpet"""
@@ -125,19 +125,24 @@ def around(detour6):
             # jams the gate at row 0 col 0 open (0xFF); then up to row 0 and left. (No pull up or down while jumping.)
             step(room(17), (17, col_x(6), None, 1.0, 1.0)),
             step(room(17, row(1)), (17, col_x(6), None, 1.0, 1.0)),
+            # (the skip the searches found: up into room 18's bottom row, then a sword-frame push at its col 1 through
+            # the walls into room 11's col 8, which drops him into room 20's top row; satisfying these satisfies the
+            # loose-floor steps below too)
+            step(room(18, row(2)), (18, L, None, 1.0, 1.0)),
+            step(room(11), (11, None, D, 1.0, 1.0)),
             step(room(17, LOOSE17), (17, col_x(7), U, 1.0, 1.0)),
             step(room(17, GATE17), (17, L, U, 1.0, 1.0)),
             # room 20, top row, left (its gate to 25 is open; its loose floor at col 8 must not fall on the plate below)
             step(room(20), (20, L, U, 1.0, 1.0)),
             # room 25's top right, then up into room 6 at col 8
             step(room(25), (25, col_x(8), U, 1.0, 2.0)),
-            step(room(6, hp(3)), (6, col_x(5), U, 1.0, 1.0)),
-            step(room(6, hp(4)), (6, R, U, 1.0, 1.0)),
+            step(room(6, hp(base)), (6, col_x(5), U, 1.0, 1.0)),
+            step(room(6, hp(base + 1)), (6, R, U, 1.0, 1.0)),
             # room 11: its plate (row 0 col 2) opens its gate (row 0 col 9) to room 18's top row
-            step(room(11, hp(4)), (11, col_x(2), U, 1.0, 2.0)),
-            step(room(11, hp(4), GATE11), (11, R, U, 1.0, 1.0)),
-            step(room(18, hp(4)), (18, col_x(7), U, 1.0, 2.0)),
-            step(room(12, hp(4)), (12, L, ROW_Y[1], 1.0, 1.0)),
+            step(room(11, hp(base + 1)), (11, col_x(2), U, 1.0, 2.0)),
+            step(room(11, hp(base + 1), GATE11), (11, R, U, 1.0, 1.0)),
+            step(room(18, hp(base + 1)), (18, col_x(7), U, 1.0, 2.0)),
+            step(room(12, hp(base + 1)), (12, L, ROW_Y[1], 1.0, 1.0)),
         ]
     out += [
         step(room(10), (10, L, ROW_Y[1], 1.0, 1.0)),
@@ -152,7 +157,7 @@ ROUTES = {
     "none": dedup(to3(3) + around(False)),
     "p1": dedup(potion1() + around(False)),
     "p2": dedup(to3(3) + around(True)),
-    "both": dedup(potion1() + around(True)),
+    "both": dedup(potion1() + around(True, 4)),
 }
 # (exploration) from room 5's potion ledge (row 0 col 6) straight into room 6 through the walls between them
 ROUTES["clip5"] = [

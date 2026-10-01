@@ -28,3 +28,6 @@ before level 3 is answered with the arrows and Shift.
   random numbers (the left exit's) does not play the same here; this one does not.
 - `chimera-boot-to-level4-right-glitch-mt32.txt`: the same with Sound Device roland (655 more frames at the start
   while the MT-32 gets its timbres): level 3 at frame 1275, room 15's wall clip at frames 1467..1478, level 4 at 1880.
+- `chimera-boot-to-level5-mt32.txt`: Sound Device roland, Random Seed 25, Version 1.1: levels 1 and 2 (restart combo),
+  level 3's left exit (476), Space, level 4's slow-fall route (628, chunks), Space. Level 3 at frame 1275, level 4 at
+  1762, level 5 at 2401. Level 4's inputs start on its first frame, 10 frames after the Space that skips the scene.

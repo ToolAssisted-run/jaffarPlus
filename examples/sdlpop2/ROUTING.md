@@ -77,11 +77,38 @@ Level notes:
   In Chimera, a story scene follows level 3; Space skips it on the next frame.
 - **Shortcut not used:** falling from room 3 lands directly in room 10 (potion 1). The potion routes may take it.
 
-**RNG caveat (open):** Chimera draws one more random number than QuickerSDLPoP2 between levels 2 and 3 (the copy
-protection). Level 3 starts with seed 2435619980 in Chimera against 0xA93ABEEB in quicker. The right exit plays
-identically in Chimera. The left exit diverges at level tick 306 (room 13's rock trap). The level 3 table must be
-re-run from Chimera's seed before it is final.
+**RNG (fixed 2026-10-01):** the copy protection between levels 2 and 3 draws one random number in the game, which
+QuickerSDLPoP2 used to skip. SDLPoP2's headless core now makes that draw (SDLPoP2 597d25a, quickerSDLPoP2 bdeec56),
+and level 3 starts with Chimera's seed. Under the corrected RNG the left exit was re-run (still 476) and plays
+identically in Chimera's core (`combo/chimera-boot-to-level4-left.txt`, level 4 at frame 1107 with fm). The other
+four routes replay unchanged.
 
-## Levels 4..14
+The level 3 used from here on is the left exit: level 4 starts at tick 1011 (`0400/level010203.sol`), with 3/3.
+
+## Level 4
+
+Big potion: room 11 (row 2 col 7). Slow-fall potion: room 6 (row 0 col 2). The exit door is in room 22 (row 2 cols
+3..4); the plate in room 26 (row 1 col 8) opens it. Guards: 7, 13, 14, 17, 23, 26, 27, 28 (three), some of them
+skeletons (char id 4), which fall to 0 HP and rise again.
+
+| Route | Big potions | Ticks (chunks, 15 GB) | Ticks (100 GB) |
+|---|---|---|---|
+| Slow fall: 1 2 4 6 10 23 22 24 25 27 28 26 28 27 25 24 22 | none | 628 | running |
+| Potion: 1 2 4 3 7 11 7 15 10 23 22 24 25 27 28 26 28 27 25 24 22 | room 11 | 1172 | queued |
+
+Level notes:
+
+- **Top-row slide:** a guard's hit in room 23 drops the prince through the floor into room 22's top row, inside the
+  wall. Held in a landing frame (109) with Down, he is pushed 32 px a tick and slides right through the solid top
+  row of rooms 24, 25, 27 and 28, over all the guards, in about 40 ticks. The slow-fall chunks use it.
+- **Room 11's gates:** the plate at col 1 holds the gates at cols 2 and 5 open (the plate at col 3 opens col 2's only).
+  The prince has to stand on it until col 5's gate is open enough, then run. That gate's modifier carries 0x400
+  above its opening.
+- **Skeletons:** an Opponent HP magnet keeps the search beside a downed skeleton; the level 4 scripts use none.
+- **Falls:** without the slow-fall potion, room 10's holes drop the prince through 23 into 22 to his death; the potion
+  route stands at room 10's col 9 before going down.
+- In quicker the level ends ("Next Level" = 5) one tick before level 5 loads; the times count to "Next Level".
+
+## Levels 5..14
 
 Not routed yet.

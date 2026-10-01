@@ -1,0 +1,13 @@
+#!/bin/bash
+# The level 4 routes, full scripts, 100 GB state database, one after another (log ~/pop2l4/big-ROUTE.log)
+B=~/pop2l4; mkdir -p $B; cd ~/jaffarPlus-pop2/examples/sdlpop2/0400
+for r in slowfall potion; do
+  [ -f $B/big-$r.done ] && continue
+  start=$(date +%s)
+  nice -n 10 env OMP_NUM_THREADS=256 ../../../build/jaffar script-$r.jaffar > $B/big-$r.log 2>&1
+  end=$(date +%s)
+  echo "$r: $(grep -E 'Exit Reason' $B/big-$r.log | tail -1) ($((end-start)) s)" >> $B/big-summary.txt
+  cp /tmp/jaffar.pop2l4.$r.best.sol $B/big-$r.sol
+  touch $B/big-$r.done
+done
+echo ALL DONE >> $B/big-summary.txt

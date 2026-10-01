@@ -15,8 +15,9 @@ from routegen import L, R, U, D, ROW_Y, col_x, room, hp, row, step, dedup, main 
 
 MOUTH = ("Tile Modifier[3][7]", "==", 3)                # the hatch open (0 shut .. 3 open)
 # crouched on the trap: lifted (seq 0x80); he rises through the open hatch in ~43 ticks and the level ends. The magnet
-# keeps the rising states ahead of the others (at the trap's x 268, upwards)
-LIFT = step([("Player Room", "==", 3), ("Player Current Sequence", "==", 0x80)], (3, 268, -200, 1.0, 4.0))
+# keeps the rising states ahead of the others (at the trap's x 268, upwards; at 1x: at 4x the lift's first ticks, still
+# at the floor, cost more than the step's reward and were pruned)
+LIFT = step([("Player Room", "==", 3), ("Player Current Sequence", "==", 0x80)], (3, 268, -200, 1.0, 1.0))
 
 
 def finish():
@@ -34,6 +35,8 @@ def finish():
 LOOSE9 = ("Tile[9][17]", "==", 0)              # room 9's loose floor (row 1 col 6) fell onto the plate below: room 22's gate stays open
 LOOSE2 = ("Tile[2][13]", "==", 0)              # room 2's loose floor (row 1 col 2) knocked down: falling onto the plate below
 GATE2 = ("Tile Modifier[2][18]", "==", 0xFF)   # room 2's gate at row 1 col 7 jammed open: the loose floor above its plate (row 2 col 2) fell on it
+LOOSE17 = ("Tile[17][9]", "==", 0)              # room 17's loose floor (row 0 col 8) knocked down onto the plate below
+GATE17 = ("Tile Modifier[17][1]", "==", 0xFF)   # room 17's gate (row 0 col 0) jammed open
 GATE11 = ("Tile Modifier[11][10]", ">", 0)     # room 11's gate (row 0 col 9), held by its plate (row 0 col 2) or room 20's (row 0 col 7)
 
 
@@ -91,37 +94,46 @@ UP18 = [
 
 
 def around(detour6):
-    """3 -> 4 -> 5 -> 8 -> 13 -> 14 -> 15 -> 16 -> 17 -> 18 -> 12 -> 10 (the bridge) [-> down into 11 -> 6 (the potion)
-    -> 11 (its plate at row 0 col 2 opens its gate at col 9) -> 18 (top row) -> 12 -> 10] -> 7 -> 4 (top row) -> 3 (top
-    row: the hatch) -> the carpet"""
+    """3 -> 4 -> 5 -> 8 -> 13 -> 14 -> 15 -> 16 -> 17, then either -> 18 -> 12, or (potion 2, the canonical way) -> 17's
+    gate (its loose floor dropped on its plate) -> 20 -> 25 (top right) -> up into 6 (the potion) -> 11 (its plate opens
+    its gate) -> 18 (top row) -> 12; then -> 10 (the bridge) -> 7 -> 4 (top row) -> 3 (top row: the hatch) -> the carpet"""
     out = [
         step(room(4), (4, col_x(4), D, 1.0, 1.0)),
         step(room(5), (5, None, D, 1.0, 1.0)),
         step(room(8), (8, None, D, 1.0, 1.0)),
         step(room(13), (13, R, D, 1.0, 1.0)),
-        # room 14's small potion (row 2 col 6): climbing onto room 18's plate (row 1 col 5) costs a hit point
-        step(room(14), (14, col_x(6), D, 1.0, 1.0)),
-        step(room(14, ("Player Current HP", ">=", 2)), (14, R, None)),
+    ]
+    if not detour6:
+        out += [
+            # room 14's small potion (row 2 col 6): climbing onto room 18's plate (row 1 col 5) costs a hit point
+            step(room(14), (14, col_x(6), D, 1.0, 1.0)),
+            step(room(14, ("Player Current HP", ">=", 2)), (14, R, None)),
+        ]
+    else:
+        out += [step(room(14), (14, R, None))]
+    out += [
         step(room(15), (15, R, None)),
         step(room(16), (16, None, U, 1.0, 1.0)),
         step(room(17), (17, None, U, 1.0, 1.0)),
-    ] + UP18 + [
-        step(room(12), (12, L, ROW_Y[1], 1.0, 1.0)),
     ]
-    if detour6:
+    if not detour6:
+        out += UP18 + [step(room(12), (12, L, ROW_Y[1], 1.0, 1.0))]
+    else:
         out += [
-            # the bridge collapses (bridge5.c) once the prince (cols 4..6) and the skeleton (cols 5..6) stood together on it
-            # for 60 ticks: then down through the gap into room 11
-            # for 60 ticks: then down through the gap into room 11. From the right, he holds col 6 and lets the skeleton
-            # come to col 5
-            step(room(10), (10, col_x(6), ROW_Y[1], 1.0, 1.0)),
-            step(room(10, ("Bridge Count", ">=", 20)), (10, col_x(6), ROW_Y[1], 1.0, 1.0)),
-            step(room(10, ("Bridge Count", ">=", 40)), (10, col_x(6), ROW_Y[1], 1.0, 1.0)),
-            step(room(10, ("Bridge Count", ">=", 60), ("Opponent Current Col", ">=", 5)), (10, col_x(6), ROW_Y[1], 1.0, 1.0)),
-            step(room(10, ("Bridge State", "<", 0)), (10, col_x(5), D, 1.0, 1.0)),
-            step(room(11, hp(3)), (11, L, U, 1.0, 1.0)),
+            # room 17: jumps up anywhere on row 1 shake the loose floors of row 0, but count only from another column
+            # (mobs.c loose_floor_shake): from col 6, until the loose floor at col 8 falls on the plate below it, which
+            # jams the gate at row 0 col 0 open (0xFF); then up to row 0 and left. (No pull up or down while jumping.)
+            step(room(17), (17, col_x(6), None, 1.0, 1.0)),
+            step(room(17, row(1)), (17, col_x(6), None, 1.0, 1.0)),
+            step(room(17, LOOSE17), (17, col_x(7), U, 1.0, 1.0)),
+            step(room(17, GATE17), (17, L, U, 1.0, 1.0)),
+            # room 20, top row, left (its gate to 25 is open; its loose floor at col 8 must not fall on the plate below)
+            step(room(20), (20, L, U, 1.0, 1.0)),
+            # room 25's top right, then up into room 6 at col 8
+            step(room(25), (25, col_x(8), U, 1.0, 2.0)),
             step(room(6, hp(3)), (6, col_x(5), U, 1.0, 1.0)),
             step(room(6, hp(4)), (6, R, U, 1.0, 1.0)),
+            # room 11: its plate (row 0 col 2) opens its gate (row 0 col 9) to room 18's top row
             step(room(11, hp(4)), (11, col_x(2), U, 1.0, 2.0)),
             step(room(11, hp(4), GATE11), (11, R, U, 1.0, 1.0)),
             step(room(18, hp(4)), (18, col_x(7), U, 1.0, 2.0)),
@@ -142,8 +154,16 @@ ROUTES = {
     "p2": dedup(to3(3) + around(True)),
     "both": dedup(potion1() + around(True)),
 }
-MAXHP = {"none": 3, "p1": 4, "p2": 4, "both": 5}
+# (exploration) from room 5's potion ledge (row 0 col 6) straight into room 6 through the walls between them
+ROUTES["clip5"] = [
+    step(room(5), (5, R, U, 1.0, 1.0)),
+    step(room(6), (6, col_x(5), U, 1.0, 1.0)),
+]
+MAXHP = {"none": 3, "p1": 4, "p2": 4, "both": 5, "clip5": 3}
 
+# room 20's gate to room 25 (row 0 col 0) starts open (0xC8); its loose floor (row 0 col 8) falling on the plate below
+# shuts it
+GATE20_SHUT = [("Player Room", "==", 20), ("Tile Modifier[20][1]", "<", 0xC8)]
 POTION22_BROKEN = [("Tile[22][25]", "==", 0x0E), ("Player Max HP", "==", 3)]   # a loose floor fell on room 22's potion
 
 LEVEL = {
@@ -151,8 +171,8 @@ LEVEL = {
     # the hatch, the gates (22: 30; 2: 16, 18; 7: 14; 11: 10; 14: 13; 17: 1; 20: 1)
     "hash": [[3, 7], [22, 30], [2, 16], [2, 18], [7, 14], [11, 10], [14, 13], [17, 1], [20, 1]],
     "fails": {"p1": [POTION22_BROKEN, [("Player Room", "==", 6), ("Player Max HP", "==", 4)]],    # (potion 1 only: not room 6's)
-              "p2": [[("Player Room", "==", 22), ("Player Max HP", "==", 4)]],                     # (potion 2 only: not room 22's)
-              "both": [POTION22_BROKEN]},
+              "p2": [[("Player Room", "==", 22), ("Player Max HP", "==", 4)], GATE20_SHUT],       # (potion 2 only: not room 22's)
+              "both": [POTION22_BROKEN, GATE20_SHUT]},
 }
 
 if __name__ == "__main__":

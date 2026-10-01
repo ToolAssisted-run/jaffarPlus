@@ -123,7 +123,7 @@ the hatch at row 0 col 6, which room 3's top-row plate (col 8) toggles open. The
 |---|---|---|
 | No potion: 1 23 2 9 3 4 5 8 13 14 15 16 17 18 12 10 7 4 3 | none | **1436** (1472 before the room 2 fix) |
 | Potion 1: 1 23 2 9 2 23 1 22 1 23 2 9 3, then as above | room 22 | 2153 (+717; before the room 2 fix) |
-| Potion 2: as above to 12, bridge collapse, 11 6 11 18 12 10 7 4 3 | room 6 | in progress |
+| Potion 2: as above to 17, then 18 11 20 25 6 11 18 12 10 7 4 3 | room 6 | **1781** (+345) |
 | Both | rooms 22, 6 | not yet |
 
 Level notes:
@@ -142,9 +142,16 @@ Level notes:
 - **Room 22 (potion 1):** walls on row 2 separate the potion from the gate; the way is row 1, and the loose floor at
   row 1 col 4 must not fall: it lands on the potion and breaks it (0x0A -> 0x0E). Room 9's loose floor (row 1 col 6)
   dropped on its plate jams room 22's gate open.
-- **Room 6 (potion 2):** room 11's gate (row 0 col 9) is held by its own plate (row 0 col 2) or room 20's (row 0 col
-  7); from room 20 it shuts before the prince gets round to it. Room 11 is reached from above by the bridge collapse
-  (bridge5.c): the prince (cols 4..6) and the skeleton (cols 5..6) together on room 10's span for 60 ticks.
+- **Potion 2 (room 6):** the canonical way drops room 17's loose floor (row 0 col 8) on its plate to jam the gate to
+  room 20 (jumping from col 6: a shake counts only from another column), then 20 -> 25 (top right) -> up into 6.
+  The search skips that: from room 17 it goes through 18's and 11's bottom rows and falls into room 20's top row.
+  After the potion, room 11's plate (row 0 col 2) opens its gate to room 18's top row. Room 20's own loose floor (row 0
+  col 8) must not fall: its plate shuts the gate to 25.
+- **No clip from room 5's potion ledge into room 6:** a search of every state reachable from the ledge found none.
+- **The bridge collapse** (bridge5.c: the prince at cols 4..6 and the skeleton at 5..6 together on room 10's span for
+  60 ticks) was tried as a way down into room 11; the skeleton would not come to the middle. Not needed.
+- **The carpet** starts from a crouch that is not the landing (sequence 0x14) or the stoop (0x11); holding Down after
+  landing on it starts it ~46 ticks later. (The first scripts' lift reward was outweighed by its own magnet; fixed.)
 - **The level's end:** quicker loads level 6 on the tick the carpet leaves the top; level 6 starts in room 27.
 
 ## Levels 6..14

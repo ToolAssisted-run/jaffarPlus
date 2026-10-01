@@ -32,6 +32,7 @@ def finish():
 
 
 LOOSE9 = ("Tile[9][17]", "==", 0)              # room 9's loose floor (row 1 col 6) fell onto the plate below: room 22's gate stays open
+LOOSE2 = ("Tile[2][13]", "==", 0)              # room 2's loose floor (row 1 col 2) knocked down: falling onto the plate below
 GATE2 = ("Tile Modifier[2][18]", "==", 0xFF)   # room 2's gate at row 1 col 7 jammed open: the loose floor above its plate (row 2 col 2) fell on it
 GATE11 = ("Tile Modifier[11][10]", ">", 0)     # room 11's gate (row 0 col 9), held by its plate (row 0 col 2) or room 20's (row 0 col 7)
 
@@ -42,6 +43,8 @@ def to3(hpn):
         step(room(1, hp(hpn)), (1, R, None)),
         step(room(23), (23, R, None)),
         step(room(2), (2, col_x(2), D, 1.0, 1.0)),          # under the loose floor: bump it down onto the plate
+        # it falling: up at col 3 at once (the pull down, kept until the gate jammed, had him crouch ~20 ticks too long)
+        step(room(2, LOOSE2), (2, col_x(3), U, 1.0, 1.0)),
         step(room(2, GATE2), (2, R, U, 1.0, 1.0)),
         step(room(9), (9, R, None)),
         step(room(3), (3, R, None)),
@@ -55,6 +58,7 @@ def potion1():
         step(room(1, hp(3)), (1, R, None)),
         step(room(23), (23, R, None)),
         step(room(2), (2, col_x(2), D, 1.0, 1.0)),
+        step(room(2, LOOSE2), (2, col_x(3), U, 1.0, 1.0)),
         step(room(2, GATE2), (2, R, U, 1.0, 1.0)),
         step(room(9), (9, col_x(6), ROW_Y[1], 1.0, 1.0)),
         step(room(9, LOOSE9), (9, L, None, 1.0, 1.0, "keep"), back(2), back(23), back(1), back(22)),

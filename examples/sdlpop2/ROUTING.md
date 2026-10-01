@@ -121,8 +121,8 @@ the hatch at row 0 col 6, which room 3's top-row plate (col 8) toggles open. The
 
 | Route | Big potions | Ticks (chunks) |
 |---|---|---|
-| No potion: 1 23 2 9 3 4 5 8 13 14 15 16 17 18 12 10 7 4 3 | none | **1472** |
-| Potion 1: 1 23 2 9 2 23 1 22 1 23 2 9 3, then as above | room 22 | 2153 (+681) |
+| No potion: 1 23 2 9 3 4 5 8 13 14 15 16 17 18 12 10 7 4 3 | none | **1436** (1472 before the room 2 fix) |
+| Potion 1: 1 23 2 9 2 23 1 22 1 23 2 9 3, then as above | room 22 | 2153 (+717; before the room 2 fix) |
 | Potion 2: as above to 12, bridge collapse, 11 6 11 18 12 10 7 4 3 | room 6 | in progress |
 | Both | rooms 22, 6 | not yet |
 
@@ -134,7 +134,9 @@ Level notes:
 - **The bridge needs no fight** on the way to the carpet: the prince crosses 12 -> 10 -> 7 with running jumps in ~30
   ticks; room 10's plate (row 1 col 9) opens room 7's gate.
 - **Room 2:** the gate at row 1 col 7 is held by the plate at row 2 col 2, with a loose floor right above it: bumping
-  the loose floor down jams the gate open (0xFF).
+  the loose floor down jams the gate open (0xFF). The prince need not wait crouched until it lands: getting up as
+  soon as it falls saves ~24 ticks (the first scripts pulled him down until the gate jammed, so standing up early
+  scored worse and was pruned; noticed by Sergio in the videos).
 - **Room 18:** from row 2 col 4, climbing onto the plate at row 1 col 5 costs a hit point (fatal at 1/3): the routes
   drink room 14's small potion (row 2 col 6) first.
 - **Room 22 (potion 1):** walls on row 2 separate the potion from the gate; the way is row 1, and the loose floor at

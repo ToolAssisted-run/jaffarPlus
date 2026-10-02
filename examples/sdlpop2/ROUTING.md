@@ -119,16 +119,19 @@ Rooms (left to right): 22 1 23 2 9 3 4 7 10 12 on top (21 above 12); 5 6 11 18 b
 (the trap tile at row 2 col 3): sitting on it (the crouched frame 109, not the plain stoop) lifts the prince through
 the hatch at row 0 col 6, which room 3's top-row plate (col 8) toggles open. The rope bridge: 7 | 10 | 12, row 1.
 
-| Route | Big potions | Ticks (chunks) |
-|---|---|---|
-| No potion: 1 23 2 9 3 4 5 8 13 14 15 16 17 18 12 10 7 4 3 | none | **1436** (1472 before the room 2 fix) |
-| Potion 1: 1 23 2 9 2 23 1 22 1 23 2 9 3, then as above | room 22 | 2153 (+717) |
-| Potion 2: as above to 17, then 18 11 20 25 6 11 18 12 10 7 4 3 | room 6 | **1781** (+345) |
-| Both: potion 1's start to 3, then potion 2's way | rooms 22, 6 | 2442 (+1006) |
+| Route | Big potions | Ticks | vs no potion |
+|---|---|---|---|
+| No potion: 1 23 2 9 3 4 5 8 13 14 15 16 17 18 12 10 7 4 3 | none | **1436** | - |
+| Potion 2: as above to 17, then 18 11 20 25 6 11 18 12 10 7 4 3 | room 6 | 1696 | +260 |
+| Potion 1: 1 23 2 9 2 23 1 22 1 23 2 9 3, then as no potion | room 22 | 2144 | +708 |
+| Both: potion 1's start to 3, then potion 2's way | rooms 22, 6 | 2442 | +1006 |
 
-Potion 1 was redone with the room 2 fix: its start got faster (room 3 at 971 instead of 1005) but arrived with 1/4
-HP instead of 2/4, and the loop to room 12 then took 72 ticks more (2191 in all); the 2153 solution is kept. Solved
-in greedy chunks, the potion routes leave HP trade-offs like that one to the final full-route runs.
+Final table (2026-10-02): all four routes re-run clean from level 5's start with the smoothed y, in chunks (30 GB;
+`0500/*-chunks.sol`), keeping each route's best. The clean rerun gave 1448 / 1696 / 2144 / 2458: the no-potion and
+both routes kept their earlier solutions (1436, 2442), 12 and 16 ticks shorter. A chunked search varies by tens of ticks
+from run to run (which of many near-equal states a full database keeps), e.g. potion 1's first chunk took 707 in one
+run and 743 in the next. All four reach level 6 in QuickerSDLPoP2 and in Chimera's core (MT-32: frames 3811 / 4071 /
+4519 / 4817).
 
 Level notes:
 
@@ -148,7 +151,9 @@ Level notes:
   dropped on its plate jams room 22's gate open.
 - **Potion 2 (room 6):** the canonical way drops room 17's loose floor (row 0 col 8) on its plate to jam the gate to
   room 20 (jumping from col 6: a shake counts only from another column), then 20 -> 25 (top right) -> up into 6.
-  The search skips that: from room 17 it goes through 18's and 11's bottom rows and falls into room 20's top row.
+  The search skips that: from room 17 it goes up into 18's bottom row, where a sword-frame push at col 1 takes it
+  through the walls into room 11's col 8, and it falls into room 20's top row. The scripts now route only that way
+  (with both ways as steps of one chain, a loose floor falling without jamming the gate left the skip penalized).
   After the potion, room 11's plate (row 0 col 2) opens its gate to room 18's top row. Room 20's own loose floor (row 0
   col 8) must not fall: its plate shuts the gate to 25.
 - **No clip from room 5's potion ledge into room 6:** a search of every state reachable from the ledge found none.

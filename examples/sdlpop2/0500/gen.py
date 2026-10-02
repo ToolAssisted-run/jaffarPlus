@@ -35,8 +35,6 @@ def finish():
 LOOSE9 = ("Tile[9][17]", "==", 0)              # room 9's loose floor (row 1 col 6) fell onto the plate below: room 22's gate stays open
 LOOSE2 = ("Tile[2][13]", "==", 0)              # room 2's loose floor (row 1 col 2) knocked down: falling onto the plate below
 GATE2 = ("Tile Modifier[2][18]", "==", 0xFF)   # room 2's gate at row 1 col 7 jammed open: the loose floor above its plate (row 2 col 2) fell on it
-LOOSE17 = ("Tile[17][9]", "==", 0)              # room 17's loose floor (row 0 col 8) knocked down onto the plate below
-GATE17 = ("Tile Modifier[17][1]", "==", 0xFF)   # room 17's gate (row 0 col 0) jammed open
 GATE11 = ("Tile Modifier[11][10]", ">", 0)     # room 11's gate (row 0 col 9), held by its plate (row 0 col 2) or room 20's (row 0 col 7)
 
 
@@ -120,18 +118,13 @@ def around(detour6, base=3):
         out += UP18 + [step(room(12), (12, L, ROW_Y[1], 1.0, 1.0))]
     else:
         out += [
-            # room 17: jumps up anywhere on row 1 shake the loose floors of row 0, but count only from another column
-            # (mobs.c loose_floor_shake): from col 6, until the loose floor at col 8 falls on the plate below it, which
-            # jams the gate at row 0 col 0 open (0xFF); then up to row 0 and left. (No pull up or down while jumping.)
-            step(room(17), (17, col_x(6), None, 1.0, 1.0)),
-            step(room(17, row(1)), (17, col_x(6), None, 1.0, 1.0)),
-            # (the skip the searches found: up into room 18's bottom row, then a sword-frame push at its col 1 through
-            # the walls into room 11's col 8, which drops him into room 20's top row; satisfying these satisfies the
-            # loose-floor steps below too)
+            # room 17: up into room 18's bottom row; at its col 1, a sword-frame push through the walls into room 11's
+            # col 8, which drops him into room 20's top row. (The canonical way, room 17's loose floor (row 0 col 8)
+            # dropped on its plate from col 6 to jam the gate to room 20, was slower in every search; the two were
+            # steps of one chain, and a loose floor falling without jamming the gate left the skip penalized.)
+            step(room(17), (17, None, U, 1.0, 2.0)),
             step(room(18, row(2)), (18, L, None, 1.0, 1.0)),
             step(room(11), (11, None, D, 1.0, 1.0)),
-            step(room(17, LOOSE17), (17, col_x(7), U, 1.0, 1.0)),
-            step(room(17, GATE17), (17, L, U, 1.0, 1.0)),
             # room 20, top row, left (its gate to 25 is open; its loose floor at col 8 must not fall on the plate below)
             step(room(20), (20, L, U, 1.0, 1.0)),
             # room 25's top right, then up into room 6 at col 8

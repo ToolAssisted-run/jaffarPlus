@@ -182,6 +182,68 @@ tick, the restart at the checkpoint, level 3's room 13 jitter and level 4's top-
   starts with seed 1915662242 in DOS against 3703121395 here. An RNG-dependent route after a level end may not replay
   in DOS as it does in Chimera.
 
-## Levels 6..14
+## Level 6
+
+Rooms (the temple): 28 27 on top; 24 15 13 12 2 14; 26 23 21 9 8 5 10 11; 25 22 16 7 4 6 3 1; 17 18 19 20 below 4 6 3
+1. The prince comes out of room 3's door (his room reads 27 at first). Medusa heads (charid 7/8, `heads.c`): one in
+room 4, two in room 7, one in room 16. The broken sword: room 17 (row 1 col 5), past the crawl tunnel from room 18.
+The big potion: room 5 (row 2 col 7). The exit: room 16's two doors, left (cols 1..2, opened by the plate at col 7)
+and right (cols 5..6, the plate at col 0). **The door decides where level 7 starts**, so each door is its own route.
+Ticks count from level 6's first tick (Chimera frame 3811 after level 5's no-potion route, the story skipped).
+
+| Route | Big potion | Ticks | Level 7 starts in |
+|---|---|---|---|
+| Sword (27 3 6 18 6 4 17), back up into 4: the head's bite throws him through the left wall into 7; 16, **left door** | none | **426** | room 32 |
+| The same, **right door** | none | 440 | room 4 |
+| No sword: 27 3 6 18 6 4 (the head waited out) 8 12 13 9 21 23 22 16, right door | none | 742 | room 4 |
+| Sword, climbing past room 4's head (killed): 8 9 (a wall clip) 21 23 22 16, right door | none | 846 | room 4 |
+| Sword, as above to 9, then down its hole into 7 (two heads), 16, right door | none | 959 | room 4 |
+| Potion and push (Sergio's route), left door: 27 3 6 18 17 4 8 5 6 5 6 18 17 4 7 16 | room 5 | 1093 | room 32 |
+| The same, right door | room 5 | 1155 | room 4 |
+
+Final table (2026-10-02): 30 GB searches, from room 4 (the pushes) or from room 8 (the routes over the top), in chunks
+for the potion. The pushes play to level 7 in Chimera's core on the predicted frame (MT-32: 4236 and 4250 without
+the potion, 4903 and 4965 with it). The big potion costs **+667** for the left door (1093 against 426) and **+715**
+for the right one (1155 against 440).
+
+Failed or not run:
+
+- **No sword, pushed:** without the sword the bite's push lands inside room 7's top-row wall, for good.
+- **No sword, down through room 7:** room 7's two heads.
+- **Left door over the top:** not run (slower than the push by far; with the RNG off by one, the sword's way down
+  through room 7 reached room 16 with 1 HP and its head killed him).
+
+Level notes:
+
+- **Skipping the story scene costs a random draw:** after levels 5 and 9 the game lets the sound play on into the
+  story scene (`game.c`); Space skipping it stops the sound (`nis.c`), and level 6's first tick, with nothing playing,
+  starts an ambient sound: one random draw. The search core skipped no scene (as a scene watched to its end: no draw),
+  so its first level 6 solutions were one draw behind Chimera and died to room 7's heads there (room 4's head never
+  noticed). SDLPoP2 `pop2_set_skip_scenes`, quickerSDLPoP2 and JaffarPlus `"Skip Story Scenes": true` (routegen.py
+  sets it); levels 1..5 replay the same tick for tick.
+- **Room 4's head** spots the prince as he climbs in from room 17 with the sword and bites once (3 -> 2). The push:
+  bitten in the sword stance by the left wall, he goes through it into room 7's bottom row (room 4 x ~169 -> room 7
+  x 432). Pushed from the upper rows (climbing) he lands inside room 7's top-row walls, for good (a fail rule).
+- **Climbing past room 4's head:** with the sword the head sits on the pillars he climbs; the search kills it (three
+  cuts, or smashed against the wall) for a bite: room 8 at 569 (2/3). Without the sword he waits it out: room 8 at 318
+  (3/3).
+- **Room 8 -> 9 with the sword:** a sword-frame wall clip from room 8's middle row (col 0) left into room 9's,
+  skipping 12 and 13.
+- **Room 9's hole drops three rows** into room 7: from a hang it costs a hit point.
+- **The doors' modifiers carry 0x2080000** whether shut or open; the opening is the low byte ("Tile Opening", 0x2A
+  open). A rule on the whole value held from the start, and the first right-door runs never pressed its plate.
+- **The potion (Sergio's route):** the running jump from room 5's middle-row tile (col 0) falls ~20 px short of the
+  potion's floor (row 2 cols 6..7); Shift grabs the top of room 6's wall under it as he falls by, and Up climbs onto
+  it. Back down off its left end, room 6's loose floor (row 2 col 5) is the only thing that breaks the fall, so it must
+  still be there: the first way into room 18 is the hole (a fall, a hit point), not across the loose floor (the routes
+  without the potion drop it at tick 61). He takes the sword on that first pass. Room 4's head must not be killed and
+  must be left in the open on the bottom row: knocked into the left wall (x < 160) it never sees him again; left on the
+  middle row's pillar (col 1) it cannot fly down. On the way back (17 -> 4, max HP 4) it pushes him through the wall.
+- **Scoring:** a room on the route but not in the current step scored 0 (no magnet), more than any state in the
+  step's own room: the search drifted into room 6 below the potion, and into rooms 7 and 16 after an early push.
+  routegen's `penalize_ahead` gives those rooms the -5000 magnet. An HP magnet (`Set Player HP Magnet`) and a head-kill
+  reward (`Set Opponent HP Magnet`) for the climbs over the top.
+
+## Levels 7..14
 
 Not routed yet.

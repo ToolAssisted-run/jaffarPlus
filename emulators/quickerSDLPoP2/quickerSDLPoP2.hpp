@@ -39,6 +39,9 @@ namespace emulator
  *   "Game Version"                the DOS release to play, always chosen (never taken from the files): "1.1", "1.0"
  *                                 (both on the same files) or "IR" (the initial release, on its own files)
  *   "Start Level", "Seed"          a new game at that level (1..14) with that random seed
+ *   "Skip Story Scenes"           (optional, false) the story scenes between levels skipped by a key, as a TAS does
+ *                                 (the sound stops: after levels 5 and 9 the next level's first tick draws a random
+ *                                 number, as in Chimera's core), not watched to their end
  *   "Initial State File"           (optional, "" none) a savestate to start from instead (quickerSDLPoP2 / SDLPoP2 format)
  *   "Initial Sequence File Path"   (optional) inputs played after that, one per line
  *   "Override RNG Enabled", "Override RNG Value"   (optional) the random seed set after all that
@@ -55,6 +58,7 @@ public:
     _instance = std::make_unique<PoP2Instance>(config);
     _gamePath = jaffarCommon::json::popString(_emulatorConfigRemaining, "Game Path");
     jaffarCommon::json::popString(_emulatorConfigRemaining, "Game Version"); // (required; the instance reads it)
+    if (_emulatorConfigRemaining.contains("Skip Story Scenes")) jaffarCommon::json::popBoolean(_emulatorConfigRemaining, "Skip Story Scenes"); // (the instance reads it)
 
     _startLevel = jaffarCommon::json::popNumber<int>(_emulatorConfigRemaining, "Start Level");
     _seed       = jaffarCommon::json::popNumber<uint32_t>(_emulatorConfigRemaining, "Seed");

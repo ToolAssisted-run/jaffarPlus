@@ -8,6 +8,9 @@ the rooms it names.
 - A max HP condition holds for every later step. A later step would otherwise satisfy the potion's step through the
   chain without the potion.
 - Rooms off the route fail. A room with no magnet would otherwise be free of any magnet cost.
+- With the level's "penalize_ahead": every room of the route other than the step's own (and those it sets a magnet for)
+  gets the -5000 X magnet too: a room the route enters later (or left earlier) scores 0 without a magnet, more than any
+  state in the step's room, and the search drifted there (level 6: the head's push into room 7 while climbing past it).
 - `--upto N` makes the N-th step (1-based) the win, with the prince standing, for solving a route in chunks.
 """
 import argparse, copy, json, os
@@ -33,9 +36,11 @@ def row(r):
     return ("Player Current Row", "==", r)
 
 
-def step(cond, *mags, opp=None):
-    """mags: (room, x or None, y or None[, x intensity, y intensity[, "keep"]]); opp: the Opponent HP Magnet's intensity"""
-    return {"cond": cond, "mags": mags, "opp": opp}
+def step(cond, *mags, opp=None, hpm=None):
+    """mags: (room, x or None, y or None[, x intensity, y intensity[, "keep"]]); opp: the Opponent HP Magnet's intensity
+    (per hit point the opponent lost); hpm: the Player HP Magnet's (per hit point the prince has). Both hold for the
+    later steps until one sets them again."""
+    return {"cond": cond, "mags": mags, "opp": opp, "hpm": hpm}
 
 
 # the prince steps into an open exit door (Up, standing by it: control.c control_standing_up, sequence 0x46); the
@@ -64,6 +69,7 @@ def build(lv, route, upto, db, init, tag, maxsteps):
     e = j["Emulator Configuration"]
     e["Start Level"] = 1
     e["Seed"] = 7881336   # the restart combo's level 1 seed (Chimera Random Seed 25)
+    e["Skip Story Scenes"] = True   # (Space skips them: after level 5 the sound stops, and level 6 starts with a draw)
     e["Initial Sequence File Path"] = init
     g = j["Game Configuration"]
     g["Print Properties"] = ["Current Level", "Next Level", "Player Room", "Player Pos X", "Player Pos Y", "Player Frame",
@@ -71,8 +77,10 @@ def build(lv, route, upto, db, init, tag, maxsteps):
     g["Restart At Checkpoint"] = False
     # gates and exit doors: their openings are in the tile modifiers, which are not hashed otherwise
     g["Hash Tile Modifiers"] = lv["hash"]
+    if lv.get("hash_visited"): g["Hash Visited Rooms"] = lv["hash_visited"]   # the visited flags a rule reads
     rules = []
     steps = lv["routes"][route]
+    on = {c[2] for st in steps for c in st["cond"] if c[0] == "Player Room"} | {m[0] for st in steps for m in st["mags"]}
     n = len(steps) if upto is None else upto
     prev = None   # the room of the previous step
     need = None   # the max HP asked for so far
@@ -84,6 +92,7 @@ def build(lv, route, upto, db, init, tag, maxsteps):
         own = s["cond"][0][2] if s["cond"] and s["cond"][0][0] == "Player Room" else prev
         mags = list(s["mags"])
         if prev is not None and own != prev and prev not in [m[0] for m in mags]: mags.append((prev, None, None))
+        if lv.get("penalize_ahead"): mags += [(r, None, None) for r in sorted(on) if r != own and r not in [m[0] for m in mags]]
         prev = own
         for m in mags:
             r, x, y = m[0], m[1], m[2]
@@ -92,6 +101,7 @@ def build(lv, route, upto, db, init, tag, maxsteps):
             if x is not None: acts.append({"Type": "Set Player Pos X Magnet", "Room": r, "Intensity": xi, "Position": x})
             if y is not None: acts.append({"Type": "Set Player Pos Y Magnet", "Room": r, "Intensity": yi, "Position": y})
         if s.get("opp") is not None: acts.append({"Type": "Set Opponent HP Magnet", "Intensity": s["opp"]})
+        if s.get("hpm") is not None: acts.append({"Type": "Set Player HP Magnet", "Intensity": s["hpm"]})
         conds = [{"Property": p, "Op": o, "Value": v} for p, o, v in s["cond"]]
         rules.append({"Label": 3000 + i, "Conditions": conds, "Satisfies": [3000 + i - 1] if i else [], "Actions": acts})
         if upto is not None and i == n - 1:   # a chunk ends with the prince standing still (frame 15), not in a fall he may not survive
@@ -105,7 +115,6 @@ def build(lv, route, upto, db, init, tag, maxsteps):
     rules.append({"Label": 3904, "Conditions": [{"Property": "Player Max HP", "Op": ">", "Value": lv["maxhp"][route]}], "Satisfies": [], "Actions": [{"Type": "Trigger Fail"}]})
     for k, conds in enumerate(lv.get("fails", {}).get(route, [])):
         rules.append({"Label": 3905 + k, "Conditions": [{"Property": p, "Op": o, "Value": v} for p, o, v in conds], "Satisfies": [], "Actions": [{"Type": "Trigger Fail"}]})
-    on = {c[2] for st in steps for c in st["cond"] if c[0] == "Player Room"} | {m[0] for st in steps for m in st["mags"]}
     for r in range(1, 33):
         if r not in on:
             rules.append({"Label": 3910 + r, "Conditions": [{"Property": "Player Room", "Op": "==", "Value": r},

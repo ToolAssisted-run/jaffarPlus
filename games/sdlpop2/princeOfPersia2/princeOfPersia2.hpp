@@ -27,6 +27,8 @@ const size_t roomCount = 32;
  *                           animations change them every tick.
  *   "Hash Random Seed"      true: the random seed goes into the state hash (guards and some traps use it)
  *   "Hash Clock"            true: the minutes and ticks left go into the state hash
+ *   "Hash Visited Rooms"    [room, ...]: those rooms' visited flags ("Visited Room[r]") go into the state hash: only the ones
+ *                           a rule reads (a revisit's reasons, max HP, gates, doors, tiles, are hashed already)
  *   "Restart At Checkpoint" true: with "Prune Inputs", Restart Level (the game's Alt+A, input "|R|......|") is offered while the
  *                           prince is alive in the room of the checkpoint he saved (he starts again there, standing)
  *   "Prune Inputs"          true: the game offers, for each state, one input of each group of inputs that lead to the
@@ -46,6 +48,8 @@ public:
     }
     _hashRandomSeed = _gameConfigRemaining.contains("Hash Random Seed") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Hash Random Seed");
     _hashClock      = _gameConfigRemaining.contains("Hash Clock") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Hash Clock");
+    if (_gameConfigRemaining.contains("Hash Visited Rooms"))
+      for (const auto& r : jaffarCommon::json::popArray<int>(_gameConfigRemaining, "Hash Visited Rooms")) _hashVisited.push_back((size_t)r);
     _pruneInputs    = _gameConfigRemaining.contains("Prune Inputs") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Prune Inputs");
     _restartAtCheckpoint =
         _gameConfigRemaining.contains("Restart At Checkpoint") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Restart At Checkpoint");
@@ -102,6 +106,7 @@ private:
     registerGameProperty("Checkpoint Saved", &_s->cp.index, dt::dt_uint16, le);  // the checkpoint saved (1, 2; 0 none, and see cp.used)
     registerGameProperty("Tile Animation Count", &_s->trob_count, dt::dt_uint16, le);
     registerGameProperty("Player Smooth Pos Y", &_kidPosY, dt::dt_float32, le);   // y smoothed through climbs (stateUpdatePostHook)
+    for (size_t r = 1; r <= roomCount; r++) registerGameProperty("Visited Room[" + std::to_string(r) + "]", &_visited[r], dt::dt_uint8, le);
     registerGameProperty("Bridge Count", &_s->word_693c, dt::dt_int16, le);       // level 5's rope bridge: ticks the prince and room 10's character stood together
     registerGameProperty("Bridge State", &_s->bridge_693e[0], dt::dt_int16, le);  // 0 waiting, 1..3 starting, -1 collapsed
 
@@ -109,13 +114,15 @@ private:
     registerCharacter("Opponent", &_s->Opp);
     for (size_t i = 0; i < 5; i++) registerCharacter("Character[" + std::to_string(i) + "]", &_s->chars[i]);
 
-    // Tiles and their modifiers: "Tile[room][tile]", "Tile Modifier[room][tile]" (1-based)
+    // Tiles and their modifiers: "Tile[room][tile]", "Tile Modifier[room][tile]" (1-based); "Tile Opening[room][tile]",
+    // the modifier's low byte: a door's or gate's opening (level 6's doors carry 0x2080000 above it, shut or open)
     for (size_t r = 1; r <= roomCount; r++)
       for (size_t t = 1; t <= 30; t++)
       {
         const auto idx = "[" + std::to_string(r) + "][" + std::to_string(t) + "]";
         registerGameProperty("Tile" + idx, &roomTiles(r)[t - 1], dt::dt_uint8, le);
         registerGameProperty("Tile Modifier" + idx, &roomModifiers(r)[t - 1], dt::dt_uint32, le);
+        registerGameProperty("Tile Opening" + idx, (uint8_t*)&roomModifiers(r)[t - 1], dt::dt_uint8, le);
       }
 
     // Falling floors and other moving objects
@@ -226,6 +233,7 @@ private:
     for (size_t r = 1; r <= roomCount; r++) hashEngine.Update(roomTiles(r), 30);
     for (const auto& t : _hashTileModifiers) hashEngine.Update(roomModifiers(t.first)[t.second]);
     if (_hashRandomSeed) hashEngine.Update(_s->random_seed);
+    for (const auto r : _hashVisited) hashEngine.Update(_visited[r]);
     if (_hashClock)
     {
       hashEngine.Update(_s->minutes_left);
@@ -251,6 +259,7 @@ private:
     else if (f >= 135 && f <= 140) o = -(20.0f + 4.0f * (float)(f - 134));
     else if (f >= 141 && f <= 149) o = 19.0f - 2.0f * (float)(f - 140);
     _kidPosY = (float)_s->Kid.y + o;
+    if (_s->Kid.room >= 1 && _s->Kid.room <= roomCount) _visited[_s->Kid.room] = 1;
   }
 
   __INLINE__ void ruleUpdatePreHook() override
@@ -259,11 +268,14 @@ private:
     _playerPosYMagnet.intensity = 0.0;
     _playerDirectionMagnet      = 0.0;
     _opponentHPMagnet           = 0.0;
+    _playerHPMagnet             = 0.0;
     _puzzleMagnet               = 0.0;
   }
 
-  __INLINE__ void serializeStateImpl(jaffarCommon::serializer::Base& serializer) const override {}
-  __INLINE__ void deserializeStateImpl(jaffarCommon::deserializer::Base& deserializer) override {}
+  // The rooms visited so far (since the search began): part of the state, so a route can ask for a room to have been
+  // passed ("Visited Room[r]" == 1), e.g. room 9 before room 7
+  __INLINE__ void serializeStateImpl(jaffarCommon::serializer::Base& serializer) const override { serializer.push(_visited, sizeof(_visited)); }
+  __INLINE__ void deserializeStateImpl(jaffarCommon::deserializer::Base& deserializer) override { deserializer.pop(_visited, sizeof(_visited)); }
 
   __INLINE__ float calculateGameSpecificReward() const override
   {
@@ -272,6 +284,7 @@ private:
     reward += _playerPosYMagnet.intensity * -std::abs((float)_playerPosYMagnet.position - _kidPosY);   // (smoothed: see stateUpdatePostHook)
     reward += (_s->Kid.direction == 0 ? 1.0f : -1.0f) * _playerDirectionMagnet;
     reward += (float)((int)_s->Opp.f13 - (int)_s->Opp.f12) * _opponentHPMagnet;
+    reward += (float)_s->Kid.f12 * _playerHPMagnet;
     if (_puzzleMagnet != 0.0f) reward += _puzzleMagnet * puzzleProgress();
     return reward;
   }
@@ -300,6 +313,7 @@ private:
       jaffarCommon::logger::log("[J+]  + Player Pos Y Magnet   - Intensity: %.1f, Center: %d\n", _playerPosYMagnet.intensity, _playerPosYMagnet.position);
     if (std::abs(_playerDirectionMagnet) > 0.0f) jaffarCommon::logger::log("[J+]  + Player Direction Magnet - Intensity: %.1f\n", _playerDirectionMagnet);
     if (std::abs(_opponentHPMagnet) > 0.0f) jaffarCommon::logger::log("[J+]  + Opponent HP Magnet    - Intensity: %.1f\n", _opponentHPMagnet);
+    if (std::abs(_playerHPMagnet) > 0.0f) jaffarCommon::logger::log("[J+]  + Player HP Magnet      - Intensity: %.1f\n", _playerHPMagnet);
   }
 
   bool parseRuleActionImpl(Rule& rule, const std::string& actionType, const nlohmann::json& actionJs) override
@@ -335,6 +349,14 @@ private:
     {
       auto intensity = jaffarCommon::json::getNumber<float>(actionJs, "Intensity");
       rule.addAction([=, this]() { _opponentHPMagnet = intensity; });
+      return true;
+    }
+    // "Set Player HP Magnet": Intensity per hit point the prince has (e.g. the level 6 heads: room 7's two kill a prince
+    // with one left)
+    if (actionType == "Set Player HP Magnet")
+    {
+      auto intensity = jaffarCommon::json::getNumber<float>(actionJs, "Intensity");
+      rule.addAction([=, this]() { _playerHPMagnet = intensity; });
       return true;
     }
     return false;
@@ -385,8 +407,11 @@ private:
   pointMagnet_t _playerPosXMagnet;
   pointMagnet_t _playerPosYMagnet;
   float         _kidPosY = 0.0f;   // the prince's y smoothed through climbs (stateUpdatePostHook)
+  uint8_t             _visited[roomCount + 1] = {};   // rooms visited so far (stateUpdatePostHook)
+  std::vector<size_t> _hashVisited;                   // the rooms whose visited flag goes into the hash ("Hash Visited Rooms")
   float         _playerDirectionMagnet = 0.0;
   float         _opponentHPMagnet      = 0.0;
+  float         _playerHPMagnet        = 0.0;
   float         _puzzleMagnet          = 0.0;
 
   InputSet::inputIndex_t _nullInputIdx;

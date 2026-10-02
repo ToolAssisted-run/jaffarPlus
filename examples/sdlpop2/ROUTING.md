@@ -124,7 +124,7 @@ the hatch at row 0 col 6, which room 3's top-row plate (col 8) toggles open. The
 | No potion: 1 23 2 9 3 4 5 8 13 14 15 16 17 18 12 10 7 4 3 | none | **1436** (1472 before the room 2 fix) |
 | Potion 1: 1 23 2 9 2 23 1 22 1 23 2 9 3, then as above | room 22 | 2153 (+717) |
 | Potion 2: as above to 17, then 18 11 20 25 6 11 18 12 10 7 4 3 | room 6 | **1781** (+345) |
-| Both: potion 1's start to 3, then potion 2's way | rooms 22, 6 | 2445 (+1009) |
+| Both: potion 1's start to 3, then potion 2's way | rooms 22, 6 | 2442 (+1006) |
 
 Potion 1 was redone with the room 2 fix: its start got faster (room 3 at 971 instead of 1005) but arrived with 1/4
 HP instead of 2/4, and the loop to room 12 then took 72 ticks more (2191 in all); the 2153 solution is kept. Solved
@@ -154,10 +154,13 @@ Level notes:
 - **No clip from room 5's potion ledge into room 6:** a search of every state reachable from the ledge found none.
 - **The bridge collapse** (bridge5.c: the prince at cols 4..6 and the skeleton at 5..6 together on room 10's span for
   60 ticks) was tried as a way down into room 11; the skeleton would not come to the middle. Not needed.
-- **Climbs need milestone rewards:** a jump-up and the hang that follows leave y unchanged, so they score no better
-  than standing still, and with a full database the search waited ~90 ticks before the climbs from room 25 into room 6
-  and inside room 6 (seen by Sergio in the video). Rewarding the jump-up (frames 67..80), the hang (action 2) and
-  each row reached removed both waits (both potions: 2556 -> 2445).
+- **Smoothed y for climbs** (from 2026-10-02; as in the PoP1 game): a jump-up and the hang that follows leave y
+  unchanged and a climb moves it 63 px at once, so they scored no better than standing still, and with a full
+  database the search waited ~90 ticks before the climbs from room 25 into room 6 and inside room 6 (seen by Sergio in
+  the video). The game's Y magnet now uses a smoothed y ("Player Smooth Pos Y", princeOfPersia2.hpp
+  stateUpdatePostHook): jump-up f67..f80 1 px a frame, hang f87..f99 20 px, climb up f135..f149 and down (seq 68)
+  spread over their frames. Both potions: 2556 -> 2442. The routes solved before it (no potion, potion 1, potion 2)
+  may still hold such waits.
 - **The carpet** starts from a crouch that is not the landing (sequence 0x14) or the stoop (0x11); holding Down after
   landing on it starts it ~46 ticks later. (The first scripts' lift reward was outweighed by its own magnet; fixed.)
 - **The level's end:** quicker loads level 6 on the tick the carpet leaves the top; level 6 starts in room 27.

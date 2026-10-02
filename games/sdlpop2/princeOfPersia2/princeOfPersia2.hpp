@@ -101,6 +101,7 @@ private:
     registerGameProperty("Puzzle Chosen", &_s->byte_14a0, dt::dt_uint8, le);     // level 2: 255 until room 1 is entered
     registerGameProperty("Checkpoint Saved", &_s->cp.index, dt::dt_uint16, le);  // the checkpoint saved (1, 2; 0 none, and see cp.used)
     registerGameProperty("Tile Animation Count", &_s->trob_count, dt::dt_uint16, le);
+    registerGameProperty("Player Smooth Pos Y", &_kidPosY, dt::dt_float32, le);   // y smoothed through climbs (stateUpdatePostHook)
     registerGameProperty("Bridge Count", &_s->word_693c, dt::dt_int16, le);       // level 5's rope bridge: ticks the prince and room 10's character stood together
     registerGameProperty("Bridge State", &_s->bridge_693e[0], dt::dt_int16, le);  // 0 waiting, 1..3 starting, -1 collapsed
 
@@ -232,6 +233,26 @@ private:
     }
   }
 
+  // The prince's y for the Y magnet, smoothed through climbs (as in the PoP1 game): his y changes only once in a climb
+  // (63 px, mid-animation) and not at all in a jump-up or a hang, so a magnet on it rewards waiting as much as climbing.
+  // The frames move it a little at a time instead (PoP2's sequences, SDLPoP2 docs/SEQUENCE_DUMP.txt):
+  //   jump up and grab (seqs 8, 16, 24)  f67..f80   1 px up a frame
+  //   hanging (seqs 9, 25, 210)          f87..f99   20 px up
+  //   climb up (seq 10 -> 235, 73)       f135..f140 24..44 px up, then (63 px higher from f141) f141..f149 17..1 px down
+  //   climb down (seq 68)                f148..f141 0..14 px down, then (63 px lower from f140) f140..f136 45..35 px up
+  __INLINE__ void stateUpdatePostHook() override
+  {
+    const int f = _s->Kid.frame;
+    float     o = 0.0f;
+    if (f >= 67 && f <= 80) o = -(float)(f - 66);
+    else if (f >= 87 && f <= 99) o = -20.0f;
+    else if (_s->Kid.f19 == 68 && f >= 141 && f <= 148) o = 2.0f * (float)(148 - f);
+    else if (_s->Kid.f19 == 68 && f >= 136 && f <= 140) o = -45.0f + 2.5f * (float)(140 - f);
+    else if (f >= 135 && f <= 140) o = -(20.0f + 4.0f * (float)(f - 134));
+    else if (f >= 141 && f <= 149) o = 19.0f - 2.0f * (float)(f - 140);
+    _kidPosY = (float)_s->Kid.y + o;
+  }
+
   __INLINE__ void ruleUpdatePreHook() override
   {
     _playerPosXMagnet.intensity = 0.0;
@@ -248,7 +269,7 @@ private:
   {
     float reward = 0.0;
     reward += _playerPosXMagnet.intensity * -std::abs((float)_playerPosXMagnet.position - (float)_s->Kid.x);
-    reward += _playerPosYMagnet.intensity * -std::abs((float)_playerPosYMagnet.position - (float)_s->Kid.y);
+    reward += _playerPosYMagnet.intensity * -std::abs((float)_playerPosYMagnet.position - _kidPosY);   // (smoothed: see stateUpdatePostHook)
     reward += (_s->Kid.direction == 0 ? 1.0f : -1.0f) * _playerDirectionMagnet;
     reward += (float)((int)_s->Opp.f13 - (int)_s->Opp.f12) * _opponentHPMagnet;
     if (_puzzleMagnet != 0.0f) reward += _puzzleMagnet * puzzleProgress();
@@ -260,8 +281,8 @@ private:
     const auto& k = _s->Kid;
     jaffarCommon::logger::log("[J+]  + Level / Next Level:   %2u / %2u\n", _s->level_number, _s->counter_5cec);
     jaffarCommon::logger::log("[J+]  + Time Left:            %u minutes, %u ticks\n", _s->minutes_left, _s->clock_ticks);
-    jaffarCommon::logger::log("[J+]  + [Prince]              Room: %u, Pos: %d, %d, Row: %d, Col: %d, Frame: 0x%X, Action: %u, Dir: %d, HP: %u/%u, Alive: %d\n", k.room, k.x, k.y,
-                              k.curr_row, k.curr_col, k.frame, k.action, k.direction, k.f12, k.f13, k.alive);
+    jaffarCommon::logger::log("[J+]  + [Prince]              Room: %u, Pos: %d, %d (smooth %.0f), Row: %d, Col: %d, Frame: 0x%X, Action: %u, Dir: %d, HP: %u/%u, Alive: %d\n", k.room,
+                              k.x, k.y, _kidPosY, k.curr_row, k.curr_col, k.frame, k.action, k.direction, k.f12, k.f13, k.alive);
     const auto& o = _s->Opp;
     if (o.room != 0)
       jaffarCommon::logger::log("[J+]  + [Opponent]            Room: %u, Pos: %d, %d, Frame: 0x%X, Char Id: %u, HP: %u/%u, Alive: %d\n", o.room, o.x, o.y, o.frame, o.charid, o.f12,
@@ -363,6 +384,7 @@ private:
 
   pointMagnet_t _playerPosXMagnet;
   pointMagnet_t _playerPosYMagnet;
+  float         _kidPosY = 0.0f;   // the prince's y smoothed through climbs (stateUpdatePostHook)
   float         _playerDirectionMagnet = 0.0;
   float         _opponentHPMagnet      = 0.0;
   float         _puzzleMagnet          = 0.0;

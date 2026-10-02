@@ -93,14 +93,6 @@ UP18 = [
 ]
 
 
-def climb(r, rw, x):
-    """milestones of a climb from row rw of room r: the jump up started (frames 67..80), then hanging (action 2)"""
-    return [
-        step(room(r, row(rw), ("Player Frame", ">=", 67), ("Player Frame", "<=", 80)), (r, x, U, 0.1, 2.0)),
-        step(room(r, row(rw), ("Player Action", "==", 2)), (r, x, U, 0.1, 2.0)),
-    ]
-
-
 def around(detour6, base=3):
     """3 -> 4 -> 5 -> 8 -> 13 -> 14 -> 15 -> 16 -> 17, then either -> 18 -> 12, or (potion 2, the canonical way) -> 17's
     gate (its loose floor dropped on its plate) -> 20 -> 25 (top right) -> up into 6 (the potion) -> 11 (its plate opens
@@ -144,14 +136,10 @@ def around(detour6, base=3):
             step(room(20), (20, L, U, 1.0, 1.0)),
             # room 25's top right, then up into room 6 at col 8
             step(room(25), (25, col_x(8), U, 1.0, 2.0)),
-            # (the climbs are rewarded as they happen: the jump up, the hang, each row. Without that the jump-up and
-            # the hang score no better than standing, and with a full database the search waited ~90 ticks before each
-            # climb, in room 25 and again in room 6)
-        ] + climb(25, 0, col_x(8)) + [
-            step(room(6, hp(base)), (6, col_x(7), U, 0.1, 2.0)),
-        ] + climb(6, 2, col_x(7)) + [
-            step(room(6, hp(base), row(1)), (6, col_x(6), U, 0.1, 2.0)),
-        ] + climb(6, 1, col_x(6)) + [
+            # (the game smooths y through climbs, so the jump-ups and hangs here count as progress: without that the
+            # search waited ~90 ticks before the climb from room 25 into room 6 and again inside room 6)
+            step(room(6, hp(base)), (6, col_x(7), U, 1.0, 2.0)),
+            step(room(6, hp(base), row(1)), (6, col_x(6), U, 1.0, 2.0)),
             step(room(6, hp(base), row(0)), (6, col_x(5), U, 1.0, 1.0)),
             step(room(6, hp(base + 1)), (6, R, U, 1.0, 1.0)),
             # room 11: its plate (row 0 col 2) opens its gate (row 0 col 9) to room 18's top row

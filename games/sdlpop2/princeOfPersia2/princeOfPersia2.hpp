@@ -230,6 +230,10 @@ private:
     hashEngine.Update(_s->mobs);
     hashEngine.Update(_s->trob_count);
     hashEngine.Update(_s->trobs);
+    // the running tile animations keep their state in the tiles' modifiers (a slicer blade's phase, blades.c): the
+    // modifiers of each animating room (else states a blade's phase apart are merged, and the search loses timings)
+    for (size_t i = 0; i < _s->trob_count && i < 20; i++)
+      if (_s->trobs[i].room >= 1 && _s->trobs[i].room <= roomCount) hashEngine.Update((const uint8_t*)roomModifiers(_s->trobs[i].room), 30 * sizeof(uint32_t));
     for (size_t r = 1; r <= roomCount; r++) hashEngine.Update(roomTiles(r), 30);
     for (const auto& t : _hashTileModifiers) hashEngine.Update(roomModifiers(t.first)[t.second]);
     if (_hashRandomSeed) hashEngine.Update(_s->random_seed);

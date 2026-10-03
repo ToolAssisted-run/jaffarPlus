@@ -320,6 +320,53 @@ Level notes:
   in the room below (room 10 under room 12's hole); an Opponent Pos X Magnet (`princeOfPersia2.hpp`) was added for
   the push attempts.
 
-## Levels 8..14
+## Level 8
+
+Rooms (the ruins): 15 on top; 7 13 16; 26 25 23 24 1 9 21 19 10 5 4 8; 11 22 20 12 2 3 14; 6 17 18 below. Level 7's
+route starts level 8 in room 16 (row 1, x 296) with max HP 5 (`"Max HP At Level": [8, 5]`, as level 7); the small
+potions (rooms 8, 20, 24) fail. The exit: room 23's door (row 2 cols 1..2), opened by the plate at its col 9. The
+heirloom sword: room 9 (row 2 col 5); the first pickup plays the sword scene (sequence 0xED, story scene 6, the level
+reloaded: `ruins.c` sword_scene), the second takes it. The big potion: room 18 (row 2 col 8). Ticks count from level
+8's first tick to level 9's (room 10, x 328).
+
+| Route | Big potions | Ticks | vs best |
+|---|---|---|---|
+| 16 13 4 3 (the plate past the cutter, back through room 2's gate) 2 12 20 22 11 9 (the sword) 1 24 23 | none | **817** | - |
+| 16 13 4 3 18 (the potion) 17 (its gate) 6 12 20 22 11 9 1 24 23 | room 18 | impossible | - |
+
+The 817 (`0800/np.sol`, 60 GB) plays to level 9 in Chimera's core tick for tick (815 level-8 ticks compared, the
+scene's aside); `0800/level0102030405060708.sol` chains it after levels 1..7 for level 9.
+
+- **The sword scene:** skipped by a key in Chimera (Space on the scene's first frame, the frame after the 0xED
+  sequence's last), it takes 88 movie frames for the one headless tick, so the movie runs 87 frames longer than the
+  tick count (watched, it runs past 2090 frames). The same on every route: the tables count ticks. Skipped, the scene
+  returns 2 (`drawn_room` cleared, room 9 not reloaded, the abort's `sound_stop_all`); the headless core plays no scene
+  (result 1). Both play on identically here (positions tick for tick; no random draw in that stretch), so the core's
+  skip mode needs nothing for it.
+- **After the level:** a scene follows level 8 (a daughter scene, SDLPoP2 aee421a); the Chimera core built here
+  (SDLPoP2 a575569) still plays the horse ride there. Either is skipped by Space; renders want the core updated.
+- **Room 18's potion cannot be had** (Sergio's doubt): room 18 is reached down a shaft from room 3 (its middle row has
+  no floor: no way back up) and leads out only west, crawling through the tunnel (cols 0..2, then room 17's cols 8..9)
+  to room 17's gate (row 2 col 3, shut). Its plates: row 2 col 2 (behind the gate) and the ledge at row 1 col 8, over
+  the tunnel's end, grabbed only from col 7 facing right: the cutter's right half (0x0D; the blade spans cols 6..7,
+  `blades.c`). The jump-up grab puts him at x 393 (col 7, past the blade's middle) for its first 12 frames (67..78), so
+  the blade starts (if idle) and closes 2 ticks later: dead. Standing on it, it runs a 20-tick cycle, closed at 2 (its
+  whole box), 16 (the upper half) and 17 (the lower); its box (y 152..159) cuts every jump frame and the hang. A grab
+  survives only if its first frame comes at blade state 3..5 (frames 79, 80 and the hang are in col 8, out of its
+  reach), and he cannot be standing ready on col 7 then: state 2 cuts anyone standing there, and from crouching or
+  crawling the stand-up takes 4 ticks. With the blades off (god mode) the grab hangs 14 ticks after Up and the gate
+  opens. An exhaustive search from room 17's entry (no state dropped, 220 ticks, 11 blade cycles) found no opening. A
+  restart (Alt+A) puts back the level's starting max HP, so drinking then restarting gains nothing.
+- **Room 2's gate** is open at the start (200) and slams ~3 ticks after he comes over room 3 (from room 4): room 3's
+  plate (row 1 col 9, over its cutter at cols 7..8) opens it again (4, 8 .. 196, then its timer from 250 down). The
+  script's step is the plate's press (0x800 in its modifier while he is on it): on "the gate open" a fast search,
+  in room 3 before the slam, counted the gate still open from the start and stalled at it shut (the 60 GB runs).
+- **Searches:** the game's hash now takes the modifiers of every room with a tile animation running
+  (`princeOfPersia2.hpp`): a blade's phase lives there, and states a phase apart had been merged (rooms 3 and 22
+  have cutters on this route): 991 before, 931 after (10 GB), 817 at 60 GB with the plate step below. Level 7's route crosses cutters too (rooms 3 and 8; level 6's
+  are in rooms 19 and 21), searched before this fix. The steps after the sword require it (the win rule reads the
+  next level only, and a later step's rule marks the earlier ones done: the first rerun skipped it).
+
+## Levels 9..14
 
 Not routed yet.

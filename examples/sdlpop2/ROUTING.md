@@ -264,6 +264,11 @@ its wall into room 7 (Sergio's idea).
 | The same with room 7's potion | room 7 | 636 | 391 | 1027 | +63 |
 | The same, then 17 11 10 (push) 5 9 24 (potion) 9 5 1 5 10 11 17 | rooms 7, 24 | 1461 | 391 | 1852 | +888 |
 
+All three play to level 8 in Chimera's core on the predicted frame (MT-32: 5200, 5263, 6088). The real chain reaches
+level 7 with 3/3, so the videos poke max HP 5 before level 7's first step (run-native `--poke 4237:Kid.HP=5` and
+`Kid.Max HP=5`, the routing assumption); the first two also play through at 3/3 unchanged, the third needs the
+hit points.
+
 Earlier tables (max HP 3, small potions allowed): route 1 (32 31 30 22 11 17 ...) 1023, route 2 1024, through 22 into
 room 7 without drinking 1094, with its potion 1147, route 2 + room 24's potion 1537, route 1 + both 1952 (first pass,
 two chunks split at room 17: 1056 / 1056 / 1292 / 1358 / 1537 / 1984). Under the new rules route 1 by 30 22 11 no

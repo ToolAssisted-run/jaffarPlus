@@ -36,11 +36,11 @@ def row(r):
     return ("Player Current Row", "==", r)
 
 
-def step(cond, *mags, opp=None, hpm=None):
+def step(cond, *mags, opp=None, hpm=None, oppx=None):
     """mags: (room, x or None, y or None[, x intensity, y intensity[, "keep"]]); opp: the Opponent HP Magnet's intensity
     (per hit point the opponent lost); hpm: the Player HP Magnet's (per hit point the prince has). Both hold for the
-    later steps until one sets them again."""
-    return {"cond": cond, "mags": mags, "opp": opp, "hpm": hpm}
+    later steps until one sets them again. oppx: (intensity, x), the Opponent Pos X Magnet (the opponent slot's x)."""
+    return {"cond": cond, "mags": mags, "opp": opp, "hpm": hpm, "oppx": oppx}
 
 
 # the prince steps into an open exit door (Up, standing by it: control.c control_standing_up, sequence 0x46); the
@@ -102,6 +102,7 @@ def build(lv, route, upto, db, init, tag, maxsteps):
             if y is not None: acts.append({"Type": "Set Player Pos Y Magnet", "Room": r, "Intensity": yi, "Position": y})
         if s.get("opp") is not None: acts.append({"Type": "Set Opponent HP Magnet", "Intensity": s["opp"]})
         if s.get("hpm") is not None: acts.append({"Type": "Set Player HP Magnet", "Intensity": s["hpm"]})
+        if s.get("oppx") is not None: acts.append({"Type": "Set Opponent Pos X Magnet", "Intensity": s["oppx"][0], "Position": s["oppx"][1]})
         conds = [{"Property": p, "Op": o, "Value": v} for p, o, v in s["cond"]]
         rules.append({"Label": 3000 + i, "Conditions": conds, "Satisfies": [3000 + i - 1] if i else [], "Actions": acts})
         if upto is not None and i == n - 1:   # a chunk ends with the prince standing still (frame 15), not in a fall he may not survive

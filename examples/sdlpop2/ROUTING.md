@@ -244,6 +244,58 @@ Level notes:
   routegen's `penalize_ahead` gives those rooms the -5000 magnet. An HP magnet (`Set Player HP Magnet`) and a head-kill
   reward (`Set Opponent HP Magnet`) for the climbs over the top.
 
-## Levels 7..14
+## Level 7
+
+Rooms (the temple): 25 26 27 on top; 19 14 20 28 16; 32 . 18 13 21 8 2; 31 7 17 12 6 3 29; 30 22 11 10 5 1 4 15; 24 9
+below 10 5; 23 below 9. Level 6's left door starts level 7 in room 32 (route 1), its right door in room 4 (route 2).
+The exit: room 21's door (row 1 cols 7..8), opened by room 8's plate (row 1 col 6). Big potions: room 7 (row 1 col 8)
+and room 24 (row 0 col 3). Heads (charid 7) in rooms 7, 9, 10, 20, 22, 24; charid 8 in rooms 2 and 22; the charger
+(charid 11, `beast.c`: waits, turns, runs along its row and pounces) in rooms 3, 20, 29, 31. Ticks count from level 7's
+first tick; level 8 starts in room 16 (x 296) on every route.
+
+| Route | Big potions | Ticks | vs best |
+|---|---|---|---|
+| Route 1: 32 31 30 22 (plate) 11 17 12 6 3 29 2 16 28 20 21 8 21 | none | **1056** | - |
+| Route 2: 4 1 5 10 11 17, then as route 1 | none | 1056 | +0 (level 6's right door: +14) |
+| Route 1 + potion: 32 31 30 22 7 (potion, the head's push) 17, then as route 1 | room 7 | 1358 | +302 |
+| Route 2 + potion: 4 1 5 9 24 (potion) 9 5 1 5 10 11 17, then as route 1 | room 24 | 1537 | +481 |
+| Route 1 + both: 32 31 30 22 7 (potion, push) 17 11 10 (the head's push through the bottom row's right wall) 5 9 24 (potion) 9 5 1 5 10 11 17, then as route 1 | rooms 7, 24 | 1984 | +928 |
+| Route 1 through room 7 without drinking (the head's push into 17) | none | 1292 | +236 |
+
+Final table (2026-10-03): 30 GB searches in two chunks (the start to room 17, then the canonical tail), all from the
+same tail script; every chain reaches level 8 in room 16 (x 296), and route 1 plays to level 8 in Chimera's core on
+the predicted frame (MT-32: 5292). The tail itself varies by chunk (710 on route 1, 814 after room 7's potion).
+
+Failed or not found:
+
+- **Route 2 + both** (... 5 10, the head following, 11, its push through the wall or the gate into 22, 7): stuck in
+  room 11's bottom-right corner (no progress from step 678 to 1286); its middle row has four wall tiles to room 22's
+  (11's cols 0..1, 22's cols 8..9).
+- **Room 10 -> 5 by the sword alone** (Sergio's idea, no head): not found in 300 ticks (30 GB) from room 10's bottom
+  row with no hit point lost; the head's bite does it (a hit point, refilled by room 24's potion).
+
+Level notes:
+
+- **No way through room 2's left wall:** Sergio's routes ended 29 -> 2 -> (the head's push into room 8's middle row,
+  on the exit's plate). The push works from the middle row: placed there (a test only) at x 150, facing right, sword
+  out and striking, the head's bites carry him through the wall onto room 8's col 6..7 and the exit opens. But nothing
+  gets him up there with the head able to push: it is on him ~17 ticks after he climbs in from room 29, a bite during
+  the ~30-tick climb is fatal (even at full health), a sword hit holds it off ~10 ticks (sequence 0x99; the lasting
+  retreat after a hit (`heads.c`) needs a second character in the room), and the one climb the search found (the head
+  hit and knocked into the left wall) leaves the head frozen there for good. The routes take the canonical way round:
+  2 (the head killed, up the col 0 pillars) 16 28 20 (down its gap at col 7) 21 8 (the plate) 21.
+- **Room 31:** off the top row's right end at col 6 (a hit point); col 5's tile (0x0E) is no floor in this level
+  kind: falling there goes on into room 30 and kills.
+- **Room 12's hole** (cols 2..5): the running jump from room 17 falls short; Shift (and Up) catches col 6's edge as
+  he drops past it and he climbs up (as level 6's potion).
+- **Into room 7 from 22** (route 1 + potion): only through two loose floors bumped down from below (22's top row at
+  col 2, then 7's bottom row at col 1); the floor above 22's top-row right end is wall.
+- **Room 11:** route 2 comes in at its bottom-right corner (walls left of it, cols 0..7): up to the middle row there
+  first. Room 10's head follows him into room 11 and bites.
+- **Searches:** room 2's head moved the scripts to the HP magnet; a scoring fix lets the search keep hangs that start
+  in the room below (room 10 under room 12's hole); an Opponent Pos X Magnet (`princeOfPersia2.hpp`) was added for
+  the push attempts.
+
+## Levels 8..14
 
 Not routed yet.

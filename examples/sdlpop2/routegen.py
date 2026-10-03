@@ -79,6 +79,8 @@ def build(lv, route, upto, db, init, tag, maxsteps):
     # gates and exit doors: their openings are in the tile modifiers, which are not hashed otherwise
     g["Hash Tile Modifiers"] = lv["hash"]
     if lv.get("hash_visited"): g["Hash Visited Rooms"] = lv["hash_visited"]   # the visited flags a rule reads
+    g.update(lv.get("game", {}))   # the level's own game and emulator options (e.g. "Max HP At Level")
+    e.update(lv.get("emulator", {}))
     rules = []
     steps = lv["routes"][route]
     on = {c[2] for st in steps for c in st["cond"] if c[0] == "Player Room"} | {m[0] for st in steps for m in st["mags"]}

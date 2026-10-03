@@ -234,7 +234,9 @@ private:
     for (const auto& t : _hashTileModifiers) hashEngine.Update(roomModifiers(t.first)[t.second]);
     if (_hashRandomSeed) hashEngine.Update(_s->random_seed);
     for (const auto r : _hashVisited) hashEngine.Update(_visited[r]);
-    if (_hashClock)
+    // entering the level door (sequence 0x46): the prince stands still inside it until the level-end sound stops, nothing
+    // else hashed changing; the clock keeps those ticks apart (else a wait inside it is a repeat, and dropped)
+    if (_hashClock || _s->Kid.f19 == 0x46)
     {
       hashEngine.Update(_s->minutes_left);
       hashEngine.Update(_s->clock_ticks);

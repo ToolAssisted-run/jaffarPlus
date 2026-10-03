@@ -10,8 +10,8 @@ Level 7 (the temple), rooms:   .  . 25 26 27  .  .  .
                               30 22 11 10  5  1  4 15
                                .  .  . 24  9  .  .  .
                                .  .  .  . 23  .  .  .
-Level 6's left door starts level 7 in room 32 (level010203040506L.sol, the "r1" routes), its right door in room 4
-(level010203040506R.sol, the "r2" routes). The exit: room 21's door (row 1 cols 7..8), opened by room 8's plate (row 1
+Level 6's left door starts level 7 in room 32 (level010203040506L.sol, the routes here); its right door (room 4,
+...R.sol) was dropped (2026-10-03: no faster in any variant). The exit: room 21's door (row 1 cols 7..8), opened by room 8's plate (row 1
 col 6). Plates: room 22's (row 1 col 7) opens room 11's gate (row 0 col 0); room 17's (row 2 col 4) room 12's gate
 (row 2 col 1); room 1's (row 2 col 8) room 1's gate (row 1 col 3), which its closer (row 1 col 1) shuts. Big potions:
 room 7 (row 1 col 8) and room 24 (row 0 col 3). Heads (charid 7): rooms 7, 9, 10, 20, 22, 24; charid 8: rooms 2, 22;
@@ -19,7 +19,8 @@ charid 11 (beast.c): rooms 3, 20, 29, 31.
 
 The solutions (../ROUTING.md has the table), each after its start (level010203040506L.sol for r1*, ...R.sol for r2*):
 ROUTE-to2.sol (to standing on room 2's bottom row, where every route meets: --upto the route's room 2 step) then
-ROUTE-end.sol (the common ending), for r1, r2, r1-via7, r1-pot, r2-pot, r1-pot2.
+ROUTE-end.sol (the common ending), for r1c, r1c-pot, r1c-pot2 (max HP 5 from the level's start: "Max HP At Level").
+prev3hp/ holds route 1's earlier solutions (max HP 3, small potions allowed).
 """
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -62,7 +63,9 @@ def tail():
         step(room(8), (8, col_x(6), ROW_Y[1], 1.0, 1.0)),
         step(room(8, EXIT), (8, L, ROW_Y[1], 1.0, 1.0)),
         step(room(21, EXIT), (21, col_x(7) + 16, ROW_Y[1], 1.0, 1.0)),
-        step(room(21, ("Player Current Sequence", "==", 0x46))),
+        # into the door: its frames take him to x ~441, y 93 (inside it); without a pull there, the door step's
+        # magnet (the floor in front of it) scored the entry below stepping back out, and the search kept the latter
+        step(room(21, ("Player Current Sequence", "==", 0x46)), (21, 441, 93, 1.0, 1.0)),
     ]
 
 
@@ -75,6 +78,15 @@ def from32():
         step(room(31), (31, col_x(6), D, 1.0, 1.0)),
         step(room(31, row(2)), (31, L, D, 1.0, 1.0)),
         step(room(30), (30, R, ROW_Y[1], 1.0, 1.0)),
+    ]
+
+
+def from32clip():
+    """(Sergio) 32 (down its hole) -> 31: right along it to the middle row's floor (col 8: over the top row's gap onto
+    the big pillar, col 7) and through the wall (31's col 9, 7's col 0) into room 7's middle row"""
+    return [
+        step(room(32), (32, col_x(2), D, 1.0, 1.0)),
+        step(room(31), (31, R, ROW_Y[1], 1.0, 1.0)),
     ]
 
 
@@ -128,44 +140,38 @@ def west(n):
     ]
 
 
+# max HP 5 at level 7's start ("Max HP At Level", Sergio: the run reaches it with enough): the potions' counts from there
+H0 = 5
 ROUTES = {
+    # (Sergio) 32 31 (its wall) 7 (the head's push or a clip through its right wall) 17, then as route 1
+    "r1c": from32clip() + [step(room(7), (7, R, ROW_Y[1], 1.0, 1.0))] + tail(),
+    # 32 31 7 (the potion; the push) 17, then as route 1
+    "r1c-pot": from32clip() + potion7(H0)[2:] + tail(),
+    # 32 31 7 (potion; push) 17 11 10 (the head's push through the bottom row's right wall) 5 9 24 (potion) 9 5 1 (the
+    # gate) 5 10 11 17, then as route 1
+    "r1c-pot2": from32clip() + potion7(H0)[2:] + [
+        step(room(17, hp(H0 + 1)), (17, col_x(3), D, 1.0, 1.0)),
+        step(room(11, hp(H0 + 1)), (11, R, ROW_Y[1], 1.0, 1.0)),
+        step(room(10, hp(H0 + 1)), (10, R, ROW_Y[2], 1.0, 1.0)),
+    ] + potion24(H0 + 1) + west(H0 + 2) + tail(),
     # 32 31 30 22 (plate) 11 17 12 6 3 29 2 (the push) 8 21
     "r1": from32() + plate22() + tail(),
     # 32 31 30 22 7 (the push, no potion) 17 12 6 3 29 2 8 21
-    "r1-via7": from32() + potion7(3)[:3] + [step(room(7), (7, R, ROW_Y[1], 1.0, 1.0))] + tail(),
+    "r1-via7": from32() + potion7(H0)[:3] + [step(room(7), (7, R, ROW_Y[1], 1.0, 1.0))] + tail(),
     # 32 31 30 22 7 (potion; the push) 17 12 6 3 29 2 8 21
-    "r1-pot": from32() + potion7(3) + tail(),
+    "r1-pot": from32() + potion7(H0) + tail(),
     # 32 31 30 22 7 (potion; the push) 17 11 10 (the head's push through the bottom row's right wall) 5 9 24 (potion)
     # 9 5 1 (the gate) 5 10 11 17 12 6 3 29 2 8 21
-    "r1-pot2": from32() + potion7(3) + [
-        step(room(17, hp(4)), (17, col_x(3), D, 1.0, 1.0)),
-        step(room(11, hp(4)), (11, R, ROW_Y[1], 1.0, 1.0)),
-        step(room(10, hp(4)), (10, R, ROW_Y[2], 1.0, 1.0)),
-    ] + potion24(4) + west(5) + tail(),
-    # 4 1 (the plate, the gate) 5 10 11 17 12 6 3 29 2 8 21
-    "r2": [
-        step(room(4), (4, L, D, 1.0, 1.0)),
-        step(room(1), (1, col_x(8), D, 1.0, 1.0)),
-        step(room(1, GATE1), (1, L, ROW_Y[1], 1.0, 1.0)),
-    ] + west(3) + tail(),
-    # 4 1 (its bottom row) 5 9 24 (potion) 9 5 1 (the gate) 5 10 11 17 12 6 3 29 2 8 21
-    "r2-pot": [
-        step(room(4), (4, L, D, 1.0, 1.0)),
-        step(room(1, hp(3)), (1, L, D, 1.0, 1.0)),
-    ] + potion24(3) + west(4) + tail(),
-    # 4 1 5 9 24 (potion) 9 5 1 (the gate) 5 10 (the head follows) 11 (it pushes him through the left wall or the gate)
-    # 22 7 (potion; the push) 17 12 6 3 29 2 8 21
-    "r2-pot2": [
-        step(room(4), (4, L, D, 1.0, 1.0)),
-        step(room(1, hp(3)), (1, L, D, 1.0, 1.0)),
-    ] + potion24(3) + [
-        step(room(5, hp(4), row(1)), (5, L, ROW_Y[1], 1.0, 1.0)),
-        step(room(10, hp(4)), (10, L, ROW_Y[1], 1.0, 1.0)),
-        step(room(11, hp(4)), (11, L, ROW_Y[1], 1.0, 1.0)),
-    ] + potion7(4) + tail(),
+    "r1-pot2": from32() + potion7(H0) + [
+        step(room(17, hp(H0 + 1)), (17, col_x(3), D, 1.0, 1.0)),
+        step(room(11, hp(H0 + 1)), (11, R, ROW_Y[1], 1.0, 1.0)),
+        step(room(10, hp(H0 + 1)), (10, R, ROW_Y[2], 1.0, 1.0)),
+    ] + potion24(H0 + 1) + west(H0 + 2) + tail(),
 }
-# the Player HP Magnet from the start: room 10's head follows him into room 11 and bites; room 2's head, the blades
-HPM = 200
+# (Sergio: the level is reached with enough hit points, "Max HP At Level" below; small potions fail.) A small Player HP
+# Magnet still breaks ties: without it the endings came down to 1 hit point by room 8's blades and waited them out
+# (437 against 401)
+HPM = 50
 # probe (Sergio): room 10's bottom row into room 5 by the sword alone, no head bite (no hit point lost) (--upto 2)
 ROUTES["probe-10to5"] = [step(room(10), (10, R, ROW_Y[2], 1.0, 1.0)), step(room(5, row(2)))]
 # probe: room 29 (from route 1's arrival at its middle row) up into room 2, standing (--upto 2)
@@ -186,9 +192,15 @@ FAILS = {k: [[("Player Room", "==", 11), ("Player Current Row", "==", 2), ("Play
              [("Player Room", "==", 8), ("Player Current Row", "==", 2)],
              [("Player Room", "==", 21), ("Player Current Row", "==", 2)]] for k in ROUTES}
 FAILS["probe-10to5"].append([("Player Current HP", "<", 4)])
+# (Sergio) the small potions (+1 hit point) are never drunk: their tiles stay (rooms 2, 6, 11, 19, 22, 29, 30)
+SMALL = [(2, 28), (6, 16), (11, 13), (19, 13), (22, 2), (29, 28), (30, 20)]
+for k in ROUTES:
+    # (in level 7 only: on the tick level 8 loads its tiles replace these, and the fail beat the win)
+    if not k.startswith("probe"): FAILS[k] += [[("Tile[%d][%d]" % rt, "!=", 0x0A), ("Current Level", "==", 7)] for rt in SMALL]
 # route 2 + both: room 10's head knocked into room 11's bottom-row walls (cols 0..7) freezes there for good
 FAILS["probe-10to22"].append([("Opponent Room", "==", 11), ("Opponent Pos Y", ">=", 150), ("Opponent Pos X", "<=", 400)])
-MAXHP = {"probe-29to2": 3, "probe-10to22": 4, "probe-11to22": 4, "probe-10to5": 4, "r1": 3, "r1-via7": 3, "r1-pot": 4, "r1-pot2": 5, "r2": 3, "r2-pot": 4, "r2-pot2": 5}
+MAXHP = {"r1c": H0, "r1c-pot": H0 + 1, "r1c-pot2": H0 + 2, "r1": H0, "r1-via7": H0, "r1-pot": H0 + 1, "r1-pot2": H0 + 2,
+         "probe-29to2": 3, "probe-10to22": 4, "probe-11to22": 4, "probe-10to5": 4}
 
 LEVEL = {
     "name": "l7", "next": 8, "init": "level010203040506L.sol", "routes": ROUTES, "maxhp": MAXHP,
@@ -197,6 +209,7 @@ LEVEL = {
              [30, 4], [30, 6]],
     "fails": FAILS,
     "penalize_ahead": True,
+    "emulator": {"Max HP At Level": [7, H0]},
 }
 
 if __name__ == "__main__":

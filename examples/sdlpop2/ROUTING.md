@@ -253,20 +253,21 @@ and room 24 (row 0 col 3). Heads (charid 7) in rooms 7, 9, 10, 20, 22, 24; chari
 (charid 11, `beast.c`: waits, turns, runs along its row and pounces) in rooms 3, 20, 29, 31. Ticks count from level 7's
 first tick; level 8 starts in room 16 (x 296) on every route.
 
+**Current table (2026-10-03, Sergio's rules):** level 7 is reached with max HP 5 (the run's big potions before it;
+`"Max HP At Level": [7, 5]` sets it as the level starts), the small potions (+1 hit point) are never drunk (fails on
+their tiles), route 2 is dropped (no faster in any variant), and the routes start 32 -> 31, right along it and through
+its wall into room 7 (Sergio's idea).
+
 | Route | Big potions | Room 2 (bottom row) | Ending | Ticks | vs best |
 |---|---|---|---|---|---|
-| Route 1: 32 31 30 22 (plate) 11 17 12 6 3 29 2, then 16 28 20 21 8 21 | none | 632 | 391 | **1023** | - |
-| Route 2: 4 1 5 10 11 17, then as route 1 | none | 633 | 391 | 1024 | +1 (level 6's right door: +14) |
-| Route 1 through room 7 without drinking (the head's push into 17) | none | 703 | 391 | 1094 | +71 |
-| Route 1 + potion: 32 31 30 22 7 (potion, the head's push) 17, then as route 1 | room 7 | 753 | 394 | 1147 | +124 |
-| Route 2 + potion: 4 1 5 9 24 (potion) 9 5 1 5 10 11 17, then as route 1 | room 24 | 1146 | 391 | 1537 | +514 |
-| Route 1 + both: 32 31 30 22 7 (potion, push) 17 11 10 (the head's push through the bottom row's right wall) 5 9 24 (potion) 9 5 1 5 10 11 17, then as route 1 | rooms 7, 24 | 1561 | 391 | 1952 | +929 |
+| 32 31 (the wall) 7 (the head's push) 17 12 6 3 29 2, then 16 28 20 21 8 21 | none | 573 | 391 | **964** | - |
+| The same with room 7's potion | room 7 | 636 | 391 | 1027 | +63 |
+| The same, then 17 11 10 (push) 5 9 24 (potion) 9 5 1 5 10 11 17 | rooms 7, 24 | 1461 | 391 | 1852 | +888 |
 
-Final table (2026-10-03, Sergio's method): every route meets the others standing on room 2's bottom row (after 29),
-so each was searched from its start to there in one 30 GB run, and the common ending (2 16 28 20 21 8 21) added from
-its own arrival (391 ticks each; 394 after room 7's potion). Route 2 + potion keeps its earlier two-chunk run (1146 to
-room 2 against 1207). The first table (two chunks split at room 17) gave 1056 / 1056 / 1292 / 1358 / 1537 / 1984:
-the long tail runs had lost ~40 ticks in room 29 (below). Every chain starts level 8 in room 16 (x 296).
+Earlier tables (max HP 3, small potions allowed): route 1 (32 31 30 22 11 17 ...) 1023, route 2 1024, through 22 into
+room 7 without drinking 1094, with its potion 1147, route 2 + room 24's potion 1537, route 1 + both 1952 (first pass,
+two chunks split at room 17: 1056 / 1056 / 1292 / 1358 / 1537 / 1984). Under the new rules route 1 by 30 22 11 no
+longer reached room 2 in 900 steps (worn down to 1 hit point by room 12) and was not pursued.
 
 Failed or not found:
 
@@ -290,6 +291,15 @@ Level notes:
   retreat after a hit (`heads.c`) needs a second character in the room), and the one climb the search found (the head
   hit and knocked into the left wall) leaves the head frozen there for good. The routes take the canonical way round:
   2 (the head killed, up the col 0 pillars) 16 28 20 (down its gap at col 7) 21 8 (the plate) 21.
+- **Room 31 -> 7** (Sergio): along room 31 to its middle row's floor (col 8, over the top row's gap onto the big
+  pillar) and through the wall (31's col 9, 7's col 0) into room 7's middle row: 59 ticks faster to room 2 than by
+  30 22 11, and room 7's potion is then on the way (+63).
+- **The level door:** inside it (frame 0, x 441, y 93) he must wait with nothing pressed until level 8 loads (~10
+  ticks); a key latched during the entry walks him back out. Three script fixes: the door step pulls into the door
+  (the step before scored the floor in front of it higher), the clock is hashed during the door sequence (0x46: the
+  wait inside it was dropped as a repeat), and the small-potion fails hold in level 7 only (level 8's tiles replace
+  those on the tick it loads: the fail beat the win). A small HP magnet (50) breaks ties: without it the endings came
+  to room 8's blades at 1 hit point and waited them out (437 against 391).
 - **Room 29:** he comes out of room 3's middle-row wall (the 6 -> 3 -> 29 clip) in sword stance: he sheathes (~22
   ticks) and climbs at once, twice, into room 2. The long runs drew him to col 1 in sword stance before sheathing (a
   sideways pull that outscored standing still), ~40 ticks; noticed by Sergio in the videos, fixed by weakening it.

@@ -253,24 +253,30 @@ and room 24 (row 0 col 3). Heads (charid 7) in rooms 7, 9, 10, 20, 22, 24; chari
 (charid 11, `beast.c`: waits, turns, runs along its row and pounces) in rooms 3, 20, 29, 31. Ticks count from level 7's
 first tick; level 8 starts in room 16 (x 296) on every route.
 
-| Route | Big potions | Ticks | vs best |
-|---|---|---|---|
-| Route 1: 32 31 30 22 (plate) 11 17 12 6 3 29 2 16 28 20 21 8 21 | none | **1056** | - |
-| Route 2: 4 1 5 10 11 17, then as route 1 | none | 1056 | +0 (level 6's right door: +14) |
-| Route 1 + potion: 32 31 30 22 7 (potion, the head's push) 17, then as route 1 | room 7 | 1358 | +302 |
-| Route 2 + potion: 4 1 5 9 24 (potion) 9 5 1 5 10 11 17, then as route 1 | room 24 | 1537 | +481 |
-| Route 1 + both: 32 31 30 22 7 (potion, push) 17 11 10 (the head's push through the bottom row's right wall) 5 9 24 (potion) 9 5 1 5 10 11 17, then as route 1 | rooms 7, 24 | 1984 | +928 |
-| Route 1 through room 7 without drinking (the head's push into 17) | none | 1292 | +236 |
+| Route | Big potions | Room 2 (bottom row) | Ending | Ticks | vs best |
+|---|---|---|---|---|---|
+| Route 1: 32 31 30 22 (plate) 11 17 12 6 3 29 2, then 16 28 20 21 8 21 | none | 632 | 391 | **1023** | - |
+| Route 2: 4 1 5 10 11 17, then as route 1 | none | 633 | 391 | 1024 | +1 (level 6's right door: +14) |
+| Route 1 through room 7 without drinking (the head's push into 17) | none | 703 | 391 | 1094 | +71 |
+| Route 1 + potion: 32 31 30 22 7 (potion, the head's push) 17, then as route 1 | room 7 | 753 | 394 | 1147 | +124 |
+| Route 2 + potion: 4 1 5 9 24 (potion) 9 5 1 5 10 11 17, then as route 1 | room 24 | 1146 | 391 | 1537 | +514 |
+| Route 1 + both: 32 31 30 22 7 (potion, push) 17 11 10 (the head's push through the bottom row's right wall) 5 9 24 (potion) 9 5 1 5 10 11 17, then as route 1 | rooms 7, 24 | 1561 | 391 | 1952 | +929 |
 
-Final table (2026-10-03): 30 GB searches in two chunks (the start to room 17, then the canonical tail), all from the
-same tail script; every chain reaches level 8 in room 16 (x 296), and route 1 plays to level 8 in Chimera's core on
-the predicted frame (MT-32: 5292). The tail itself varies by chunk (710 on route 1, 814 after room 7's potion).
+Final table (2026-10-03, Sergio's method): every route meets the others standing on room 2's bottom row (after 29),
+so each was searched from its start to there in one 30 GB run, and the common ending (2 16 28 20 21 8 21) added from
+its own arrival (391 ticks each; 394 after room 7's potion). Route 2 + potion keeps its earlier two-chunk run (1146 to
+room 2 against 1207). The first table (two chunks split at room 17) gave 1056 / 1056 / 1292 / 1358 / 1537 / 1984:
+the long tail runs had lost ~40 ticks in room 29 (below). Every chain starts level 8 in room 16 (x 296).
 
 Failed or not found:
 
-- **Route 2 + both** (... 5 10, the head following, 11, its push through the wall or the gate into 22, 7): stuck in
-  room 11's bottom-right corner (no progress from step 678 to 1286); its middle row has four wall tiles to room 22's
-  (11's cols 0..1, 22's cols 8..9).
+- **Route 2 + both** (... 5 10, the head following, 11, its push through the wall or the gate into 22, 7): room 7
+  is reached only from 22, and 22 from route 2's side only through room 11: through its top row's gate (one tile,
+  shut, opened from 22's plate; 22's top-row floor behind it; the middle row has four wall tiles instead). Room 10's
+  head follows him into room 11's bottom-right corner, his only way in, and is on him at once: climbing past it costs
+  bites, and knocked away by his sword it freezes inside the bottom-row wall (cols 0..7), never to come up. Probes
+  from room 10 (30 GB, 800 steps; the Opponent Pos X / Y Magnets drawing the head to the top row beside him) found no
+  push: with the head free he stays pinned in the corner.
 - **Room 10 -> 5 by the sword alone** (Sergio's idea, no head): not found in 300 ticks (30 GB) from room 10's bottom
   row with no hit point lost; the head's bite does it (a hit point, refilled by room 24's potion).
 
@@ -284,6 +290,9 @@ Level notes:
   retreat after a hit (`heads.c`) needs a second character in the room), and the one climb the search found (the head
   hit and knocked into the left wall) leaves the head frozen there for good. The routes take the canonical way round:
   2 (the head killed, up the col 0 pillars) 16 28 20 (down its gap at col 7) 21 8 (the plate) 21.
+- **Room 29:** he comes out of room 3's middle-row wall (the 6 -> 3 -> 29 clip) in sword stance: he sheathes (~22
+  ticks) and climbs at once, twice, into room 2. The long runs drew him to col 1 in sword stance before sheathing (a
+  sideways pull that outscored standing still), ~40 ticks; noticed by Sergio in the videos, fixed by weakening it.
 - **Room 31:** off the top row's right end at col 6 (a hit point); col 5's tile (0x0E) is no floor in this level
   kind: falling there goes on into room 30 and kills.
 - **Room 12's hole** (cols 2..5): the running jump from room 17 falls short; Shift (and Up) catches col 6's edge as

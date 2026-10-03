@@ -270,6 +270,7 @@ private:
     _opponentHPMagnet           = 0.0;
     _playerHPMagnet             = 0.0;
     _opponentPosXMagnet.intensity = 0.0;
+    _opponentPosYMagnet.intensity = 0.0;
     _puzzleMagnet               = 0.0;
   }
 
@@ -286,7 +287,9 @@ private:
     reward += (_s->Kid.direction == 0 ? 1.0f : -1.0f) * _playerDirectionMagnet;
     reward += (float)((int)_s->Opp.f13 - (int)_s->Opp.f12) * _opponentHPMagnet;
     reward += (float)_s->Kid.f12 * _playerHPMagnet;
-    if (_s->Opp.room != 0) reward += _opponentPosXMagnet.intensity * -std::abs((float)_opponentPosXMagnet.position - (float)_s->Opp.x);
+    // (no opponent in the slot: as far as it gets, so that losing the opponent never pays)
+    reward += _opponentPosXMagnet.intensity * (_s->Opp.room != 0 ? -std::abs((float)_opponentPosXMagnet.position - (float)_s->Opp.x) : -1000.0f);
+    reward += _opponentPosYMagnet.intensity * (_s->Opp.room != 0 ? -std::abs((float)_opponentPosYMagnet.position - (float)_s->Opp.y) : -1000.0f);
     if (_puzzleMagnet != 0.0f) reward += _puzzleMagnet * puzzleProgress();
     return reward;
   }
@@ -318,6 +321,8 @@ private:
     if (std::abs(_playerHPMagnet) > 0.0f) jaffarCommon::logger::log("[J+]  + Player HP Magnet      - Intensity: %.1f\n", _playerHPMagnet);
     if (std::abs(_opponentPosXMagnet.intensity) > 0.0f)
       jaffarCommon::logger::log("[J+]  + Opponent Pos X Magnet - Intensity: %.1f, Center: %d\n", _opponentPosXMagnet.intensity, _opponentPosXMagnet.position);
+    if (std::abs(_opponentPosYMagnet.intensity) > 0.0f)
+      jaffarCommon::logger::log("[J+]  + Opponent Pos Y Magnet - Intensity: %.1f, Center: %d\n", _opponentPosYMagnet.intensity, _opponentPosYMagnet.position);
   }
 
   bool parseRuleActionImpl(Rule& rule, const std::string& actionType, const nlohmann::json& actionJs) override
@@ -355,13 +360,14 @@ private:
       rule.addAction([=, this]() { _opponentHPMagnet = intensity; });
       return true;
     }
-    // "Set Opponent Pos X Magnet": Intensity, Position (the opponent slot's x, while it holds one: e.g. level 7's room 2
-    // head, to be lured back out of the wall it was knocked into, to push the prince)
-    if (actionType == "Set Opponent Pos X Magnet")
+    // "Set Opponent Pos X Magnet" / "Set Opponent Pos Y Magnet": Intensity, Position (the opponent slot's x / y, while it
+    // holds one: e.g. a level 7 head to be drawn next to the prince, to push him through a wall or gate)
+    if (actionType == "Set Opponent Pos X Magnet" || actionType == "Set Opponent Pos Y Magnet")
     {
-      auto intensity = jaffarCommon::json::getNumber<float>(actionJs, "Intensity");
-      auto position  = jaffarCommon::json::getNumber<int16_t>(actionJs, "Position");
-      rule.addAction([=, this]() { _opponentPosXMagnet = pointMagnet_t{.intensity = intensity, .position = position}; });
+      auto  intensity = jaffarCommon::json::getNumber<float>(actionJs, "Intensity");
+      auto  position  = jaffarCommon::json::getNumber<int16_t>(actionJs, "Position");
+      auto& magnet    = actionType == "Set Opponent Pos X Magnet" ? _opponentPosXMagnet : _opponentPosYMagnet;
+      rule.addAction([=, this, &magnet]() { magnet = pointMagnet_t{.intensity = intensity, .position = position}; });
       return true;
     }
     // "Set Player HP Magnet": Intensity per hit point the prince has (e.g. the level 6 heads: room 7's two kill a prince
@@ -426,6 +432,7 @@ private:
   float         _opponentHPMagnet      = 0.0;
   float         _playerHPMagnet        = 0.0;
   pointMagnet_t _opponentPosXMagnet;
+  pointMagnet_t _opponentPosYMagnet;
   float         _puzzleMagnet          = 0.0;
 
   InputSet::inputIndex_t _nullInputIdx;

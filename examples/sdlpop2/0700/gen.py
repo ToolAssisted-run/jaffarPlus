@@ -18,7 +18,8 @@ room 7 (row 1 col 8) and room 24 (row 0 col 3). Heads (charid 7): rooms 7, 9, 10
 charid 11 (beast.c): rooms 3, 20, 29, 31.
 
 The solutions (../ROUTING.md has the table), each after its start (level010203040506L.sol for r1*, ...R.sol for r2*):
-ROUTE-to17.sol (to room 17, chunk) then ROUTE-tail.sol, for r1, r2, r1-via7, r1-pot, r2-pot, r1-pot2.
+ROUTE-to2.sol (to standing on room 2's bottom row, where every route meets: --upto the route's room 2 step) then
+ROUTE-end.sol (the common ending), for r1, r2, r1-via7, r1-pot, r2-pot, r1-pot2.
 """
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -50,7 +51,9 @@ def tail():
         step(room(12, row(1)), (12, R, ROW_Y[1], 1.0, 1.0)),
         step(room(6), (6, R, U, 1.0, 1.0)),
         step(room(3), (3, R, ROW_Y[0], 1.0, 1.0)),
-        step(room(29), (29, col_x(1), U, 1.0, 1.0)),
+        # (he comes out of room 3's wall in sword stance: sheathe and jump up at once (two climbs); a stronger pull to
+        # col 1 kept the sword-stance steps toward it over the sheathing, ~50 ticks lost)
+        step(room(29), (29, col_x(1), U, 0.2, 2.0)),
         step(room(2), (2, 184, U, 1.0, 2.0), opp=KILL2),   # (the climbs start at col 1 facing left: col 0 has no ledge above)
         step(room(16), (16, L, ROW_Y[1], 1.0, 1.0), opp=0.0),
         step(room(28), (28, L, ROW_Y[1], 1.0, 1.0)),
@@ -165,13 +168,27 @@ ROUTES = {
 HPM = 200
 # probe (Sergio): room 10's bottom row into room 5 by the sword alone, no head bite (no hit point lost) (--upto 2)
 ROUTES["probe-10to5"] = [step(room(10), (10, R, ROW_Y[2], 1.0, 1.0)), step(room(5, row(2)))]
+# probe: room 29 (from route 1's arrival at its middle row) up into room 2, standing (--upto 2)
+ROUTES["probe-29to2"] = [step(room(29), (29, col_x(1), U, 1.0, 2.0)), step(room(2))]
+# probe: route 2 + both: from room 11's top row (after room 24's potion), through its gate (col 0, shut: it opens
+# from room 22's plate) into room 22's top row, by the head's push (--upto 2)
+ROUTES["probe-11to22"] = [step(room(11), (11, L, ROW_Y[0], 1.0, 1.0)), step(room(22))]
+# probe: the same from room 10 (room 10's head following him into 11 and up to its top row) (--upto 5)
+# (the Opponent Pos X / Y Magnets draw the head up through the top row's gap (col 4) and to his right on the top row:
+# head y ~37 / 100 / 163 on rows 0 / 1 / 2)
+ROUTES["probe-10to22"] = [step(room(10), (10, L, ROW_Y[2], 1.0, 1.0)), step(room(11), (11, col_x(9), ROW_Y[1], 1.0, 2.0)),
+                          step(room(11, row(1)), (11, col_x(4), U, 1.0, 1.0), oppx=(0.5, 290), oppy=(0.5, 37)),
+                          step(room(11, row(0)), (11, L, ROW_Y[0], 1.0, 1.0), oppx=(1.0, 230), oppy=(1.0, 37)),
+                          step(room(22))]
 ROUTES = {k: [dict(v[0], hpm=HPM)] + v[1:] for k, v in ((k, dedup(v)) for k, v in ROUTES.items())}
 # inside walls, where clips lead nowhere: room 11's bottom row (cols 0..7); rooms 8 and 21's bottom rows (all wall)
 FAILS = {k: [[("Player Room", "==", 11), ("Player Current Row", "==", 2), ("Player Current Col", "<=", 7)],
              [("Player Room", "==", 8), ("Player Current Row", "==", 2)],
              [("Player Room", "==", 21), ("Player Current Row", "==", 2)]] for k in ROUTES}
 FAILS["probe-10to5"].append([("Player Current HP", "<", 4)])
-MAXHP = {"probe-10to5": 4, "r1": 3, "r1-via7": 3, "r1-pot": 4, "r1-pot2": 5, "r2": 3, "r2-pot": 4, "r2-pot2": 5}
+# route 2 + both: room 10's head knocked into room 11's bottom-row walls (cols 0..7) freezes there for good
+FAILS["probe-10to22"].append([("Opponent Room", "==", 11), ("Opponent Pos Y", ">=", 150), ("Opponent Pos X", "<=", 400)])
+MAXHP = {"probe-29to2": 3, "probe-10to22": 4, "probe-11to22": 4, "probe-10to5": 4, "r1": 3, "r1-via7": 3, "r1-pot": 4, "r1-pot2": 5, "r2": 3, "r2-pot": 4, "r2-pot2": 5}
 
 LEVEL = {
     "name": "l7", "next": 8, "init": "level010203040506L.sol", "routes": ROUTES, "maxhp": MAXHP,

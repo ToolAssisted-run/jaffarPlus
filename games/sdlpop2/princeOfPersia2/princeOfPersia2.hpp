@@ -119,7 +119,11 @@ private:
     for (size_t r = 1; r <= roomCount; r++) registerGameProperty("Visited Room[" + std::to_string(r) + "]", &_visited[r], dt::dt_uint8, le);
     // "Stood On Row[room][row]": he has stood (frame 15) on that row of that room (latched, as the visited flags)
     for (size_t r = 1; r <= roomCount; r++)
-      for (size_t w = 0; w < 3; w++) registerGameProperty("Stood On Row[" + std::to_string(r) + "][" + std::to_string(w) + "]", &_stood[r][w], dt::dt_uint8, le);
+      for (size_t w = 0; w < 3; w++)
+      {
+        registerGameProperty("Stood On Row[" + std::to_string(r) + "][" + std::to_string(w) + "]", &_stood[r][w], dt::dt_uint8, le);
+        registerGameProperty("HP When Stood[" + std::to_string(r) + "][" + std::to_string(w) + "]", &_stoodHP[r][w], dt::dt_uint8, le);   // (his hit points then)
+      }
     // "Room Heads Hunting[room]": its floating heads (charids 7/8, types 5/6) alive and hunting or biting (their record's state,
     // heads.c; the room he is in counts its live characters' hit points), as stateUpdatePostHook counts them
     for (size_t r = 1; r <= levelRooms; r++) registerGameProperty("Room Heads Hunting[" + std::to_string(r) + "]", &_headsHunting[r], dt::dt_uint8, le);
@@ -286,7 +290,11 @@ private:
     else if (f >= 141 && f <= 149) o = 19.0f - 2.0f * (float)(f - 140);
     _kidPosY = (float)_s->Kid.y + o;
     if (_s->Kid.room >= 1 && _s->Kid.room <= roomCount) _visited[_s->Kid.room] = 1;
-    if (_s->Kid.room >= 1 && _s->Kid.room <= roomCount && _s->Kid.frame == 15 && _s->Kid.curr_row >= 0 && _s->Kid.curr_row < 3) _stood[_s->Kid.room][_s->Kid.curr_row] = 1;
+    if (_s->Kid.room >= 1 && _s->Kid.room <= roomCount && _s->Kid.frame == 15 && _s->Kid.curr_row >= 0 && _s->Kid.curr_row < 3 && _stood[_s->Kid.room][_s->Kid.curr_row] == 0)
+    {
+      _stood[_s->Kid.room][_s->Kid.curr_row]   = 1;
+      _stoodHP[_s->Kid.room][_s->Kid.curr_row] = _s->Kid.f12;
+    }
     for (size_t r = 1; r <= levelRooms; r++)
     {
       const auto& room = _s->level.rooms[r - 1];
@@ -322,11 +330,13 @@ private:
   {
     serializer.push(_visited, sizeof(_visited));
     serializer.push(_stood, sizeof(_stood));
+    serializer.push(_stoodHP, sizeof(_stoodHP));
   }
   __INLINE__ void deserializeStateImpl(jaffarCommon::deserializer::Base& deserializer) override
   {
     deserializer.pop(_visited, sizeof(_visited));
     deserializer.pop(_stood, sizeof(_stood));
+    deserializer.pop(_stoodHP, sizeof(_stoodHP));
   }
 
   __INLINE__ float calculateGameSpecificReward() const override
@@ -515,6 +525,7 @@ private:
   float         _kidPosY = 0.0f;   // the prince's y smoothed through climbs (stateUpdatePostHook)
   uint8_t             _visited[roomCount + 1] = {};   // rooms visited so far (stateUpdatePostHook)
   uint8_t             _stood[roomCount + 1][3] = {};   // rows of rooms stood on so far (stateUpdatePostHook)
+  uint8_t             _stoodHP[roomCount + 1][3] = {};   // his hit points when he first stood there
   uint8_t             _headsHunting[roomCount + 1] = {};   // per room, its heads alive and hunting (stateUpdatePostHook)
   std::vector<size_t> _hashVisited;                   // the rooms whose visited flag goes into the hash ("Hash Visited Rooms")
   std::vector<std::pair<size_t, size_t>> _hashStood;  // the "Stood On Row" flags that go into the hash ("Hash Stood On Rows")

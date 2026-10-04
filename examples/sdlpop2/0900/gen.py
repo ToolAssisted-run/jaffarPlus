@@ -60,10 +60,14 @@ MAXHP = {"np": H0, "pot": H0 + 1}
 # fails (not their tiles: room 9's loose floor at row 1 col 2, under the landing past its gap, falls on its potion)
 FAILS = {k: [[("Player Current Sequence", "==", 0x4E), ("Player Room", "!=", 13), ("Current Level", "==", 9)]] for k in ROUTES}
 FAILS["pot"].append([("Next Level", "==", 10), ("Player Max HP", "==", H0), ("Current Level", "==", 9)])   # (the end before the potion)
-# (Sergio) no hit point lost (a bite: the heads must be left or killed where they cannot reach the top-row path; the
-# drink's own tick aside, max HP up first); and once he has stood on room 1's top row, no drop from the top-row path
-# (hanging from its ledges after a short jump, y ~119, and climbing back stays allowed)
-FAILS["pot"].append([("Player Current HP", "<", "Player Max HP"), ("Player Current Sequence", "!=", 0x4E), ("Current Level", "==", 9)])
+# (Sergio) hit points: none lost before the potion (the drink's own tick aside: max HP up first); on the way back
+# along the bottom row some bites are allowed (the woken heads of rooms 8, 4 and 5 follow him from room to room and fly
+# faster than he runs: a probe found no way back unbitten), down to 3 left (the HP magnet still counts each one); none
+# lost once he has stood on room 1's top row. And from there no drop from the top-row path (hanging from its ledges
+# after a short jump, y ~119, and climbing back stays allowed)
+FAILS["pot"].append([("Player Current HP", "<", "Player Max HP"), ("Player Max HP", "==", H0), ("Player Current Sequence", "!=", 0x4E), ("Current Level", "==", 9)])
+FAILS["pot"].append([("Player Current HP", "<", 3), ("Current Level", "==", 9)])
+FAILS["pot"].append([("Stood On Row[1][0]", "==", 1), ("Player Current HP", "<", "HP When Stood[1][0]"), ("Current Level", "==", 9)])
 for r in (1, 5, 4, 6, 8):
     FAILS["pot"].append([("Stood On Row[1][0]", "==", 1), ("Player Room", "==", r), ("Player Pos Y", ">", 130), ("Current Level", "==", 9)])
 # (Sergio) no fighting: the sword never drawn

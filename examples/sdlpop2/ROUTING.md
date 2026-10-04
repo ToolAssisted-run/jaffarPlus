@@ -376,7 +376,7 @@ scene's aside); `0800/level0102030405060708.sol` chains it after levels 1..7 for
 - **Searches:** the game's hash now takes the modifiers of every room with a tile animation running
   (`princeOfPersia2.hpp`): a blade's phase lives there, and states a phase apart had been merged (rooms 3 and 22
   have cutters on this route): 991 before, 931 after (10 GB), 817 at 60 GB with the plate step below. Level 7's route crosses cutters too (rooms 3 and 8; level 6's
-  are in rooms 19 and 21), searched before this fix. The steps after the sword require it (the win rule reads the
+  are in rooms 19 and 21), searched before this fix: they play no role there (Sergio), no rerun. The steps after the sword require it (the win rule reads the
   next level only, and a later step's rule marks the earlier ones done: the first rerun skipped it).
 
 ## Levels 9..14

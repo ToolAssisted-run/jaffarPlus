@@ -414,6 +414,36 @@ the top-row path unbitten, the level left with 4/6.
   east only, to stun them (knocked back), sheathed before the climb (it fails on the top-row path and going west);
   bites allowed there down to 3 hit points, none lost on the top-row path.
 
-## Levels 10..14
+## Level 10
+
+Rooms along the route (the temple): 22 11 8 14 12 (19 below 12). Level 9's no-potion route starts level 10 in room 22
+(row 2, x 310, facing right), the horse ride skipped (Space), max HP 5. Room 32's big potion is far out of the way:
+not taken (Sergio). Ticks count from level 10's first tick to level 11's (room 5, x 296).
+
+| Route | Big potions | Ticks |
+|---|---|---|
+| 22 11 8 (up to its middle row) 14 (across) 12 (its loose floor dropped) 19 (the door) | none | **298** |
+
+`1000/np.sol` (60 GB) plays the same in Chimera's core (297 ticks compared, to level 11; `level10-no-potion.mp4`);
+`1000/level01020304050607080910.sol` chains it after levels 1..9 for level 11.
+
+- **The shortcut:** room 12's bottom-row loose floor (col 1) dropped falls into room 19 onto the plate under it (row 2
+  col 1), which opens the exit door (row 1 cols 4..5); then right, down through col 7's loose floor (0x1A) onto room
+  19's middle row, into the door as it opens (it reaches the open mark, 0x2A, ~41 ticks after the floor lands: the
+  wait). Room 14: down to its bottom row's pillar (col 6), then across: a short jump hangs from room 12's floor
+  edge, his body in room 19, and climbs. Timeline: room 8 at 46 (up to its middle row: its bottom row is walled at
+  col 2), 14 at 115, the hang 163..184, room 12's floor dropped at 204 (it lands on the plate at 226), room 19 at 230,
+  the door open enough at 267, level 11 at 298.
+- **Searches:** the first ran 448 (20 GB), 435 (60 GB): room 19, which the hang under room 12 enters, was penalized
+  as a room ahead until its own step, so the search kept him in room 14 for ~100 ticks; its step now draws him up there
+  instead (no penalty). Room 11's guard (charid 2) is spawned as he passes (room.c spawn_ok: never on a tick that is
+  a multiple of 3).
+- **Chimera movies after a skipped story scene:** the next level's first input goes on the new level's first frame.
+  The headless line that ends a level also loads the next one, so after the horse ride the first level-10 tick is the
+  line after it; a movie one frame late moves him a tick late against the game's tick counter, and the guard's spawn
+  (on the counter's multiples of 3) comes at another moment (seen as a bump into its sword in room 11). After level 9
+  here: Space on the frame after level 9's last, 24 blank frames, then level 10's inputs.
+
+## Levels 11..14
 
 Not routed yet.

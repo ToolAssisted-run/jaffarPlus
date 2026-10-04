@@ -391,20 +391,28 @@ floor past its gap falls on its potion). Ticks count from level 9's first tick t
 | Route | Big potions | Ticks | vs best |
 |---|---|---|---|
 | 10 9 1 (up) 5 4 6 8 (the top row) | none | **373** | - |
-| 10 9 1 (down) 5 4 6 8 2 11 12 13 (the potion) 12 11 2 8 6 4 5 1 (up) 5 4 6 8 (the top row) | room 13 | (searching) | |
+| 10 9 1 (down) 5 4 6 8 2 11 12 13 (the potion) 12 11 2 8 6 4 5 1 (up) 5 4 6 8 (the top row) | room 13 | 1080 | +707 |
 
 The 373 (`0900/np.sol`, 20 GB) plays the same in Chimera's core (373 ticks compared) and is rendered
 (`level9-no-potion.mp4`, the core rebuilt on SDLPoP2 3e2bf50: no scene after level 8 this time, the horse ride after 9).
+The 1080 (`0900/pot.sol`, 60 GB) too (1080 compared; `level9-potion.mp4`): the potion at tick 332, two bites in room 6
+on the way back (6 -> 4 hit points), the sword drawn in rooms 6 and 4 only (ticks 507..587 and 633..658), up in room 1,
+the top-row path unbitten, the level left with 4/6.
 
 - **Room 8's heads (the potion route):** going west and back on the bottom row wakes room 8's two heads (charid 7),
   and a woken head stays hunting in its room record while he is away: at the end, back on room 8's top row, they
-  come up at him under the ledge he lands on from room 6 (the first searches died there). Sergio's way: no fighting
-  (drawing the sword fails), on the way back wait a little in room 8 so that the heads come to its bottom left, then
-  run on right. The script's "Room Heads Magnet" draws them there (`princeOfPersia2.hpp`: their live slots in the
+  come up at him under the ledge he lands on from room 6 (the first searches died there). Sergio's way: on the way
+  back wait a little in room 8 so that the heads come to its bottom left, then run on right. The script's "Room Heads Magnet" draws them there (`princeOfPersia2.hpp`: their live slots in the
   room, their records after); a lost hit point fails, and so does a drop from the top-row path once he has stood on
   room 1's top row (a hang from its ledges after a short jump stays allowed). The game options "Hash Room
   Characters" (the room records) and "Hash Stood On Rows" (the drop fail's flag) are on for this route only: hashing
   the records multiplies the states, and with them the 20 GB no-potion search lost its way.
+- **The heads follow him (the way back):** woken going west (rooms 8, 4, 5), the heads hunt him from room to room and
+  fly faster than he runs; with no sword two of them catch him in room 5 (cols 7..9) and their bite chains (skill 8 /
+  9: 2 bites certain, up to 3 / 4, `heads.c` head_bite_lands) kill him from 6 hit points: a probe over every input
+  from his return into room 6 found no way through, bites allowed or not. Sergio's fix: the sword on the bottom row
+  east only, to stun them (knocked back), sheathed before the climb (it fails on the top-row path and going west);
+  bites allowed there down to 3 hit points, none lost on the top-row path.
 
 ## Levels 10..14
 

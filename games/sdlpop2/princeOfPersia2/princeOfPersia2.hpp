@@ -17,6 +17,8 @@ namespace sdlpop2
 
 // Rooms 1..32 (the level format has room numbers up to 32; their tiles are at level + (room - 1) * 30)
 const size_t roomCount = 32;
+// The rooms with character records in the level resource (level_type.rooms: 1..28)
+const size_t levelRooms = 28;
 
 /**
  * Prince of Persia 2: The Shadow and the Flame (DOS 1.0), through the QuickerSDLPoP2 emulator.
@@ -29,6 +31,10 @@ const size_t roomCount = 32;
  *   "Hash Clock"            true: the minutes and ticks left go into the state hash
  *   "Hash Visited Rooms"    [room, ...]: those rooms' visited flags ("Visited Room[r]") go into the state hash: only the ones
  *                           a rule reads (a revisit's reasons, max HP, gates, doors, tiles, are hashed already)
+ *   "Hash Stood On Rows"    [[room, row], ...]: those "Stood On Row[room][row]" flags go into the state hash (the ones a rule
+ *                           reads)
+ *   "Hash Room Characters"  true: the level's room records (the characters of the other rooms: a head's hunt state and
+ *                           spot) go into the state hash (more states: only where a route turns on them)
  *   "Restart At Checkpoint" true: with "Prune Inputs", Restart Level (the game's Alt+A, input "|R|......|") is offered while the
  *                           prince is alive in the room of the checkpoint he saved (he starts again there, standing)
  *   "Prune Inputs"          true: the game offers, for each state, one input of each group of inputs that lead to the
@@ -48,8 +54,11 @@ public:
     }
     _hashRandomSeed = _gameConfigRemaining.contains("Hash Random Seed") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Hash Random Seed");
     _hashClock      = _gameConfigRemaining.contains("Hash Clock") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Hash Clock");
+    _hashRoomChars  = _gameConfigRemaining.contains("Hash Room Characters") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Hash Room Characters");
     if (_gameConfigRemaining.contains("Hash Visited Rooms"))
       for (const auto& r : jaffarCommon::json::popArray<int>(_gameConfigRemaining, "Hash Visited Rooms")) _hashVisited.push_back((size_t)r);
+    if (_gameConfigRemaining.contains("Hash Stood On Rows"))
+      for (const auto& t : jaffarCommon::json::popArray<nlohmann::json>(_gameConfigRemaining, "Hash Stood On Rows")) _hashStood.push_back({t[0].get<size_t>(), t[1].get<size_t>()});
     _pruneInputs    = _gameConfigRemaining.contains("Prune Inputs") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Prune Inputs");
     _restartAtCheckpoint =
         _gameConfigRemaining.contains("Restart At Checkpoint") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Restart At Checkpoint");
@@ -80,6 +89,7 @@ private:
     registerGameProperty(name + " Max HP", &c->f13, dt::dt_uint8, le);
     registerGameProperty(name + " Sequence", &c->seq_id, dt::dt_uint16, le);
     registerGameProperty(name + " Current Sequence", &c->f19, dt::dt_uint16, le); // the sequence started last (27: sinking in level 2's sand)
+    registerGameProperty(name + " Sword Drawn", &c->f10, dt::dt_uint8, le);       // 1: sword drawn (0xFF: none to draw)
   }
 
   __INLINE__ void registerGameProperties() override
@@ -107,6 +117,12 @@ private:
     registerGameProperty("Tile Animation Count", &_s->trob_count, dt::dt_uint16, le);
     registerGameProperty("Player Smooth Pos Y", &_kidPosY, dt::dt_float32, le);   // y smoothed through climbs (stateUpdatePostHook)
     for (size_t r = 1; r <= roomCount; r++) registerGameProperty("Visited Room[" + std::to_string(r) + "]", &_visited[r], dt::dt_uint8, le);
+    // "Stood On Row[room][row]": he has stood (frame 15) on that row of that room (latched, as the visited flags)
+    for (size_t r = 1; r <= roomCount; r++)
+      for (size_t w = 0; w < 3; w++) registerGameProperty("Stood On Row[" + std::to_string(r) + "][" + std::to_string(w) + "]", &_stood[r][w], dt::dt_uint8, le);
+    // "Room Heads Hunting[room]": its floating heads (charids 7/8, types 5/6) alive and hunting or biting (their record's state,
+    // heads.c; the room he is in counts its live characters' hit points), as stateUpdatePostHook counts them
+    for (size_t r = 1; r <= levelRooms; r++) registerGameProperty("Room Heads Hunting[" + std::to_string(r) + "]", &_headsHunting[r], dt::dt_uint8, le);
     registerGameProperty("Bridge Count", &_s->word_693c, dt::dt_int16, le);       // level 5's rope bridge: ticks the prince and room 10's character stood together
     registerGameProperty("Bridge State", &_s->bridge_693e[0], dt::dt_int16, le);  // 0 waiting, 1..3 starting, -1 collapsed
 
@@ -234,10 +250,14 @@ private:
     // modifiers of each animating room (else states a blade's phase apart are merged, and the search loses timings)
     for (size_t i = 0; i < _s->trob_count && i < 20; i++)
       if (_s->trobs[i].room >= 1 && _s->trobs[i].room <= roomCount) hashEngine.Update((const uint8_t*)roomModifiers(_s->trobs[i].room), 30 * sizeof(uint32_t));
+    // the characters of the rooms he is not in live in the level's room records (a head's hunt state and spot, a
+    // guard's hit points): else states apart only there are merged (level 9: room 8's heads woken on the way)
+    if (_hashRoomChars) hashEngine.Update((const uint8_t*)&_s->level.rooms, sizeof(_s->level.rooms));
     for (size_t r = 1; r <= roomCount; r++) hashEngine.Update(roomTiles(r), 30);
     for (const auto& t : _hashTileModifiers) hashEngine.Update(roomModifiers(t.first)[t.second]);
     if (_hashRandomSeed) hashEngine.Update(_s->random_seed);
     for (const auto r : _hashVisited) hashEngine.Update(_visited[r]);
+    for (const auto& t : _hashStood) hashEngine.Update(_stood[t.first][t.second]);
     // entering the level door (sequence 0x46): the prince stands still inside it until the level-end sound stops, nothing
     // else hashed changing; the clock keeps those ticks apart (else a wait inside it is a repeat, and dropped)
     if (_hashClock || _s->Kid.f19 == 0x46)
@@ -266,6 +286,21 @@ private:
     else if (f >= 141 && f <= 149) o = 19.0f - 2.0f * (float)(f - 140);
     _kidPosY = (float)_s->Kid.y + o;
     if (_s->Kid.room >= 1 && _s->Kid.room <= roomCount) _visited[_s->Kid.room] = 1;
+    if (_s->Kid.room >= 1 && _s->Kid.room <= roomCount && _s->Kid.frame == 15 && _s->Kid.curr_row >= 0 && _s->Kid.curr_row < 3) _stood[_s->Kid.room][_s->Kid.curr_row] = 1;
+    for (size_t r = 1; r <= levelRooms; r++)
+    {
+      const auto& room = _s->level.rooms[r - 1];
+      uint8_t     n    = 0;
+      for (size_t i = 0; i < room.nchars && i < 5; i++)
+      {
+        const auto&   c  = room.chars[i];
+        if (c.type != 5 && c.type != 6) continue;   // (the heads' types: DS:0096 maps types 5, 6 to charids 7, 8)
+        const uint8_t hp = _s->Kid.room == r ? _s->chars[i].f12 : c.hp;
+        const uint8_t st = (uint8_t)c.y;   // (the low byte: the head's state, 1 hunting, 3 biting)
+        if (hp > 0 && (st == 1 || st == 3)) n++;
+      }
+      _headsHunting[r] = n;
+    }
   }
 
   __INLINE__ void ruleUpdatePreHook() override
@@ -278,12 +313,21 @@ private:
     _opponentPosXMagnet.intensity = 0.0;
     _opponentPosYMagnet.intensity = 0.0;
     _puzzleMagnet               = 0.0;
+    _headsMagnet.intensity      = 0.0;
   }
 
   // The rooms visited so far (since the search began): part of the state, so a route can ask for a room to have been
   // passed ("Visited Room[r]" == 1), e.g. room 9 before room 7
-  __INLINE__ void serializeStateImpl(jaffarCommon::serializer::Base& serializer) const override { serializer.push(_visited, sizeof(_visited)); }
-  __INLINE__ void deserializeStateImpl(jaffarCommon::deserializer::Base& deserializer) override { deserializer.pop(_visited, sizeof(_visited)); }
+  __INLINE__ void serializeStateImpl(jaffarCommon::serializer::Base& serializer) const override
+  {
+    serializer.push(_visited, sizeof(_visited));
+    serializer.push(_stood, sizeof(_stood));
+  }
+  __INLINE__ void deserializeStateImpl(jaffarCommon::deserializer::Base& deserializer) override
+  {
+    deserializer.pop(_visited, sizeof(_visited));
+    deserializer.pop(_stood, sizeof(_stood));
+  }
 
   __INLINE__ float calculateGameSpecificReward() const override
   {
@@ -297,7 +341,29 @@ private:
     reward += _opponentPosXMagnet.intensity * (_s->Opp.room != 0 ? -std::abs((float)_opponentPosXMagnet.position - (float)_s->Opp.x) : -1000.0f);
     reward += _opponentPosYMagnet.intensity * (_s->Opp.room != 0 ? -std::abs((float)_opponentPosYMagnet.position - (float)_s->Opp.y) : -1000.0f);
     if (_puzzleMagnet != 0.0f) reward += _puzzleMagnet * puzzleProgress();
+    if (_headsMagnet.intensity != 0.0f) reward += _headsMagnet.intensity * -headsDistance(_headsMagnet.room, _headsMagnet.x, _headsMagnet.row);
     return reward;
+  }
+
+  // A room's live floating heads (types 5/6): the sum of their distances to (x, row), a row counting 63 (the room he is
+  // in: its live characters; any other: their records, as left when he went out)
+  __INLINE__ float headsDistance(const uint8_t r, const int16_t x, const int8_t row) const
+  {
+    if (r < 1 || r > levelRooms) return 0.0f;
+    const auto& room = _s->level.rooms[r - 1];
+    float       d    = 0.0f;
+    for (size_t i = 0; i < room.nchars && i < 5; i++)
+    {
+      const auto& c = room.chars[i];
+      if (c.type != 5 && c.type != 6) continue;
+      const bool    in = _s->Kid.room == r;
+      const uint8_t hp = in ? _s->chars[i].f12 : c.hp;
+      if (hp == 0) continue;
+      const int16_t hx = in ? _s->chars[i].x : c.x;
+      const int8_t  hr = in ? _s->chars[i].curr_row : (int8_t)(c.tilepos / 10);
+      d += std::abs((float)(hx - x)) + 63.0f * std::abs((float)(hr - row));
+    }
+    return d;
   }
 
   void printInfoImpl() const override
@@ -327,6 +393,9 @@ private:
     if (std::abs(_playerHPMagnet) > 0.0f) jaffarCommon::logger::log("[J+]  + Player HP Magnet      - Intensity: %.1f\n", _playerHPMagnet);
     if (std::abs(_opponentPosXMagnet.intensity) > 0.0f)
       jaffarCommon::logger::log("[J+]  + Opponent Pos X Magnet - Intensity: %.1f, Center: %d\n", _opponentPosXMagnet.intensity, _opponentPosXMagnet.position);
+    if (_headsMagnet.intensity != 0.0f)
+      jaffarCommon::logger::log("[J+]  + Room Heads Magnet - Room: %u, Intensity: %.1f, Spot: %d row %d, Distance: %.0f\n", _headsMagnet.room, _headsMagnet.intensity,
+                                _headsMagnet.x, _headsMagnet.row, headsDistance(_headsMagnet.room, _headsMagnet.x, _headsMagnet.row));
     if (std::abs(_opponentPosYMagnet.intensity) > 0.0f)
       jaffarCommon::logger::log("[J+]  + Opponent Pos Y Magnet - Intensity: %.1f, Center: %d\n", _opponentPosYMagnet.intensity, _opponentPosYMagnet.position);
   }
@@ -376,6 +445,17 @@ private:
       rule.addAction([=, this, &magnet]() { magnet = pointMagnet_t{.intensity = intensity, .position = position}; });
       return true;
     }
+    // "Set Room Heads Magnet": Room, Position (x), Row, Intensity: draws that room's live heads to that spot (their sum
+    // of distances, see headsDistance), e.g. level 9's room 8 heads lured to its bottom left before he leaves it
+    if (actionType == "Set Room Heads Magnet")
+    {
+      auto intensity = jaffarCommon::json::getNumber<float>(actionJs, "Intensity");
+      auto room      = jaffarCommon::json::getNumber<uint8_t>(actionJs, "Room");
+      auto x         = jaffarCommon::json::getNumber<int16_t>(actionJs, "Position");
+      auto row       = jaffarCommon::json::getNumber<int8_t>(actionJs, "Row");
+      rule.addAction([=, this]() { _headsMagnet = headsMagnet_t{.intensity = intensity, .room = room, .x = x, .row = row}; });
+      return true;
+    }
     // "Set Player HP Magnet": Intensity per hit point the prince has (e.g. the level 6 heads: room 7's two kill a prince
     // with one left)
     if (actionType == "Set Player HP Magnet")
@@ -423,6 +503,7 @@ private:
   std::vector<std::pair<size_t, size_t>> _hashTileModifiers;
   bool                                   _hashRandomSeed = false;
   bool                                   _hashClock      = false;
+  bool                                   _hashRoomChars  = false;   // ("Hash Room Characters")
   bool                                   _pruneInputs    = false;
   bool                                   _restartAtCheckpoint = false;
   InputSet::inputIndex_t                 _restartInputIdx     = 0;
@@ -433,13 +514,23 @@ private:
   pointMagnet_t _playerPosYMagnet;
   float         _kidPosY = 0.0f;   // the prince's y smoothed through climbs (stateUpdatePostHook)
   uint8_t             _visited[roomCount + 1] = {};   // rooms visited so far (stateUpdatePostHook)
+  uint8_t             _stood[roomCount + 1][3] = {};   // rows of rooms stood on so far (stateUpdatePostHook)
+  uint8_t             _headsHunting[roomCount + 1] = {};   // per room, its heads alive and hunting (stateUpdatePostHook)
   std::vector<size_t> _hashVisited;                   // the rooms whose visited flag goes into the hash ("Hash Visited Rooms")
+  std::vector<std::pair<size_t, size_t>> _hashStood;  // the "Stood On Row" flags that go into the hash ("Hash Stood On Rows")
   float         _playerDirectionMagnet = 0.0;
   float         _opponentHPMagnet      = 0.0;
   float         _playerHPMagnet        = 0.0;
   pointMagnet_t _opponentPosXMagnet;
   pointMagnet_t _opponentPosYMagnet;
   float         _puzzleMagnet          = 0.0;
+  struct headsMagnet_t
+  {
+    float   intensity = 0.0;
+    uint8_t room      = 0;
+    int16_t x         = 0;
+    int8_t  row       = 0;
+  } _headsMagnet;
 
   InputSet::inputIndex_t _nullInputIdx;
 };

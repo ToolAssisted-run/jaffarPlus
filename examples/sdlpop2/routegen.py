@@ -36,12 +36,12 @@ def row(r):
     return ("Player Current Row", "==", r)
 
 
-def step(cond, *mags, opp=None, hpm=None, oppx=None, oppy=None):
+def step(cond, *mags, opp=None, hpm=None, oppx=None, oppy=None, acts=None):
     """mags: (room, x or None, y or None[, x intensity, y intensity[, "keep"]]); opp: the Opponent HP Magnet's intensity
     (per hit point the opponent lost); hpm: the Player HP Magnet's (per hit point the prince has). Both hold for the
     later steps until one sets them again. oppx / oppy: (intensity, x / y), the Opponent Pos X / Y Magnets (the opponent
-    slot's position)."""
-    return {"cond": cond, "mags": mags, "opp": opp, "hpm": hpm, "oppx": oppx, "oppy": oppy}
+    slot's position). acts: further actions as they go into the script (e.g. a "Set Room Heads Magnet")."""
+    return {"cond": cond, "mags": mags, "opp": opp, "hpm": hpm, "oppx": oppx, "oppy": oppy, "acts": acts}
 
 
 # the prince steps into an open exit door (Up, standing by it: control.c control_standing_up, sequence 0x46); the
@@ -107,6 +107,7 @@ def build(lv, route, upto, db, init, tag, maxsteps):
         if s.get("hpm") is not None: acts.append({"Type": "Set Player HP Magnet", "Intensity": s["hpm"]})
         if s.get("oppx") is not None: acts.append({"Type": "Set Opponent Pos X Magnet", "Intensity": s["oppx"][0], "Position": s["oppx"][1]})
         if s.get("oppy") is not None: acts.append({"Type": "Set Opponent Pos Y Magnet", "Intensity": s["oppy"][0], "Position": s["oppy"][1]})
+        if s.get("acts"): acts += s["acts"]
         conds = [{"Property": p, "Op": o, "Value": v} for p, o, v in s["cond"]]
         rules.append({"Label": 3000 + i, "Conditions": conds, "Satisfies": [3000 + i - 1] if i else [], "Actions": acts})
         if upto is not None and i == n - 1:   # a chunk ends with the prince standing still (frame 15), not in a fall he may not survive
@@ -122,7 +123,7 @@ def build(lv, route, upto, db, init, tag, maxsteps):
         rules.append({"Label": 3905 + k, "Conditions": [{"Property": p, "Op": o, "Value": v} for p, o, v in conds], "Satisfies": [], "Actions": [{"Type": "Trigger Fail"}]})
     for r in range(1, 33):
         if r not in on:
-            rules.append({"Label": 3910 + r, "Conditions": [{"Property": "Player Room", "Op": "==", "Value": r},
+            rules.append({"Label": 3950 + r, "Conditions": [{"Property": "Player Room", "Op": "==", "Value": r},
                                                             {"Property": "Current Level", "Op": "==", "Value": lv["next"] - 1}],   # (not the next level's rooms)
                           "Satisfies": [], "Actions": [{"Type": "Trigger Fail"}]})
     g["Rules"] = rules

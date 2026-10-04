@@ -379,6 +379,33 @@ scene's aside); `0800/level0102030405060708.sol` chains it after levels 1..7 for
   are in rooms 19 and 21), searched before this fix: they play no role there (Sergio), no rerun. The steps after the sword require it (the win rule reads the
   next level only, and a later step's rule marks the earlier ones done: the first rerun skipped it).
 
-## Levels 9..14
+## Level 9
+
+Rooms (the ruins, then the desert): 22 23 on top of 9 10; 16 15 14 13 12 11 2 8 6 4 5 1 9 10; 3 17 18 7 19 20 21 below
+8 6 4 5 1 9 10. Level 8's route starts level 9 in room 10 (row 1, x 328), max HP 5 (`"Max HP At Level": [9, 5]`).
+The level ends on room 8's top row: running left off it (frame 0x28) across its left edge sets the next level
+(`room.c` kid_exit_dir) and the horse ride follows. The big potion: room 13 (row 2 col 3, the desert); small ones
+(rooms 9, 5, 4) are never drunk (a drink, sequence 0x4E, outside room 13 fails: not their tiles, since room 9's loose
+floor past its gap falls on its potion). Ticks count from level 9's first tick to the level's end.
+
+| Route | Big potions | Ticks | vs best |
+|---|---|---|---|
+| 10 9 1 (up) 5 4 6 8 (the top row) | none | **373** | - |
+| 10 9 1 (down) 5 4 6 8 2 11 12 13 (the potion) 12 11 2 8 6 4 5 1 (up) 5 4 6 8 (the top row) | room 13 | (searching) | |
+
+The 373 (`0900/np.sol`, 20 GB) plays the same in Chimera's core (373 ticks compared) and is rendered
+(`level9-no-potion.mp4`, the core rebuilt on SDLPoP2 3e2bf50: no scene after level 8 this time, the horse ride after 9).
+
+- **Room 8's heads (the potion route):** going west and back on the bottom row wakes room 8's two heads (charid 7),
+  and a woken head stays hunting in its room record while he is away: at the end, back on room 8's top row, they
+  come up at him under the ledge he lands on from room 6 (the first searches died there). Sergio's way: no fighting
+  (drawing the sword fails), on the way back wait a little in room 8 so that the heads come to its bottom left, then
+  run on right. The script's "Room Heads Magnet" draws them there (`princeOfPersia2.hpp`: their live slots in the
+  room, their records after); a lost hit point fails, and so does a drop from the top-row path once he has stood on
+  room 1's top row (a hang from its ledges after a short jump stays allowed). The game options "Hash Room
+  Characters" (the room records) and "Hash Stood On Rows" (the drop fail's flag) are on for this route only: hashing
+  the records multiplies the states, and with them the 20 GB no-potion search lost its way.
+
+## Levels 10..14
 
 Not routed yet.

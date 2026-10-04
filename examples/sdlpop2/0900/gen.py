@@ -70,8 +70,10 @@ FAILS["pot"].append([("Player Current HP", "<", 3), ("Current Level", "==", 9)])
 FAILS["pot"].append([("Stood On Row[1][0]", "==", 1), ("Player Current HP", "<", "HP When Stood[1][0]"), ("Current Level", "==", 9)])
 for r in (1, 5, 4, 6, 8):
     FAILS["pot"].append([("Stood On Row[1][0]", "==", 1), ("Player Room", "==", r), ("Player Pos Y", ">", 130), ("Current Level", "==", 9)])
-# (Sergio) no fighting: the sword never drawn
-FAILS["pot"].append([("Player Sword Drawn", "==", 1), ("Current Level", "==", 9)])
+# (Sergio) the sword only on the bottom row east (after the potion): to stun the heads that follow him (knocked back:
+# not to kill them), then sheathed before the climb in room 1 (the top-row path fails with it drawn); never west
+FAILS["pot"].append([("Player Sword Drawn", "==", 1), ("Player Max HP", "==", H0), ("Current Level", "==", 9)])
+FAILS["pot"].append([("Player Sword Drawn", "==", 1), ("Stood On Row[1][0]", "==", 1), ("Current Level", "==", 9)])
 
 LEVEL = {
     "name": "l9", "next": 10, "init": "level0102030405060708.sol", "routes": ROUTES, "maxhp": MAXHP,

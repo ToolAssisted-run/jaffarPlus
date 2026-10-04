@@ -332,10 +332,22 @@ reloaded: `ruins.c` sword_scene), the second takes it. The big potion: room 18 (
 | Route | Big potions | Ticks | vs best |
 |---|---|---|---|
 | 16 13 4 3 (the plate past the cutter, back through room 2's gate) 2 12 20 22 11 9 (the sword) 1 24 23 | none | **817** | - |
+| 16 13 4 3 2 12 6 17 (top row: the loose floor dropped on the gate's plate) 18 (the potion) 17 (up) 6 12 20 22 11 9 1 24 23 | room 18 | 1344 | +527 |
 | 16 13 4 3 18 (the potion) 17 (its gate) 6 12 20 22 11 9 1 24 23 | room 18 | impossible | - |
 
 The 817 (`0800/np.sol`, 60 GB) plays to level 9 in Chimera's core tick for tick (815 level-8 ticks compared, the
-scene's aside); `0800/level0102030405060708.sol` chains it after levels 1..7 for level 9.
+scene's aside); `0800/level0102030405060708.sol` chains it after levels 1..7 for level 9. The 1344 (`0800/pot2.sol`,
+60 GB, Sergio's second potion route) plays the same (1342 compared; max HP 6 from room 18).
+
+- **Room 18's potion (Sergio's second route):** past room 2 into room 12, down its shaft (cols 6..7) catching room
+  6's top-row pillar (col 8), across to room 17's top row (its col 0 and room 6's col 9 are empty), onto the loose
+  floor (col 2): it falls two rows onto the plate under it, which sticks (tile 0x0E: `mobs.c` mob_land) and opens the
+  gate for good (stuck open, 0xFF). Down, through the gate, the cutter and the tunnel into room 18, over its closer
+  (col 7: a closer slams even a stuck-open gate; the script fails on it) onto the potion's tile (a pickup reaches the
+  tile under him or the one in front: from in front he would stand on the closer), and back over it. Back through the gate,
+  up onto the row-1 gate tile (col 3, from col 2 facing right), up onto the top row's closer (the gate no longer
+  matters), left along the top row into room 6, up into room 12 (its col 8 floor, from room 6's pillar). In the 1344:
+  room 17 at tick 280, the potion at 538, room 12 again at 780, then the common way (564 ticks to level 9).
 
 - **The sword scene:** skipped by a key in Chimera (Space on the scene's first frame, the frame after the 0xED
   sequence's last), it takes 88 movie frames for the one headless tick, so the movie runs 87 frames longer than the
@@ -345,7 +357,7 @@ scene's aside); `0800/level0102030405060708.sol` chains it after levels 1..7 for
   skip mode needs nothing for it.
 - **After the level:** a scene follows level 8 (a daughter scene, SDLPoP2 aee421a); the Chimera core built here
   (SDLPoP2 a575569) still plays the horse ride there. Either is skipped by Space; renders want the core updated.
-- **Room 18's potion cannot be had** (Sergio's doubt): room 18 is reached down a shaft from room 3 (its middle row has
+- **Room 18's potion by room 3's shaft cannot be had** (Sergio's first route and doubt): room 18 is reached down a shaft from room 3 (its middle row has
   no floor: no way back up) and leads out only west, crawling through the tunnel (cols 0..2, then room 17's cols 8..9)
   to room 17's gate (row 2 col 3, shut). Its plates: row 2 col 2 (behind the gate) and the ledge at row 1 col 8, over
   the tunnel's end, grabbed only from col 7 facing right: the cutter's right half (0x0D; the blade spans cols 6..7,

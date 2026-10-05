@@ -453,13 +453,15 @@ level 11's first tick to level 12's (room 19, x 200).
 
 | Route | Big potions | Ticks |
 |---|---|---|
-| 5 1 2 4 10 9 (jump, short) 2 (its right ledge) 9 3 (the potion) 12 7 6 13 18 17 (its plate) 18 13 23 25 18 24 (its plate) 26 28 27 22 21 32 29 (its plate: the exit door) 20 27 28 26 24 | room 3 | **2645** |
+| 5 1 2 4 10 9 (jump, short) 2 (its right ledge) 9 3 (the potion) 12 7 6 13 18 17 (its plate) 18 13 23 25 18 24 (its plate) 26 28 27 22 21 32 29 (its plate: the exit door) 20 27 28 26 24 | room 3 | **2445** |
 
-`1100/pot.sol` plays the same in Chimera's core (2644 ticks compared, to level 12; `level11-potion.mp4`, with the room
-in the overlay); `1100/level0102030405060708091011.sol` chains it after levels 1..10 for level 12. It is searched in
-chunks (start -> room 3 482, the potion 78, back up into room 12 199, room 12 -> 18 521, 18 -> 13 -> 23 157 (by hand
-from a search), 23 -> 25 81, 25 -> 29 746, 29 -> 20 109, 20 -> the end 272) and not yet optimized as a whole: room 7
-takes ~200 ticks (down from room 12's top row and back up at its left), the chunk ends cost a few ticks each.
+`1100/pot.sol` plays the same in Chimera's core (2444 ticks compared, to level 12; `level11-potion-v2.mp4`, with the
+room in the overlay); `1100/level0102030405060708091011.sol` chains it after levels 1..10 for level 12. Searched in four
+chunks: start -> room 3 482, room 3 -> 12 272 (Sergio: the loose floor broken first, the potion while it falls; 277 the
+other way round), room 12 -> 23 495 (room 7's stall gone with the routegen fix: room 6's step had kept the -5000), room
+23 -> the end 1196. The first complete solution was 2645. Room 27 takes 168 ticks either way (a focused search finds
+no less): he climbs the col 6 pillar and must jump from x 338 facing left to knock room 22's loose floors down (from
+x 348, where the climb leaves him, the jump misses), so he climbs down and up again to get there.
 
 - **Room 9 -> 3** (Sergio): a running jump right from room 9's ledge falls short into room 2 from the top; catch its
   right ledge (col 8), climb back into room 9's right side, on into room 3.

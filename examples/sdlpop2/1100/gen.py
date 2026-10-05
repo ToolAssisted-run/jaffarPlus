@@ -88,7 +88,7 @@ def rest(*c, via19=False):
         step(room(28, *c), (28, R, ROW_Y[2], 1.0, 1.0)),
         # 27 (Sergio): straight up its pillars to the top row under the shaft (cols 4..5), its ceiling room 22's loose
         # floors: bumped from below they fall, then up through the shaft into room 22
-        step(room(27, *c), (27, col_x(5), U, 1.0, 2.0)),
+        step(room(27, *c), (27, 338, U, 1.0, 2.0)),   # (x 338: the top row's edge by the shaft, where a jump bumps them)
         step(room(27, *c, SHAKE22), (27, col_x(5), U, 1.0, 2.0)),
         step(room(22, *c), (22, R, ROW_Y[2], 1.0, 1.0)),
         step(room(21, *c), (21, R, ROW_Y[2], 1.0, 1.0)),

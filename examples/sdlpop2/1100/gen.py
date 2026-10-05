@@ -52,7 +52,7 @@ def start(*c):
     ]
 
 
-def rest(*c):
+def rest(*c, via19=False):
     """12 7 6 13 18 17 (its plate: room 13's gates) 18 13 23 25 18 (its left) 24 26 28 27 22 21 32 29 (its plate: the
     exit door) 20 27 28 26 24 (the door)"""
     return [
@@ -85,12 +85,22 @@ def rest(*c):
         step(room(22, *c), (22, R, ROW_Y[2], 1.0, 1.0)),
         step(room(21, *c), (21, R, ROW_Y[2], 1.0, 1.0)),
         step(room(32, *c), (32, None, D, 1.0, 1.0)),
-        step(room(29, *c), (29, col_x(5), ROW_Y[2], 1.0, 1.0)),
+        # 29: its top row opens down only at col 7 (a loose floor): right, down onto the bottom row, left onto the plate
+        # (col 5: the exit door)
+        step(room(29, *c), (29, col_x(7), D, 1.0, 1.0)),
+        step(room(29, *c, row(2)), (29, col_x(5), ROW_Y[2], 1.0, 1.0)),
         step(room(29, *c, EXIT), (29, L, ROW_Y[2], 1.0, 1.0)),
+    ] + ([
+        # (a test, not Sergio's route: room 20's bottom row has a 4-column gap, cols 2..5, and no ledge above it) down
+        # the gap into room 19, onto its one floor (row 2 col 0, a ledge to catch), left into room 24 by its plate
+        step(room(20, *c, EXIT), (20, col_x(2), D, 1.0, 1.0)),
+        step(room(19, *c, EXIT), (19, col_x(0), ROW_Y[2], 1.0, 1.0)),
+    ] if via19 else [
         step(room(20, *c, EXIT), (20, L, ROW_Y[2], 1.0, 1.0)),
         step(room(27, *c, EXIT), (27, L, ROW_Y[2], 1.0, 1.0)),
         step(room(28, *c, EXIT), (28, None, D, 1.0, 1.0)),
         step(room(26, *c, EXIT), (26, R, ROW_Y[1], 1.0, 1.0)),
+    ]) + [
         step(room(24, *c, EXIT), (24, col_x(5), ROW_Y[2], 1.0, 1.0)),
         # into the door (Up by it: sequence 0x46): its frames take him inside it (x ~col 5 + 31, y 26 above the floor)
         step(room(24, *c, EXIT, ("Player Current Sequence", "==", 0x46)), (24, col_x(5) + 31, ROW_Y[2] - 26, 1.0, 1.0)),
@@ -109,14 +119,16 @@ ROUTES = {
         step(room(3, hp(H0 + 1), LOOSE3), (3, col_x(0), U, 1.0, 2.0)),
     ] + rest(),
 }
+ROUTES["pot19"] = ROUTES["pot"][:-len(rest())] + rest(via19=True)
 HPM = 50   # a small Player HP Magnet: ties only (level 7: without it the search wore down to 1 hit point and waited)
 ROUTES = {k: [dict(v[0], hpm=HPM)] + v[1:] for k, v in ((k, dedup(v)) for k, v in ROUTES.items())}
-MAXHP = {"np": H0, "pot": H0 + 1}
+MAXHP = {"np": H0, "pot": H0 + 1, "pot19": H0 + 1}
 
 # the small potions (+1 hit point; rooms 13 and 25 on the way) are never drunk: a drink (sequence 0x4E) fails, but for
 # room 3's on the potion route
 FAILS = {"np": [[("Player Current Sequence", "==", 0x4E), ("Current Level", "==", 11)]],
          "pot": [[("Player Current Sequence", "==", 0x4E), ("Player Room", "!=", 3), ("Current Level", "==", 11)]]}
+FAILS["pot19"] = FAILS["pot"]
 
 LEVEL = {
     "name": "l11", "next": 12, "init": "level01020304050607080910.sol", "routes": ROUTES, "maxhp": MAXHP,

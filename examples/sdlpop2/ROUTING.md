@@ -494,7 +494,9 @@ far out of the way, not taken. The exit door: room 7 (row 2 col 3), opened by ro
 - **Shortcut** (Sergio): right into room 7 and through its bottom row's wall (cols 6..7) by a wall clip, down the col
   8 hole straight onto room 14's plate. The search: a run into the wall (tick 49), the sword drawn, turned to face
   left, a sword backstep (Ctrl, sequence 92) carries him 66 px right through the wall (ticks 74..86), down the hole.
-  92 ticks with a 30 GB and a 200 GB database (`1200/door.sol`).
+  92 ticks with a 30 GB and a 200 GB database (`1200/door.sol`); it plays the same in Chimera's core (92 ticks
+  compared, `level12-door.mp4`). In the movie, level 12's first input goes on the row after its first frame (that
+  row loads the level and runs no tick of it, as at level 11's start).
 
 ## Levels 13..14
 

@@ -30,6 +30,7 @@ RIGHT9 = ("Player Pos X", ">", col_x(7))     # room 9's right side (cols 8..9), 
 LOOSE3 = ("Tile[3][2]", "!=", 0x0B)          # room 3's top-row loose floor (col 1) broken
 GATE6 = ("Tile Opening[6][20]", ">", 0)     # room 6's gate (row 1 col 9), opened from room 12's top row (col 4)
 GATE26 = ("Tile Opening[26][20]", ">", 0)   # room 26's gate (row 1 col 9), opened from room 24's plate (row 2 col 9)
+GATE20 = ("Tile Opening[20][21]", ">", 0)   # room 20's gate (row 2 col 0), opened from room 1's plate (row 2 col 6)
 GATE13 = ("Tile Opening[13][14]", ">", 0)   # room 13's left gate (row 1 col 3), opened from room 17
 SEEN25 = ("Visited Room[25]", "==", 1)       # room 18 the third time: from room 25 (its left, row 1)
 EXIT = ("Tile Opening[24][26]", ">", 0)     # the exit door (room 24 row 2 cols 4..5), opened from room 29
@@ -96,7 +97,14 @@ def rest(*c, via19=False):
         step(room(20, *c, EXIT), (20, col_x(2), D, 1.0, 1.0)),
         step(room(19, *c, EXIT), (19, col_x(0), ROW_Y[2], 1.0, 1.0)),
     ] if via19 else [
-        step(room(20, *c, EXIT), (20, L, ROW_Y[2], 1.0, 1.0)),
+        # 20 (Sergio): a running jump left across the bottom row's gap (cols 2..5) onto its left side (col 1: hanging,
+        # climbing); col 6's loose floor, run over, falls all the way down onto room 1's plate (row 2 col 6), which opens
+        # room 20's gate (row 2 col 0): wait there for it, then left
+        # (the hang under its floor's edge counts as room 19, below: not penalized there, drawn up)
+        step(room(20, *c, EXIT), (20, col_x(1), ROW_Y[2], 1.0, 1.0), (19, col_x(1), U, 1.0, 1.0, "keep")),
+        step(room(20, *c, EXIT, ("Player Pos X", "<", col_x(2)), row(2)), (20, col_x(1), ROW_Y[2], 1.0, 1.0),
+             (19, col_x(1), U, 1.0, 1.0, "keep")),
+        step(room(20, *c, EXIT, GATE20), (20, L, ROW_Y[2], 1.0, 1.0)),
         step(room(27, *c, EXIT), (27, L, ROW_Y[2], 1.0, 1.0)),
         step(room(28, *c, EXIT), (28, None, D, 1.0, 1.0)),
         step(room(26, *c, EXIT), (26, R, ROW_Y[1], 1.0, 1.0)),
@@ -128,7 +136,10 @@ MAXHP = {"np": H0, "pot": H0 + 1, "pot19": H0 + 1}
 # room 3's on the potion route
 FAILS = {"np": [[("Player Current Sequence", "==", 0x4E), ("Current Level", "==", 11)]],
          "pot": [[("Player Current Sequence", "==", 0x4E), ("Player Room", "!=", 3), ("Current Level", "==", 11)]]}
-FAILS["pot19"] = FAILS["pot"]
+# (down room 20's gap past its ledge: through room 19 into room 17 once the exit door opens; the catch itself dips to
+# y ~205 in room 20, then hangs in room 19)
+FAILS["pot"].append([("Player Room", "==", 17), EXIT, ("Current Level", "==", 11)])
+FAILS["pot19"] = FAILS["pot"][:-1]
 
 LEVEL = {
     "name": "l11", "next": 12, "init": "level01020304050607080910.sol", "routes": ROUTES, "maxhp": MAXHP,

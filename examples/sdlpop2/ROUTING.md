@@ -444,6 +444,40 @@ not taken (Sergio). Ticks count from level 10's first tick to level 11's (room 5
   (on the counter's multiples of 3) comes at another moment (seen as a bump into its sword in room 11). After level 9
   here: Space on the frame after level 9's last, 24 blank frames, then level 10's inputs.
 
-## Levels 11..14
+## Level 11
+
+Rooms (the temple): 22 21 32 / 28 27 20 29 / 26 24 19 / 25 18 17 / 30 23 13 8 14 / 31 6 7 12 16 / 10 9 3 15 / 4 2 /
+11 1 5 (rows top to bottom). Level 10's route starts level 11 in room 5 (row 2, x 298, facing left), max HP 5. The
+big potion: room 3 (row 2 col 7). Sergio: the potion is quick, so only the potion route is routed. Ticks count from
+level 11's first tick to level 12's (room 19, x 200).
+
+| Route | Big potions | Ticks |
+|---|---|---|
+| 5 1 2 4 10 9 (jump, short) 2 (its right ledge) 9 3 (the potion) 12 7 6 13 18 17 (its plate) 18 13 23 25 18 24 (its plate) 26 28 27 22 21 32 29 (its plate: the exit door) 20 27 28 26 24 | room 3 | **2645** |
+
+`1100/pot.sol` plays the same in Chimera's core (2644 ticks compared, to level 12; `level11-potion.mp4`, with the room
+in the overlay); `1100/level0102030405060708091011.sol` chains it after levels 1..10 for level 12. It is searched in
+chunks (start -> room 3 482, the potion 78, back up into room 12 199, room 12 -> 18 521, 18 -> 13 -> 23 157 (by hand
+from a search), 23 -> 25 81, 25 -> 29 746, 29 -> 20 109, 20 -> the end 272) and not yet optimized as a whole: room 7
+takes ~200 ticks (down from room 12's top row and back up at its left), the chunk ends cost a few ticks each.
+
+- **Room 9 -> 3** (Sergio): a running jump right from room 9's ledge falls short into room 2 from the top; catch its
+  right ledge (col 8), climb back into room 9's right side, on into room 3.
+- **Room 3** (the potion): through row 1's wall at col 2 by a wall clip, down at col 7 onto the potion; back the same
+  way, the top row's loose floor (col 1) broken from below (it sticks on the plate under it), up into room 12 at col 0.
+- **Gates:** room 12's top-row plate (col 4, the cutter right of it) opens room 6's gate (the way from room 7); room
+  17's plate opens room 13's left gate for ~140 ticks (17 -> 18 -> down 18's hole -> 13's middle row -> the gate:
+  searched as one stretch, the chunk boundary had him late); room 24's plate opens room 26's; room 29's (down at col 7
+  first: its top row opens only there) opens the exit door; room 1's plate at the start opens room 20's gate, and
+  again: col 6's loose floor in room 20, run over, falls all the way down onto it.
+- **Room 20** (Sergio): a running jump left across the bottom row's gap (cols 2..5), caught at the far ledge (the
+  hang counts as room 19, below: the script allows it), climbed; wait for the gate; left.
+- **Room 23:** a guard (and a spawn point) by the climb at col 8: he climbs past it.
+- **Searches:** the script's steps with no x target kept the -5000 a room ahead had been given (fixed in routegen:
+  such a step clears its own room's magnets); the sword stance does not leave a room (`room.c` kid_exit_dir ignores
+  its frames). The render crashed past ~64 different sounds (SDLPoP2's sound cache moved under the players' pointers:
+  fixed in SDLPoP2 f528cfd).
+
+## Levels 12..14
 
 Not routed yet.

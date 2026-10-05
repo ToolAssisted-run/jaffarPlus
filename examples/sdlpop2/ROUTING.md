@@ -480,6 +480,22 @@ x 348, where the climb leaves him, the jump misses), so he climbs down and up ag
   its frames). The render crashed past ~64 different sounds (SDLPoP2's sound cache moved under the players' pointers:
   fixed in SDLPoP2 f528cfd).
 
-## Levels 12..14
+## Level 12
+
+Rooms: 4 21 / 2 5 1 3 11 13 / 10 9 8 19 7 12 20 / 17 6 16 15 14 22 18 24 23 25 26 (rows top to bottom; 4 above 5, 21
+above 3). Level 11's route starts level 12 in room 19 (row 2, x 200, facing left), max HP 6. Sergio: the big potion is
+far out of the way, not taken. The exit door: room 7 (row 2 col 3), opened by room 14's top-row plate (col 8) or room
+24's (row 2 col 3). Ticks count from level 12's first tick.
+
+| Stretch | Ticks |
+|---|---|
+| 19 7 (the wall clip) 14 (its plate: the exit door opening) | **92** |
+
+- **Shortcut** (Sergio): right into room 7 and through its bottom row's wall (cols 6..7) by a wall clip, down the col
+  8 hole straight onto room 14's plate. The search: a run into the wall (tick 49), the sword drawn, turned to face
+  left, a sword backstep (Ctrl, sequence 92) carries him 66 px right through the wall (ticks 74..86), down the hole.
+  92 ticks with a 30 GB and a 200 GB database (`1200/door.sol`).
+
+## Levels 13..14
 
 Not routed yet.

@@ -28,9 +28,13 @@ H0 = 5   # max HP at level 11's start ("Max HP At Level", as levels 7 to 10)
 SEEN9 = ("Visited Room[9]", "==", 1)         # room 2 the second time: fallen into from room 9's jump
 RIGHT9 = ("Player Pos X", ">", col_x(7))     # room 9's right side (cols 8..9), up from room 2's right ledge
 LOOSE3 = ("Tile[3][2]", "!=", 0x0B)          # room 3's top-row loose floor (col 1) broken
+SHAKE3 = ("Tile Opening[3][2]", ">", 0)      # ... or set shaking (bumped from below: its low byte counts up)
+LOOSE_FIRST = "--loosefirst" in sys.argv       # (room 3: the loose floor before the potion)
+if LOOSE_FIRST: sys.argv.remove("--loosefirst")
 GATE6 = ("Tile Opening[6][20]", ">", 0)     # room 6's gate (row 1 col 9), opened from room 12's top row (col 4)
 GATE26 = ("Tile Opening[26][20]", ">", 0)   # room 26's gate (row 1 col 9), opened from room 24's plate (row 2 col 9)
 GATE20 = ("Tile Opening[20][21]", ">", 0)   # room 20's gate (row 2 col 0), opened from room 1's plate (row 2 col 6)
+SHAKE22 = ("Tile Opening[22][26]", ">", 0)  # room 22's bottom-row loose floor at col 5 (room 27's ceiling) shaking
 GATE13 = ("Tile Opening[13][14]", ">", 0)   # room 13's left gate (row 1 col 3), opened from room 17
 SEEN25 = ("Visited Room[25]", "==", 1)       # room 18 the third time: from room 25 (its left, row 1)
 EXIT = ("Tile Opening[24][26]", ">", 0)     # the exit door (room 24 row 2 cols 4..5), opened from room 29
@@ -70,7 +74,7 @@ def rest(*c, via19=False):
         # room 18's hole (cols 5..6) onto room 13's middle row, left through the gate (col 3)
         step(room(17, *c, GATE13), (17, L, ROW_Y[2], 1.0, 1.0)),
         step(room(18, *c, GATE13), (18, col_x(5) + 16, D, 1.0, 1.0)),
-        step(room(13, *c, GATE13), (13, col_x(2), ROW_Y[1], 1.0, 1.0)),
+        step(room(13, *c, GATE13), (13, L, ROW_Y[1], 1.0, 1.0)),
         # 23: its guard (row 1 col 3; more from its spawn point at row 0 col 0) meets him: up at once at col 8 (by the
         # entry), the guard's hit points rewarded (hit or killed)
         step(room(23, *c), (23, col_x(8), U, 1.0, 2.0), opp=200),
@@ -82,7 +86,10 @@ def rest(*c, via19=False):
         step(room(24, *c, GATE26), (24, L, ROW_Y[1], 1.0, 1.0)),
         step(room(26, *c, GATE26), (26, None, U, 1.0, 2.0)),
         step(room(28, *c), (28, R, ROW_Y[2], 1.0, 1.0)),
-        step(room(27, *c), (27, None, U, 1.0, 2.0)),
+        # 27 (Sergio): straight up its pillars to the top row under the shaft (cols 4..5), its ceiling room 22's loose
+        # floors: bumped from below they fall, then up through the shaft into room 22
+        step(room(27, *c), (27, col_x(5), U, 1.0, 2.0)),
+        step(room(27, *c, SHAKE22), (27, col_x(5), U, 1.0, 2.0)),
         step(room(22, *c), (22, R, ROW_Y[2], 1.0, 1.0)),
         step(room(21, *c), (21, R, ROW_Y[2], 1.0, 1.0)),
         step(room(32, *c), (32, None, D, 1.0, 1.0)),
@@ -122,9 +129,18 @@ ROUTES = {
     "pot": start() + [
         # 3: right to the potion (through row 1's wall at col 2: a wall clip), then (Sergio) back left the same way, under
         # the top row's loose floor (col 1): broken, it falls on the plate below and he climbs up into room 12
+    ] + ([
+        # (Sergio, 2026-10-05) first under the loose floor: bumped from below it starts shaking; right to the potion
+        # (the wall clip) while it falls; back, up at col 0
+        step(room(3, hp(H0)), (3, col_x(1), U, 1.0, 2.0)),
+        step(room(3, hp(H0), SHAKE3), (3, col_x(7), ROW_Y[2], 1.0, 1.0)),
+        step(room(3, hp(H0 + 1)), (3, col_x(1), ROW_Y[1], 1.0, 1.0)),
+        step(room(3, hp(H0 + 1), LOOSE3), (3, col_x(0), U, 1.0, 2.0)),
+    ] if LOOSE_FIRST else [
         step(room(3, hp(H0)), (3, col_x(7), ROW_Y[2], 1.0, 1.0)),
         step(room(3, hp(H0 + 1)), (3, col_x(1), ROW_Y[1], 1.0, 1.0)),
         step(room(3, hp(H0 + 1), LOOSE3), (3, col_x(0), U, 1.0, 2.0)),
+    ]) + [
     ] + rest(),
 }
 ROUTES["pot19"] = ROUTES["pot"][:-len(rest())] + rest(via19=True)
@@ -145,7 +161,7 @@ LEVEL = {
     "name": "l11", "next": 12, "init": "level01020304050607080910.sol", "routes": ROUTES, "maxhp": MAXHP,
     # the gates and the exit door
     "hash": [[4, 10], [4, 30], [10, 30], [6, 20], [3, 3], [3, 19], [13, 14], [13, 20], [18, 11], [26, 20], [20, 21],
-             [29, 10], [24, 25], [24, 26]],
+             [29, 10], [24, 25], [24, 26], [3, 2], [22, 25], [22, 26]],   # (and the loose floors broken on the way)
     "fails": FAILS,
     "penalize_ahead": True,
     "hash_visited": [9, 25],   # (rules read them)

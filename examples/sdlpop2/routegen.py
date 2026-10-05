@@ -60,7 +60,7 @@ def dedup(steps):
     return out
 
 
-def build(lv, route, upto, db, init, tag, maxsteps):
+def build(lv, route, upto, db, init, tag, maxsteps, anyframe=False):
     here = os.path.dirname(os.path.abspath(__file__))
     j = copy.deepcopy(json.load(open(os.path.join(here, "0100/script.jaffar"))))
     j["Driver Configuration"]["Save Intermediate Results"]["Best Solution Path"] = f"/tmp/jaffar.pop2{lv['name']}.{tag}.best.sol"
@@ -101,8 +101,12 @@ def build(lv, route, upto, db, init, tag, maxsteps):
             r, x, y = m[0], m[1], m[2]
             xi, yi = (m[3], m[4]) if len(m) > 3 else (1.0, 1.0)
             if r != own and len(m) < 6: x, y, xi = -5000, None, 1.0
+            # (a step's own room with no x or y target clears that magnet: else an earlier step's stays, e.g. the
+            # -5000 a room ahead gets, and entering the room pays less than staying out of it)
             if x is not None: acts.append({"Type": "Set Player Pos X Magnet", "Room": r, "Intensity": xi, "Position": x})
+            elif r == own: acts.append({"Type": "Set Player Pos X Magnet", "Room": r, "Intensity": 0.0, "Position": 0})
             if y is not None: acts.append({"Type": "Set Player Pos Y Magnet", "Room": r, "Intensity": yi, "Position": y})
+            elif r == own: acts.append({"Type": "Set Player Pos Y Magnet", "Room": r, "Intensity": 0.0, "Position": 0})
         if s.get("opp") is not None: acts.append({"Type": "Set Opponent HP Magnet", "Intensity": s["opp"]})
         if s.get("hpm") is not None: acts.append({"Type": "Set Player HP Magnet", "Intensity": s["hpm"]})
         if s.get("oppx") is not None: acts.append({"Type": "Set Opponent Pos X Magnet", "Intensity": s["oppx"][0], "Position": s["oppx"][1]})
@@ -111,8 +115,8 @@ def build(lv, route, upto, db, init, tag, maxsteps):
         conds = [{"Property": p, "Op": o, "Value": v} for p, o, v in s["cond"]]
         rules.append({"Label": 3000 + i, "Conditions": conds, "Satisfies": [3000 + i - 1] if i else [], "Actions": acts})
         if upto is not None and i == n - 1:   # a chunk ends with the prince standing still (frame 15), not in a fall he may not survive
-            rules.append({"Label": 3899, "Conditions": conds + [{"Property": "Player Frame", "Op": "==", "Value": 15}], "Satisfies": [],
-                          "Actions": [{"Type": "Trigger Win"}]})
+            stand = [] if anyframe else [{"Property": "Player Frame", "Op": "==", "Value": 15}]   # (--anyframe: as soon as the step holds)
+            rules.append({"Label": 3899, "Conditions": conds + stand, "Satisfies": [], "Actions": [{"Type": "Trigger Win"}]})
     if upto is None:
         rules.append({"Label": 3900, "Conditions": [{"Property": "Next Level", "Op": "==", "Value": lv["next"]}], "Satisfies": [], "Actions": [{"Type": "Trigger Win"}]})
     rules.append({"Label": 3901, "Conditions": [{"Property": "Player Is Alive", "Op": ">=", "Value": 0}], "Satisfies": [], "Actions": [{"Type": "Trigger Fail"}]})
@@ -139,6 +143,7 @@ def main(lv):
     a.add_argument("--out")
     a.add_argument("--tag")
     a.add_argument("--maxsteps", type=int, default=3000)
+    a.add_argument("--anyframe", action="store_true")   # a chunk's last step wins in any frame (not only standing)
     o = a.parse_args()
     tag = o.tag or o.route
-    json.dump(build(lv, o.route, o.upto, o.db, o.init, tag, o.maxsteps), open(o.out or f"script-{o.route}.jaffar", "w"), indent=2)
+    json.dump(build(lv, o.route, o.upto, o.db, o.init, tag, o.maxsteps, o.anyframe), open(o.out or f"script-{o.route}.jaffar", "w"), indent=2)

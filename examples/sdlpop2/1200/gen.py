@@ -19,7 +19,8 @@ H0 = 6   # max HP at level 12's start (level 11's potion)
 EXIT = ("Tile Opening[7][24]", ">", 0)   # the exit door (room 7 row 2 col 3) opening
 
 GATE16 = ("Tile Opening[16][29]", ">", 0)  # room 16's gate (row 2 col 8), opened by room 15's plate (row 2 col 5)
-GATE6 = ("Tile Opening[6][30]", ">", 0)    # room 6's gate (row 2 col 9), opened by room 16's plate (row 2 col 3); its
+GATE6 = ("Tile Opening[6][30]", ">", 0xC8)   # room 6's gate (row 2 col 9) opened further (it starts at 0xC8, not
+                                               # enough to run through) by room 16's plate (row 2 col 3); its
                                             # closers: room 16 row 2 cols 6 and 1, row 0 col 1
 SHAKE10 = ("Tile Opening[10][26]", ">", 0)  # room 10's loose floor (row 2 col 5: room 17's ceiling) shaking
 LOOSE10 = ("Tile[10][26]", "!=", 0x0B)      # ... gone
@@ -45,7 +46,7 @@ ROUTES = {
         step(room(15, EXIT), (15, L, ROW_Y[2], 1.0, 1.0)),
         step(room(16, EXIT, GATE16), (16, col_x(3), ROW_Y[2], 1.0, 1.0)),
         step(room(16, EXIT, GATE6), (16, L, ROW_Y[2], 1.0, 1.0)),
-        step(room(6, EXIT, ("Player Pos X", "<", col_x(8))), (6, L, ROW_Y[2], 1.0, 1.0)),
+        step(room(6, EXIT, GATE6, ("Player Pos X", "<", col_x(8))), (6, L, ROW_Y[2], 1.0, 1.0)),
         step(room(17, EXIT), (17, col_x(5), U, 1.0, 2.0)),
         step(room(17, EXIT, SHAKE10), (17, col_x(5), U, 1.0, 2.0)),
         step(room(17, EXIT, LOOSE10), (17, col_x(5), U, 1.0, 2.0)),
@@ -74,12 +75,25 @@ ROUTES["via22"] = DOOR[:3] + [
     step(room(22, EXIT, row(2)), (22, L, ROW_Y[2], 1.0, 2.0)),
     step(room(14, EXIT, SEEN22, row(2)), (14, L, ROW_Y[2], 1.0, 1.0)),
 ] + ROUTES["np"][4:]
+# (a test) the room 22 descent brought onto the 745 run's jump rhythm: in room 16 at x 416 between two chained running
+# jumps (np.sol's tick 252), from where that run's inputs may go on
+ROUTES["v22p"] = ROUTES["via22"][:7] + [
+    # (room 16 is not rewarded by itself: its magnet goes on from room 15's, so that a later entry on the right rhythm
+    # is not pruned behind an earlier one on the wrong one)
+    step(room(15, EXIT), (15, L, ROW_Y[2], 1.0, 1.0), (16, 120, ROW_Y[2], 1.0, 1.0, "keep")),
+    step(room(16, EXIT, ("Player Frame", "==", 7), ("Player Pos X", ">=", 414), ("Player Pos X", "<=", 418)), (16, L, ROW_Y[2], 1.0, 1.0)),
+]
 HPM = 50   # a small Player HP Magnet: ties only
 ROUTES = {k: [dict(v[0], hpm=HPM)] + v[1:] for k, v in ((k, dedup(v)) for k, v in ROUTES.items())}
-MAXHP = {"door": H0, "np": H0, "via22": H0}
+MAXHP = {"door": H0, "np": H0, "via22": H0, "v22p": H0}
 
 # no potion is drunk (sequence 0x4E)
-FAILS = {k: [[("Player Current Sequence", "==", 0x4E), ("Current Level", "==", 12)]] for k in ("door", "np", "via22")}
+FAILS = {k: [[("Player Current Sequence", "==", 0x4E), ("Current Level", "==", 12)]] for k in ("door", "np", "via22", "v22p")}
+# rooms 16's and 6's gates start open (0xC8): room 16's closers (row 2 cols 6 and 1) shut them. A run that lands on one
+# waits ~50 ticks for room 6's gate to reopen (the first room 22 run: its chunk ended on a jump that came down on col 6)
+for k in ("np", "via22", "v22p"):
+    FAILS[k].append([("Player Room", "==", 16), ("Tile Opening[6][30]", "<", 0xC8), ("Current Level", "==", 12)])
+FAILS["v22p"].append([("Player Room", "==", 15), ("Player Pos Y", "<", 150), ("Current Level", "==", 12)])
 FAILS["via22"].append([("Player Room", "==", 15), ("Player Pos Y", "<", 150), ("Current Level", "==", 12)])
 
 LEVEL = {

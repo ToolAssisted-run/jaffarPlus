@@ -489,25 +489,38 @@ far out of the way, not taken. The exit door: room 7 (row 2 col 3), opened by ro
 
 | Route | Big potions | Ticks |
 |---|---|---|
-| 19 7 (wall clip) 14 (its plate: the exit door; wall clip left) 15 16 6 17 (room 10's loose floor broken from below) 10 9 (its top row) 8 (down its hole, sword clip through the gate) 19 7 (the door) | none | **745** |
+| 19 7 (wall clip) 14 (its plate: the exit door) 22 (down its left column) 14 (bottom row) 15 16 6 17 (room 10's loose floor broken from below) 10 9 (its top row) 8 (down its hole, sword clip through the gate) 19 7 (the door) | none | **735** |
+| ... 14 (its plate; a sword wall clip left through its top row) 15 ... | none | 745 |
 
-Sergio's route. `1200/np.sol` plays the same in Chimera's core (745 ticks compared, to level 13: room 3, x 264, 6/6;
-`level12-745.mp4`); `1200/level010203040506070809101112.sol` chains it after levels 1..11. Room entries (tick): 7 37,
-14 91 (the plate), 15 169, 16 250, 6 275, 17 332, 10 470, 9 499, 8 598, 19 663, 7 712.
+Sergio's route. `1200/np.sol` plays the same in Chimera's core (735 ticks compared, to level 13: room 3, x 264, 6/6);
+`1200/level010203040506070809101112.sol` chains it after levels 1..11. Room entries (tick): 7 38, 14 90 (the plate),
+22 116, 14 146, 15 206, 16 233, 6 260, 17 322, 10 460, 9 488, 8 588, 19 653, 7 702. The 745 run (`level12-745.mp4`):
+7 37, 14 91, 15 169, 16 250, 6 275, 17 332, 10 470, 9 499, 8 598, 19 663, 7 712.
 
 - **Shortcut** (Sergio): right into room 7 and through its bottom row's wall (cols 6..7) by a wall clip, down the col
   8 hole straight onto room 14's plate (the exit door opens at tick 91): a run into the wall, the sword drawn, turned
   to face left, a sword backstep carries him through the wall.
-- **Room 14 -> 15:** the plate's row is wall left of it (cols 0..7): a sword wall clip left (sheathing inside the wall,
-  the game pushes him out tile after tile) into room 15's shaft, a 2-row fall (a hit point, a ~42-tick hard landing:
-  on the floor at 179, standing at 221).
-- **Room 16:** room 15's plate opens its gate, its own plate (col 3) room 6's; the closer at col 1 is jumped.
+- **Room 14 -> 16, two ways:**
+  - The clip left (745): the plate's row is wall left of it (cols 0..7): a sword wall clip (sheathing inside the wall,
+    the game pushes him out tile after tile) into room 15's shaft, a 2-row fall (a hit point, a ~42-tick hard
+    landing: on the floor at 179, standing at 221), room 16 at 250.
+  - Down through room 22 (735): off the plate's ledge to the right with the sword's steps, the ledge caught, a 1-row
+    drop (no damage), left along the bottom rows (room 14's cutter crawled under): room 16 at 233, full hit points.
+- **Room 16** sets the pace of both: its gate and room 6's start open (0xC8); its closers (row 2 cols 6 and 1) shut
+  them; its plate (col 3) opens room 6's further (0xFA). The crossing is two chained running jumps: over the col 6
+  closer onto the plate, over the col 1 closer through room 6's gate in the air (25 ticks). Off that rhythm he lands on
+  a closer (~50 ticks for the gate) or short of the gate, through it sword in hand (the first room 22 runs: 787). The
+  room 22 run is brought onto the rhythm before room 14's cutter (x 417 between the jumps at tick 235, the 745 run's
+  x 416 at 252): 17 ticks ahead there, 10 at the end (room 6's blades).
 - **Room 17:** up the col 5 shaft by the gate tiles' ledges (col 6, three climbs), room 10's loose floor (its ceiling)
   knocked down from the top (facing left), then up: 138 ticks.
 - **Room 8** (Sergio): its top-row plate is not worth it (the closer under the hole shuts the gate again): down the
   hole, a sword clip through the gate.
 - **Room 19** (Sergio): the sword put away at once, then a run. Unrewarded, the search walked the whole room sword in
   hand (the sheathing gains no ground for ~20 ticks and was pruned): 903 ticks; a rule for the sword put away fixed it.
+- **Searches:** a chunk ending on "first into the next room" fixes the jump rhythm there; rewarding a room's entry
+  ranks every state in it above the ones still behind (pruned): for the rhythm search room 16's magnet continues
+  room 15's instead. The 745 run's inputs do not replay after the room 22 opening (1 px off: he dies in room 6).
 - **Movie:** level 12's first input goes on the row after its first frame (that row loads the level and runs no tick
   of it, as at level 11's start).
 

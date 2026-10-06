@@ -534,12 +534,14 @@ and col 5). The big potion: room 29 (row 1 col 6), on the way. Ticks count from 
 
 | Route | Big potions | Ticks |
 |---|---|---|
-| 3 (its loose floor: room 20's gate) 20 9 10 (its plate: room 19's gate) 11 19 32 2 28 13 29 (the potion) 4 (its plate, alive) 29 13 28 (the door) | room 29 | **778** |
+| 3 (its loose floor: room 20's gate) 20 9 10 (its plate: room 19's gate) 11 19 32 2 28 13 29 (the potion) 4 (its plate, alive) 29 13 28 (the door) | room 29 | **775** |
 
-Sergio's route, a first complete solution (three chunks: room 3 100, on to the return into room 29 546, the rest 132;
-not yet optimized). `1300/pot.sol` plays the same in Chimera's core (778 ticks compared; `level13-778.mp4`);
+Sergio's route, after level 12's 735 run (two chunks: to room 11 220, the rest 555; not yet optimized).
+`1300/pot.sol` plays the same in Chimera's core (775 ticks compared; `level12-13.mp4`);
 `1300/level01020304050607080910111213.sol` chains it after levels 1..12. Room entries (tick): 20 98, 9 139, 10 166,
-11 217, 19 280, 32 356, 2 383, 28 409, 13 435, 29 460 (the potion drunk by 486), 4 532, 29 646, 13 671, 28 732.
+11 217, 19 281, 32 353, 2 384, 28 409, 13 434, 29 464 (the potion drunk by 490), 4 534, 29 643, 13 668, 28 729.
+The first solution, after level 12's 745 run, took 778 (`level13-778.mp4`); its inputs do not replay after the 735
+run (off in room 19, dead in room 32), though the levels start alike: searched again from room 11.
 
 - **Room 3:** room 20's gate (row 1 col 9, at room 3's left end) is opened by room 5's plate, under room 3's loose
   floor (row 1 col 7): right onto it, it falls onto the plate, back left through the gate: 100 ticks. (Straight left
@@ -556,7 +558,7 @@ not yet optimized). `1300/pot.sol` plays the same in Chimera's core (778 ticks c
   - The plate is an ordinary one: a live prince on its tile at x > 218 (the tile reaches x ~241), or hanging from
     its ledge, presses it. The exit door asks only to be open; the flame state is reset at each level's start.
     The route: a running jump into the pit, the plate's ledge caught (the plate pressed from the hang), up, turned,
-    a standing jump back, the far ledge caught, up: 114 ticks in the room (532..646), no death.
+    a standing jump back, the far ledge caught, up: 109 ticks in the room (534..643), no death.
 - **Way back:** room 13's pit is 4 tiles once its loose floor fell (on the way in): jumped, the far ledge caught. The
   first search landed on the bottom row instead (cols 6..9, on into room 28's bottom row): a dead end under the exit
   door; those landings fail now.

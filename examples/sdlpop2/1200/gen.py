@@ -18,26 +18,65 @@ from routegen import L, R, U, D, ROW_Y, col_x, room, hp, row, step, dedup, main 
 H0 = 6   # max HP at level 12's start (level 11's potion)
 EXIT = ("Tile Opening[7][24]", ">", 0)   # the exit door (room 7 row 2 col 3) opening
 
-ROUTES = {
+GATE16 = ("Tile Opening[16][29]", ">", 0)  # room 16's gate (row 2 col 8), opened by room 15's plate (row 2 col 5)
+GATE6 = ("Tile Opening[6][30]", ">", 0)    # room 6's gate (row 2 col 9), opened by room 16's plate (row 2 col 3); its
+                                            # closers: room 16 row 2 cols 6 and 1, row 0 col 1
+SHAKE10 = ("Tile Opening[10][26]", ">", 0)  # room 10's loose floor (row 2 col 5: room 17's ceiling) shaking
+LOOSE10 = ("Tile[10][26]", "!=", 0x0B)      # ... gone
+GATE8 = ("Tile Opening[8][30]", ">", 0)    # room 8's gate (row 2 col 9), opened by its top-row plate (col 4); its
+                                            # closer: row 2 col 6, under the top row's hole
+SEEN8 = ("Visited Room[8]", "==", 1)
+TOP = ("Player Pos Y", "<", 100)
+
+DOOR = [
     # (Sergio) 19 7 (right, through the bottom row's wall, cols 6..7, by a wall clip; down the col 8 hole) 14 (onto its
     # plate: the exit door)
-    "door": [
-        step(room(19), (19, R, ROW_Y[2], 1.0, 1.0)),
-        step(room(7), (7, col_x(8), D, 1.0, 1.0)),
-        step(room(14), (14, col_x(8), ROW_Y[0], 1.0, 1.0)),
-        step(room(14, EXIT), (14, col_x(8), ROW_Y[0], 1.0, 1.0)),
+    step(room(19), (19, R, ROW_Y[2], 1.0, 1.0)),
+    step(room(7), (7, col_x(8), D, 1.0, 1.0)),
+    step(room(14), (14, col_x(8), ROW_Y[0], 1.0, 1.0)),
+    # 14, the door opening: its top row is wall left of the plate (cols 0..7): through it by a sword wall clip (Sergio),
+    # out of its left end in room 15's shaft (room 22, right of the plate, is not penalized: the first search went there)
+    step(room(14, EXIT), (14, L, ROW_Y[0], 1.0, 1.0), (22, L, ROW_Y[0], 1.0, 1.0, "keep")),
+]
+ROUTES = {
+    "door": DOOR,
+    # (Sergio) ... 14 15 16 6 17 (up, room 10's loose floor broken from below) 10 9 (up to its top row) 8 19 7 (the door)
+    "np": DOOR + [
+        step(room(15, EXIT), (15, L, ROW_Y[2], 1.0, 1.0)),
+        step(room(16, EXIT, GATE16), (16, col_x(3), ROW_Y[2], 1.0, 1.0)),
+        step(room(16, EXIT, GATE6), (16, L, ROW_Y[2], 1.0, 1.0)),
+        step(room(6, EXIT, ("Player Pos X", "<", col_x(8))), (6, L, ROW_Y[2], 1.0, 1.0)),
+        step(room(17, EXIT), (17, col_x(5), U, 1.0, 2.0)),
+        step(room(17, EXIT, SHAKE10), (17, col_x(5), U, 1.0, 2.0)),
+        step(room(17, EXIT, LOOSE10), (17, col_x(5), U, 1.0, 2.0)),
+        step(room(10, EXIT, LOOSE10), (10, R, ROW_Y[2], 1.0, 1.0)),
+        step(room(9, EXIT, LOOSE10), (9, col_x(5), U, 1.0, 2.0)),
+        step(room(9, EXIT, LOOSE10, TOP), (9, R, ROW_Y[0], 1.0, 1.0)),
+        # 8: down its top row's hole (col 6) onto the closer under it (row 2 col 6: it shuts the gate at col 9, whatever
+        # the top row's plate did): through the gate by a sword wall clip
+        step(room(8, EXIT, LOOSE10), (8, col_x(6), D, 1.0, 2.0)),
+        step(room(8, EXIT, LOOSE10, row(2)), (8, R, ROW_Y[2], 1.0, 1.0)),
+        step(room(19, EXIT, SEEN8), (19, R, ROW_Y[2], 1.0, 1.0)),
+        step(room(7, EXIT, SEEN8), (7, col_x(3), ROW_Y[2], 1.0, 1.0)),
+        step(room(7, EXIT, SEEN8, ("Player Current Sequence", "==", 0x46)), (7, col_x(3) + 31, ROW_Y[2] - 26, 1.0, 1.0)),
     ],
 }
+# (found by the search: from the plate a sword wall clip left through room 14's top row into room 15's shaft) the same
+# without the step through room 22
+ROUTES["clip"] = DOOR[:3] + [step(room(14, EXIT), (14, L, ROW_Y[0], 1.0, 1.0)),
+                             step(room(15, EXIT), (15, L, ROW_Y[2], 1.0, 1.0)),
+                             step(room(15, EXIT, row(2)), (15, L, ROW_Y[2], 1.0, 1.0))] + ROUTES["np"][7:]
 HPM = 50   # a small Player HP Magnet: ties only
 ROUTES = {k: [dict(v[0], hpm=HPM)] + v[1:] for k, v in ((k, dedup(v)) for k, v in ROUTES.items())}
-MAXHP = {"door": H0}
+MAXHP = {"door": H0, "np": H0, "clip": H0}
 
 # no potion is drunk (sequence 0x4E)
-FAILS = {"door": [[("Player Current Sequence", "==", 0x4E), ("Current Level", "==", 12)]]}
+FAILS = {k: [[("Player Current Sequence", "==", 0x4E), ("Current Level", "==", 12)]] for k in ("door", "np", "clip")}
 
 LEVEL = {
     "name": "l12", "next": 13, "init": "level0102030405060708091011.sol", "routes": ROUTES, "maxhp": MAXHP,
-    "hash": [[7, 24], [14, 9]],   # the exit door, its plate
+    "hash": [[7, 24], [14, 9], [16, 29], [6, 30], [10, 26], [8, 30], [8, 25], [17, 27]],   # the exit door, its plate, the gates, room 10's loose floor
+    "hash_visited": [8],
     "fails": FAILS,
     "penalize_ahead": True,
     "emulator": {"Max HP At Level": [11, 5]},   # (level 11 replays as searched: 5, its potion 6)

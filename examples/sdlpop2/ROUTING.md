@@ -487,16 +487,29 @@ above 3). Level 11's route starts level 12 in room 19 (row 2, x 200, facing left
 far out of the way, not taken. The exit door: room 7 (row 2 col 3), opened by room 14's top-row plate (col 8) or room
 24's (row 2 col 3). Ticks count from level 12's first tick.
 
-| Stretch | Ticks |
-|---|---|
-| 19 7 (the wall clip) 14 (its plate: the exit door opening) | **92** |
+| Route | Big potions | Ticks |
+|---|---|---|
+| 19 7 (wall clip) 14 (its plate: the exit door; wall clip left) 15 16 6 17 (room 10's loose floor broken from below) 10 9 (its top row) 8 (down its hole, sword clip through the gate) 19 7 (the door) | none | **745** |
+
+Sergio's route. `1200/np.sol` plays the same in Chimera's core (745 ticks compared, to level 13: room 3, x 264, 6/6;
+`level12-745.mp4`); `1200/level010203040506070809101112.sol` chains it after levels 1..11. Room entries (tick): 7 37,
+14 91 (the plate), 15 169, 16 250, 6 275, 17 332, 10 470, 9 499, 8 598, 19 663, 7 712.
 
 - **Shortcut** (Sergio): right into room 7 and through its bottom row's wall (cols 6..7) by a wall clip, down the col
-  8 hole straight onto room 14's plate. The search: a run into the wall (tick 49), the sword drawn, turned to face
-  left, a sword backstep (Ctrl, sequence 92) carries him 66 px right through the wall (ticks 74..86), down the hole.
-  92 ticks with a 30 GB and a 200 GB database (`1200/door.sol`); it plays the same in Chimera's core (92 ticks
-  compared, `level12-door.mp4`). In the movie, level 12's first input goes on the row after its first frame (that
-  row loads the level and runs no tick of it, as at level 11's start).
+  8 hole straight onto room 14's plate (the exit door opens at tick 91): a run into the wall, the sword drawn, turned
+  to face left, a sword backstep carries him through the wall.
+- **Room 14 -> 15:** the plate's row is wall left of it (cols 0..7): a sword wall clip left (sheathing inside the wall,
+  the game pushes him out tile after tile) into room 15's shaft, a 2-row fall (a hit point, a ~42-tick hard landing:
+  on the floor at 179, standing at 221).
+- **Room 16:** room 15's plate opens its gate, its own plate (col 3) room 6's; the closer at col 1 is jumped.
+- **Room 17:** up the col 5 shaft by the gate tiles' ledges (col 6, three climbs), room 10's loose floor (its ceiling)
+  knocked down from the top (facing left), then up: 138 ticks.
+- **Room 8** (Sergio): its top-row plate is not worth it (the closer under the hole shuts the gate again): down the
+  hole, a sword clip through the gate.
+- **Room 19** (Sergio): the sword put away at once, then a run. Unrewarded, the search walked the whole room sword in
+  hand (the sheathing gains no ground for ~20 ticks and was pruned): 903 ticks; a rule for the sword put away fixed it.
+- **Movie:** level 12's first input goes on the row after its first frame (that row loads the level and runs no tick
+  of it, as at level 11's start).
 
 ## Levels 13..14
 

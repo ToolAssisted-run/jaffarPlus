@@ -35,8 +35,8 @@ DOOR = [
     step(room(7), (7, col_x(8), D, 1.0, 1.0)),
     step(room(14), (14, col_x(8), ROW_Y[0], 1.0, 1.0)),
     # 14, the door opening: its top row is wall left of the plate (cols 0..7): through it by a sword wall clip (Sergio),
-    # out of its left end in room 15's shaft (room 22, right of the plate, is not penalized: the first search went there)
-    step(room(14, EXIT), (14, L, ROW_Y[0], 1.0, 1.0), (22, L, ROW_Y[0], 1.0, 1.0, "keep")),
+    # out of its left end in room 15's shaft
+    step(room(14, EXIT), (14, L, ROW_Y[0], 1.0, 1.0)),
 ]
 ROUTES = {
     "door": DOOR,
@@ -56,27 +56,36 @@ ROUTES = {
         # the top row's plate did): through the gate by a sword wall clip
         step(room(8, EXIT, LOOSE10), (8, col_x(6), D, 1.0, 2.0)),
         step(room(8, EXIT, LOOSE10, row(2)), (8, R, ROW_Y[2], 1.0, 1.0)),
+        # 19 (Sergio): the sword put away at once, then a run (the sheathing gains no x for ~20 ticks: unrewarded, the
+        # search walked the whole room sword in hand)
         step(room(19, EXIT, SEEN8), (19, R, ROW_Y[2], 1.0, 1.0)),
+        step(room(19, EXIT, SEEN8, ("Player Sword Drawn", "==", 0)), (19, R, ROW_Y[2], 1.0, 1.0)),
         step(room(7, EXIT, SEEN8), (7, col_x(3), ROW_Y[2], 1.0, 1.0)),
         step(room(7, EXIT, SEEN8, ("Player Current Sequence", "==", 0x46)), (7, col_x(3) + 31, ROW_Y[2] - 26, 1.0, 1.0)),
     ],
 }
-# (found by the search: from the plate a sword wall clip left through room 14's top row into room 15's shaft) the same
-# without the step through room 22
-ROUTES["clip"] = DOOR[:3] + [step(room(14, EXIT), (14, L, ROW_Y[0], 1.0, 1.0)),
-                             step(room(15, EXIT), (15, L, ROW_Y[2], 1.0, 1.0)),
-                             step(room(15, EXIT, row(2)), (15, L, ROW_Y[2], 1.0, 1.0))] + ROUTES["np"][7:]
+# (a test against the clip left: its 2-row fall in room 15 costs a hit point and a ~42-tick hard landing) right off
+# the plate's ledge (col 9) into room 22's left column, hanging first (a 1-row drop), back left along room 14's and
+# room 15's bottom rows; the clip (room 15 entered above its bottom row) fails
+SEEN22 = ("Visited Room[22]", "==", 1)
+ROUTES["via22"] = DOOR[:3] + [
+    step(room(14, EXIT), (14, R, ROW_Y[0], 1.0, 1.0), (22, L, ROW_Y[2], 1.0, 2.0, "keep")),
+    step(room(22, EXIT), (22, L, ROW_Y[2], 1.0, 2.0), (14, R, D, 1.0, 2.0, "keep")),
+    step(room(22, EXIT, row(2)), (22, L, ROW_Y[2], 1.0, 2.0)),
+    step(room(14, EXIT, SEEN22, row(2)), (14, L, ROW_Y[2], 1.0, 1.0)),
+] + ROUTES["np"][4:]
 HPM = 50   # a small Player HP Magnet: ties only
 ROUTES = {k: [dict(v[0], hpm=HPM)] + v[1:] for k, v in ((k, dedup(v)) for k, v in ROUTES.items())}
-MAXHP = {"door": H0, "np": H0, "clip": H0}
+MAXHP = {"door": H0, "np": H0, "via22": H0}
 
 # no potion is drunk (sequence 0x4E)
-FAILS = {k: [[("Player Current Sequence", "==", 0x4E), ("Current Level", "==", 12)]] for k in ("door", "np", "clip")}
+FAILS = {k: [[("Player Current Sequence", "==", 0x4E), ("Current Level", "==", 12)]] for k in ("door", "np", "via22")}
+FAILS["via22"].append([("Player Room", "==", 15), ("Player Pos Y", "<", 150), ("Current Level", "==", 12)])
 
 LEVEL = {
     "name": "l12", "next": 13, "init": "level0102030405060708091011.sol", "routes": ROUTES, "maxhp": MAXHP,
     "hash": [[7, 24], [14, 9], [16, 29], [6, 30], [10, 26], [8, 30], [8, 25], [17, 27]],   # the exit door, its plate, the gates, room 10's loose floor
-    "hash_visited": [8],
+    "hash_visited": [8, 22],
     "fails": FAILS,
     "penalize_ahead": True,
     "emulator": {"Max HP At Level": [11, 5]},   # (level 11 replays as searched: 5, its potion 6)

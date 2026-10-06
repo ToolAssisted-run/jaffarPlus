@@ -511,6 +511,43 @@ Sergio's route. `1200/np.sol` plays the same in Chimera's core (745 ticks compar
 - **Movie:** level 12's first input goes on the row after its first frame (that row loads the level and runs no tick
   of it, as at level 11's start).
 
-## Levels 13..14
+## Level 13
+
+Rooms: one row, 4 29 13 28 2 32 19 11 10 9 20 3 (8 right of 3; 5 under 3, 16 17 18 22 under 9 10 11 19, 15 under
+13, 24 over 19). Level 12's route starts level 13 in room 3 (row 1, x 264, facing left, 6/6). Room 4 holds the flame
+(row 1 col 1); its plate (row 1 col 2) opens the three exit doors (room 28 row 1 cols 5..6, room 32 row 1 cols 1..2
+and col 5). The big potion: room 29 (row 1 col 6), on the way. Ticks count from level 13's first tick to level 14's
+(room 1, x 306, 7/7).
+
+| Route | Big potions | Ticks |
+|---|---|---|
+| 3 (its loose floor: room 20's gate) 20 9 10 (its plate: room 19's gate) 11 19 32 2 28 13 29 (the potion) 4 (its plate, alive) 29 13 28 (the door) | room 29 | **778** |
+
+Sergio's route, a first complete solution (three chunks: room 3 100, on to the return into room 29 546, the rest 132;
+not yet optimized). `1300/pot.sol` plays the same in Chimera's core (778 ticks compared; `level13-778.mp4`);
+`1300/level01020304050607080910111213.sol` chains it after levels 1..12. Room entries (tick): 20 98, 9 139, 10 166,
+11 217, 19 280, 32 356, 2 383, 28 409, 13 435, 29 460 (the potion drunk by 486), 4 532, 29 646, 13 671, 28 732.
+
+- **Room 3:** room 20's gate (row 1 col 9, at room 3's left end) is opened by room 5's plate, under room 3's loose
+  floor (row 1 col 7): right onto it, it falls onto the plate, back left through the gate: 100 ticks. (Straight left
+  the search dropped the same floor from afar by three jumps' knocks: 140.)
+- **Room 19:** from room 11's left end up onto its top row, over the shaft to the middle row's left end, through the
+  gate room 10's plate opened: 76 ticks.
+- **Room 4, the flame** (`shadow13.c`; measured with `flame13.c`, the prince flown into the room by the fly cheat):
+  - A prince on the middle row at x <= 218 burns (sequence 0xE6, f24 0xC): a plain death, no shadow (900 ticks
+    waited: the restart countdown runs out). His body presses the plate.
+  - Killed there by the guard instead (one strike when his sword is not drawn), the shadow rises once the death wait
+    is over (+129 ticks), jumps the pit, takes the flame (its landing presses the plate, +172), comes back and gives
+    him his life back (+301: full hit points, f24 0xD: guards no longer attack). From standing two tiles right of the
+    guard to back in room 29: 342 ticks.
+  - The plate is an ordinary one: a live prince on its tile at x > 218 (the tile reaches x ~241), or hanging from
+    its ledge, presses it. The exit door asks only to be open; the flame state is reset at each level's start.
+    The route: a running jump into the pit, the plate's ledge caught (the plate pressed from the hang), up, turned,
+    a standing jump back, the far ledge caught, up: 114 ticks in the room (532..646), no death.
+- **Way back:** room 13's pit is 4 tiles once its loose floor fell (on the way in): jumped, the far ledge caught. The
+  first search landed on the bottom row instead (cols 6..9, on into room 28's bottom row): a dead end under the exit
+  door; those landings fail now.
+
+## Level 14
 
 Not routed yet.

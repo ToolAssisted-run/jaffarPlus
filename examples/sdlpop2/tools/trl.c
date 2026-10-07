@@ -24,5 +24,9 @@ int main(int c, char **v)
 	while (fgets(line, sizeof line, fp)) if (parse(line, &in)) { pop2_frame(&in); hpfix(); line[strcspn(line, "\n")] = 0; t++;
 		printf("%4d %s  L%d room %2d x %3d y %3d row %d frame %3d (0x%02x) seq %3d hp %d/%d", t, line, pop2_level(), Kid.room, Kid.x, Kid.y, Kid.curr_row, Kid.frame, Kid.frame, Kid.f19, Kid.f12, Kid.f13);
 		for (char *p = getenv("TILES"); p && *p; ) { int r = strtol(p, &p, 10); if (*p == 58) p++; int tp = strtol(p, &p, 10); if (*p == 44) p++; printf(" [%d:%d %02x/%08x]", r, tp, ROOM_TILES(r)[tp - 1], (unsigned)ROOM_ATTRS(r)[tp - 1]); }
-		printf(" dir %d alive %d f24 %d\n", Kid.direction, Kid.alive, Kid.f24); }
+		printf(" dir %d alive %d f24 %d", Kid.direction, Kid.alive, Kid.f24);
+		if (getenv("MOBS")) { printf(" | mobs %d:", (int)mob_count); for (int i = 0; i < (int)mob_count && i < 6; i++) printf(" [type %d room %d x %d y %d row %d speed %d w7 %d wd %d]", mobs[i].type, mobs[i].room, mobs[i].x, mobs[i].y, mobs[i].row, mobs[i].speed, mobs[i].w7, mobs[i].wd);
+			int n = (int8_t)ROOM_REC(drawn_room)->nchars; for (int i = 0; i < n && i < 5; i++) if (chars[i].charid == 6) printf(" J[x %d y %d row %d f %d seq %d alive %d hp %d delta %d fally %d act %d]", chars[i].x, chars[i].y, chars[i].curr_row, chars[i].frame, chars[i].f19, chars[i].alive, chars[i].f12, chars[i].hp_delta, chars[i].fall_y, chars[i].action); }
+		if (getenv("CHARS")) { printf(" next %d/%d", (int)counter_5cec, (int)(int8_t)word_32d8); int n = (int8_t)ROOM_REC(drawn_room)->nchars; printf(" | drawn %d kid charid %d n %d:", drawn_room, Kid.charid, n); for (int i = 0; i < n && i < 5; i++) printf(" [id %d x %d row %d f %d seq %d alive %d hp %d]", chars[i].charid, chars[i].x, chars[i].curr_row, chars[i].frame, chars[i].f19, chars[i].alive, chars[i].f12); }
+		printf("\n"); }
 }

@@ -58,9 +58,10 @@ ROUTES = {
 }
 
 
-def gm(damage, kill, dist):
-    """the guards of his room: per hit point the live ones lost, per kill so far, per pixel to the nearest live one"""
-    return {"Type": "Set Guard Magnet", "Damage Intensity": damage, "Kill Intensity": kill, "Distance Intensity": dist}
+def gm(damage, kill, dist, row=0.0):
+    """the guards of his room: per hit point the live ones lost, per kill so far, per pixel to the nearest live one
+    (row: per pixel of height to its row only)"""
+    return {"Type": "Set Guard Magnet", "Damage Intensity": damage, "Kill Intensity": kill, "Distance Intensity": dist, "Row Intensity": row}
 
 
 def pm(i):
@@ -90,13 +91,103 @@ def farm(h0, ht):
     return st
 
 
+TOP0 = ("Player Pos Y", "<", 70)       # on a room's top row
+JAFFAR = ("Opponent Char Id", "==", 6)
+JDOWN = ("Opponent Current Row", ">=", 1)   # Jaffar off his top row (sent on his round)
+JROW2 = ("Opponent Current Row", "==", 2)   # ... on the bottom row
+SPIRIT = ("Player Char Id", "==", 1)   # the prince out of his body (eight standing turns in a row: spirit.c turn_count)
+
+
+def end():
+    """from room 4's middle row at 11/11 (Sergio): the eight turns at once (the illusions of room 6 strike only the
+    prince in his body), then as the spirit: 5, 6 (the Jaffars cut down until the rest leave), up into 7 | 8, the
+    fireball"""
+    st = [step(room(4))]
+    st += [step(room(4, ("Turn Count", ">=", k))) for k in range(1, 8)]
+    st += [step([SPIRIT, ("Player Room", "==", 4)], (4, R, ROW_Y[1], 1.0, 1.0)),
+           step(room(5, SPIRIT), (5, R, ROW_Y[1], 1.0, 1.0)),
+           # 6: the four Jaffars (one cut each; they do not strike the spirit): the kills rewarded, a pull to the nearest
+           step(room(6, SPIRIT), (6, None, None), acts=[gm(0.0, 3000.0, 1.0)]),
+           # (room 6's list: the four and his body, 5; a Jaffar cut down leaves it a few ticks later; with three gone
+           # the last one leaves by himself: 1. The level's own count: the kill counters start again with each search)
+           step(room(6, SPIRIT, ("Room Chars[6]", "<=", 4)), (6, None, None), acts=[gm(0.0, 3000.0, 1.0)]),
+           step(room(6, SPIRIT, ("Room Chars[6]", "<=", 3)), (6, None, None), acts=[gm(0.0, 3000.0, 1.0)]),
+           step(room(6, SPIRIT, ("Room Chars[6]", "<=", 2)), (6, None, None), acts=[gm(0.0, 3000.0, 1.0)]),
+           # up into room 7 from the top row's col 3: room 7's bottom row is open over it
+           step(room(6, SPIRIT, ("Room Chars[6]", "<=", 1)), (6, col_x(3), U, 1.0, 20.0), acts=[gm(0.0, 3000.0, 0.0)]),
+           # 7 | 8: Jaffar (he waits at room 8's top row, col 7, and walks his round away from the spirit: final.c): onto
+           # his row, the fireball (Ctrl there; it costs 2 of the spirit's 3 hit points: one shot). The pull to him, the
+           # kill rewarded; the level is won as his death ends ("Next Level" 15)
+           # 7 | 8, Jaffar (final.c): he stands at room 8's top row (col 7) and walks a round of four waypoints, leaving one
+           # as the spirit enters its zones; a fireball takes 11 ticks to leave and flies 8..16 px a tick, so it must be
+           # sent along a row he is still crossing. The plan: the spirit on the top row sends him down to room 8's bottom
+           # row (col 4); the spirit follows along the top row, down its gap (col 8) onto the middle row: that sends him
+           # left along the bottom row (33 ticks, a turn, then up); left to the hole over where he stood (col 4), down
+           # it, the fireball after him. (The spirit takes no damage from a fall, 1.x: kid.c land.)
+           step(room(7, SPIRIT), (7, col_x(9), U, 1.0, 20.0), (8, None, None, 1.0, 1.0, "keep")),
+           # (each step asks for Jaffar's place too: without that the search ran along room 7's bottom row into room 8's,
+           # the later steps marking the earlier ones done, and shot with him still at his first waypoint)
+           step(room(7, SPIRIT, TOP0, JDOWN), (7, R, ROW_Y[0], 1.0, 20.0), (8, col_x(8), ROW_Y[0], 1.0, 20.0, "keep")),
+           step(room(8, SPIRIT, TOP0, JDOWN), (8, col_x(8), ROW_Y[1], 1.0, 1.0), (7, None, None, 1.0, 1.0, "keep")),
+           step(room(8, SPIRIT, row(1), ("Player Pos X", ">", col_x(4) + 20), JROW2), (8, col_x(4), D, 1.0, 20.0), (7, None, None, 1.0, 1.0, "keep")),
+           step(room(8, SPIRIT, row(2), JROW2), (8, None, None), (7, None, None, 1.0, 1.0, "keep")),
+           # the fireball out (the only moving object up here; the cast's first frame can still be walked out of, the hit
+           # points gone) with Jaffar on its row, Jaffar struck (sequence 0xF3); the level is won as his death ends
+           step([SPIRIT, ("Moving Object Count", ">=", 1), ("Player Current Row", "==", 2), ("Room Live Guards On Row", ">=", 1), ("Current Level", "==", 14)],
+                (8, None, None, 1.0, 1.0, "keep"), (7, None, None, 1.0, 1.0, "keep")),
+           step([JAFFAR, ("Opponent Current Sequence", "==", 0xF3), ("Current Level", "==", 14)],
+                (8, None, None, 1.0, 1.0, "keep"), (7, None, None, 1.0, 1.0, "keep"))]
+    return st
+
+
+def to7(side, no_row2=False, no_right=False):
+    """(Sergio: the ending in segments) the spirit from room 4 through room 6's Jaffars up into room 7, by room 6's left
+    top-row platform (cols 1..3: up through room 7's bottom-row gap at col 3) or its right one (cols 6..7: room 7's
+    col 7 from under its right end). Three of the four are cut down (top row cols 3 and 7, middle row col 4, bottom row
+    col 5), the fourth leaves; which three and in what order decides where he ends: no_row2 keeps him off the bottom
+    row, no_right off the right platform (FAILS)."""
+    k = [gm(0.0, 3000.0, 1.0)]
+    up = (6, col_x(3), U, 1.0, 20.0) if side == "L" else (6, col_x(7) + 8, U, 1.0, 20.0)
+    there = ("Player Pos X", "<", col_x(5)) if side == "L" else ("Player Pos X", ">=", col_x(5))
+    return [step([SPIRIT, ("Player Room", "==", 4)], (4, R, ROW_Y[1], 1.0, 1.0)),
+            step(room(5, SPIRIT), (5, R, ROW_Y[1], 1.0, 1.0)),
+            step(room(6, SPIRIT), (6, None, None), acts=k),
+            step(room(6, SPIRIT, ("Room Chars[6]", "<=", 4)), (6, None, None), acts=k),
+            step(room(6, SPIRIT, ("Room Chars[6]", "<=", 3)), (6, None, None), acts=k),
+            step(room(6, SPIRIT, ("Room Chars[6]", "<=", 2)), (6, None, None), acts=k),
+            step(room(6, SPIRIT, ("Room Chars[6]", "<=", 1)), up, acts=[gm(0.0, 3000.0, 0.0)]),
+            # (room 6's list empty: all four gone, the last one's leaving seen to its end. Without it the search climbed
+            # out after one kill, the later step marking the earlier ones done: no Jaffar upstairs then)
+            step(room(7, SPIRIT, there, ("Room Chars[6]", "==", 0)), (7, None, None))]
+
+
+ROUTES["end"] = end()
+ROUTES["r7R"] = to7("R", no_row2=True)          # (middle row's, the two of the top row; out by the right platform)
+ROUTES["r7L"] = to7("L", no_row2=True)          # (the same three; back to the left platform)
+ROUTES["r7L2"] = to7("L", no_right=True)        # (bottom, middle, top left: upwards; out by the left platform)
 if HT is not None: ROUTES["farm"] = farm(H0, HT)
 HPM = 50   # a small Player HP Magnet: ties only
 ROUTES = {k: [dict(v[0], hpm=HPM)] + v[1:] for k, v in ((k, dedup(v)) for k, v in ROUTES.items())}
-MAXHP = {k: (HT if k == "farm" else H0) for k in ROUTES}
+MAXHP = {k: (HT if k == "farm" else 11 if k in ("end", "r7R", "r7L", "r7L2") else H0) for k in ROUTES}
 
 # no potion is drunk (sequence 0x4E)
 FAILS = {k: [[("Player Current Sequence", "==", 0x4E), ("Current Level", "==", 14)]] for k in ROUTES}
+# (the spirit has 3 hit points left and a cast takes 2 of them and needs 3: one lost any other way ends it)
+FAILS["end"] = [[SPIRIT, ("Player Current HP", "==", 2), ("Current Level", "==", 14)],
+                # the cast spent for nothing: no fireball in the air, Jaffar alive
+                [SPIRIT, ("Player Current HP", "==", 1), ("Player Current Sequence", "!=", 0xF2), ("Moving Object Count", "==", 0),
+                 ("Room Live Guards", ">=", 1), ("Current Level", "==", 14)],
+                # the fireball in the air along the bottom row and Jaffar (alive) not on it
+                [SPIRIT, ("Moving Object Count", ">=", 1), ("Player Current Row", "==", 2), ("Room Live Guards", ">=", 1),
+                 ("Room Live Guards On Row", "==", 0), ("Current Level", "==", 14)],
+                # Jaffar dead of anything but the fireball (a fall, held up by a change of rooms, killed him once: the
+                # level is not won then)
+                [("Opponent Char Id", "==", 6), ("Opponent Is Alive", ">=", 0), ("Opponent Current Sequence", "!=", 0xF3), ("Current Level", "==", 14)]]
+NO_ROW2 = [SPIRIT, ("Player Room", "==", 6), ("Player Pos Y", ">", 150), ("Current Level", "==", 14)]
+NO_RIGHT = [SPIRIT, ("Player Room", "==", 6), TOP0, ("Player Pos X", ">", col_x(5)), ("Current Level", "==", 14)]
+FAILS["r7R"] = [NO_ROW2]
+FAILS["r7L"] = [NO_ROW2]
+FAILS["r7L2"] = [NO_RIGHT]
 if "farm" in ROUTES:   # (potions are drunk there)
     # (Sergio) no guard is killed for nothing, on the way back up either: a guard in the way there is passed, or was the
     # last potion's carrier; nor one more than needed (a big potion appearing at the target maximum)

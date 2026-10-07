@@ -619,3 +619,29 @@ He alternates rows: a potion on the bottom row (a drop down: ~95), the next on t
 guard, who is fought off but not killed (207..259). So an even number of potions is the cheap one: 2 cost 411, 4 638,
 6 847, 8 1057; an odd one more costs 160..200.
 
+## The global potion plan (2026-10-07)
+
+Eight big potions are needed (3 -> 11). With l of them from the levels and n = 8 - l from level 14's room 3 (its
+table above: n potions and the way back cost 324, 411, 613, 638, 816, 847, 1009, 1057 for n = 1..8), cheapest level
+potions first (level 13 ~45, level 7's room 7 +63, level 5's potion 2 +260, level 3's potion 1 +276, level 3's
+potion 2 +384 more, level 8 +527, level 4 +580, level 6 +667; levels 10, 11 and 12: far, not counted (Sergio)):
+
+| From the levels | Their cost | From room 3 | Its cost | Total |
+|---|---|---|---|---|
+| none | 0 | 8 | 1057 | 1057 |
+| 13 | 45 | 7 | 1009 | 1054 |
+| **13, 7** | **108** | **6** | **847** | **955** |
+| 13, 7, 5 (potion 2) | 368 | 5 | 816 | 1184 |
+| 13, 7, 5, 3 (potion 1) | 644 | 4 | 638 | 1282 |
+| ... and 3's potion 2 | 1028 | 3 | 613 | 1641 |
+| ... and 8 | 1555 | 2 | 411 | 1966 |
+| ... and 4 | 2135 | 1 | 324 | 2459 |
+| ... and 6 | 2802 | 0 | 0 | 2802 |
+
+**The plan: level 7's room 7 potion, level 13's, six from room 3** (5 -> 11, ending on its middle row). Two farmed
+potions cost ~210 (a pair: one on each row), so a level's potion pays only under ~105, or two under ~210: levels 13
+and 7 together cost 108; the next cheapest (260) saves 31. The plan holds unless the room 3 numbers are off by a
+factor of two. To do: level 7 with its potion in the chain (1027), levels 8..13 searched again after it with the hit
+points the run really has (3, then 4 from level 7; they were searched with 5), level 11 without its potion, level 14's
+room 3 from 5.
+

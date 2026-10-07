@@ -565,4 +565,57 @@ run (off in room 19, dead in room 32), though the levels start alike: searched a
 
 ## Level 14
 
-Not routed yet.
+Rooms: 7 8 (10 above 8) / 4 5 6 / 3 9 / 1 / 2 (columns: 4 over 3 over 1 over 2; 7 over 6). Level 13's route starts
+level 14 in room 1 (row 1, x 306, facing right). The prince in room 2, not falling, his right side at x <= 305
+(`final.c`): the scene with Jaffar at the window, the level loaded again, the prince in room 4 (row 1 col 5, facing
+right, the sword drawn).
+
+| Stretch | Ticks |
+|---|---|
+| 1 (down off the ledge's right end) 2 (crawling left: the scene) -> room 4 | **51** |
+
+`1400/scene.sol`: a safe step right to the ledge's end, a turn, down its edge, a 1-row drop onto room 2's floor, a
+crawl left to x 286. The search's database never filled: the fastest with these inputs. Chimera: ticks 1..50 compared;
+the scene after level 13 is skipped by Space (level 14's first frame 22 movie rows after level 13's last input, its
+first input on that row), the Jaffar scene by Space on the row after the trigger (room 4 appears 11 rows later).
+
+### What the flame needs
+
+11 hit points when the eight turns start (`spirit.c` turn_count, `final.c` spirit_cast; the drain measured): turns
+4..8 cost a hit point and a point of the maximum each (6/6; the eighth needs more than 4 left), the body settling 3
+more (3/3), a fireball 2 and at least 3 to cast (1 left); one fireball on Jaffar's row kills him. With 10: 2/2, no
+cast. The run needs 8 big potions in all (3 at the game's start).
+
+### Room 3's guards (the big potions of level 14)
+
+Room 3 is under room 4: off the left end of room 4's floor, down the shaft at col 2, two ledges caught on the way (no
+damage): the bottom row at tick 45. Back up: four climbs at col 3 (each from under its ledge, x ~250, facing right).
+
+- At most two guards or bodies at a time; a body goes ~96 ticks after the death. A guard appears on the row (middle or
+  bottom) the prince is not on: the first always on the bottom row, another with 1 chance in 21 a tick. 3..5 hit points.
+- 6 ticks after a death the game draws what the body leaves on its tile: nothing, a small potion, a big one (1 in 3
+  each; only on a plain floor tile, not the bottom row's cols 2..4).
+- The search (`1400/gen.py` route `farm`, `1400/farm_table.sh`): the random seed is part of the state, a kill that
+  leaves no big potion fails at once (Sergio: no kill for nothing, on the way back up either), so does one more kill
+  than needed; rewards: the damage on both guards, the kills, a small pull to the nearest guard (Sergio), a pull to
+  the potion, then 60 a pixel of height for the way back.
+
+From 3 hit points at room 4's start (ticks from there; each potion from the first state that reached the one before:
+estimates, not proven optima; `1400/farm3/`):
+
+| Maximum | Reached at | This potion | Back on room 4's middle row at | The way back |
+|---|---|---|---|---|
+| 4 | 117 | 117 | **324** | 207 |
+| 5 | 260 | 143 | **411** | 151 |
+| 6 | 354 | 94 | **613** | 259 |
+| 7 | 491 | 137 | **638** | 147 |
+| 8 | 594 | 103 | **816** | 222 |
+| 9 | 696 | 102 | **847** | 151 |
+| 10 | 787 | 91 | **1009** | 222 |
+| 11 | 906 | 119 | **1057** | 151 |
+
+He alternates rows: a potion on the bottom row (a drop down: ~95), the next on the middle row (a climb first:
+~120..143). From the middle row the way back is three climbs (~150); from the bottom row four, past the middle row's
+guard, who is fought off but not killed (207..259). So an even number of potions is the cheap one: 2 cost 411, 4 638,
+6 847, 8 1057; an odd one more costs 160..200.
+

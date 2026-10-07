@@ -79,9 +79,14 @@ def farm(h0, ht):
     for h in range(h0, ht):
         st += [step(room(3, hp(h)), (3, None, None), acts=[gm(400.0, 3000.0, 1.0), pm(0.0)]),
                step(room(3, hp(h), BIG), (3, None, None), acts=[gm(400.0, 3000.0, 0.0), pm(2.0)])]
-    st += [step(room(3, hp(ht)), (3, col_x(3), U, 0.5, 2.0), acts=[gm(400.0, 3000.0, 0.0), pm(0.0)]),
-           step(room(4, hp(ht)), (4, col_x(4), U, 1.0, 2.0)),
-           step(room(4, hp(ht), ("Player Pos Y", "<", 125)), (4, col_x(4), ROW_Y[1], 1.0, 2.0))]
+    # back up the shaft at col 3 (four climbs: each from under its ledge, x ~250, facing right; room 3's top row from col
+    # 3, room 4's lower tile from room 3's top row). A row climbed must outweigh a kill (else killing on ranks above
+    # leaving, and the climbers are pruned): 60 a pixel of height; a guard in the way may be fought off, not killed
+    # (FAILS). (The first return search sat under room 4's ledge for 400 ticks: its x magnet was a
+    # tile off, and the states walking to the right spot ranked below the ones jumping in place.)
+    st += [step(room(3, hp(ht)), (3, 258, U, 1.0, 60.0), acts=[gm(400.0, 3000.0, 0.0), pm(0.0)]),
+           step(room(4, hp(ht)), (4, 250, ROW_Y[1], 1.0, 60.0)),
+           step(room(4, hp(ht), ("Player Pos Y", "<", 125)), (4, 250, ROW_Y[1], 1.0, 60.0))]
     return st
 
 
@@ -92,8 +97,11 @@ MAXHP = {k: (HT if k == "farm" else H0) for k in ROUTES}
 
 # no potion is drunk (sequence 0x4E)
 FAILS = {k: [[("Player Current Sequence", "==", 0x4E), ("Current Level", "==", 14)]] for k in ROUTES}
-if "farm" in ROUTES:   # (potions are drunk there; a kill that leaves no big potion fails)
-    FAILS["farm"] = [[("Wasted Kills", ">", 0), ("Current Level", "==", 14)]]
+if "farm" in ROUTES:   # (potions are drunk there)
+    # (Sergio) no guard is killed for nothing, on the way back up either: a guard in the way there is passed, or was the
+    # last potion's carrier; nor one more than needed (a big potion appearing at the target maximum)
+    FAILS["farm"] = [[("Wasted Kills", ">", 0), ("Current Level", "==", 14)],
+                     [hp(HT), BIG, ("Current Level", "==", 14)]]
 FAILS["ledge"].append([("Player Room", "==", 3), ("Player Pos Y", ">", 70)])   # (room 3 only hanging under room 4's tile)
 
 LEVEL = {

@@ -13,7 +13,8 @@ run() {   # run TAG: one search, the progress links kept on it
 }
 for k in $(seq $((H0+1)) $KMAX); do
   n=$((2*(k-H0)+2))
-  python3 gen.py farm --hp $H0 --to $k --upto $n --anyframe --db 200000 --maxsteps 700 --init cur_$H0.sol --out s${H0}_$k.jaffar --tag s${H0}_$k
+  # (the stage as part of the route to KMAX: two big potions may lie at once; only the return's route ends at k)
+  python3 gen.py farm --hp $H0 --to $KMAX --upto $n --anyframe --db 200000 --maxsteps 700 --init cur_$H0.sol --out s${H0}_$k.jaffar --tag s${H0}_$k
   rs=$(run s${H0}_$k); cp /tmp/jaffar.pop2l14.s${H0}_$k.best.sol s${H0}_$k.sol; ls=$(wc -l < s${H0}_$k.sol)
   case "$rs" in Solution*) ;; *) echo "max $k: stage FAILED ($rs after $ls)" >> $OUT; break;; esac
   total=$((total+ls)); cat cur_$H0.sol s${H0}_$k.sol > cur_$H0.tmp; mv cur_$H0.tmp cur_$H0.sol

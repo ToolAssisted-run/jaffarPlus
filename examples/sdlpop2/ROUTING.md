@@ -624,6 +624,47 @@ He alternates rows: a potion on the bottom row (a drop down: ~95), the next on t
 guard, who is fought off but not killed (207..259). So an even number of potions is the cheap one: 2 cost 411, 4 638,
 6 847, 8 1057; an odd one more costs 160..200.
 
+### The ending: the flame, room 6's Jaffars, Jaffar (2026-10-07)
+
+From room 4's middle row at 11/11, in segments (Sergio), ticks from there:
+
+| Segment | Ticks |
+|---|---|
+| The eight turns on the spot: the spirit leaves the body (3/3) | 43 |
+| 4 5 6: three of the four Jaffars cut down, the fourth leaves; up from room 6's right platform into room 7 (col 7) | 277 |
+| (the same by room 6's left platform, onto room 7's left platform, col 2) | 290 |
+| 7 \| 8 from the right entry: Jaffar struck by the fireball at 205, the level won | **209** |
+
+43 + 277 + 209 = **529** from room 4 to the win (`1400/end3/`: `e1.sol`, `r7R.sol`, `fb8R.sol`; Chimera: the level's
+1639 traced ticks equal the headless replay, the final scene plays; `level14-ending-right.mp4`).
+
+- **Room 6:** its Jaffars strike only the prince in his body, so the turns are made at once in room 4. One cut each;
+  the search must see the fourth's leaving to its end (room 6's list empty) or no Jaffar waits upstairs.
+- **Jaffar's round** (`final.c`, rooms 7 | 8 as one row of 20 columns): four waypoints, 0 room 8's top row col 7, 1 room
+  8's bottom row col 4 (under its middle row's hole), 2 room 7's bottom row col 5, 3 room 7's top row col 6. Standing
+  at one he leaves it as the spirit enters its zones: at 0 the top row (cols 1..18) sends him to 1, the middle row's
+  cols 15..18 to 3; at 1 the bottom row to 0, the middle row's cols 14..18 to 2; at 2 the middle row's cols 2..9 to 1,
+  the bottom row to 3; at 3 the top row to 2, the middle row's cols 6..10 to 0. On the way he does not look.
+- **The fireball** (measured, `tools/probe.sh`, `tools/trp.c`): C casts (2 of the 3 hit points; the cast's first frame
+  can be walked out of, the points gone); the fireball appears 11 ticks later, flies 10, 12, 14, then 16 px a tick
+  along the spirit's row, over gaps, to the first wall. Its box starts 35 px ahead of where the spirit stood: Jaffar
+  is hit only from 35 px or more on his left (27 or more on his right); from nearer it appears beyond him. The level
+  is won 4 ticks after the hit (his death's frame 0x15F).
+- **Why not at waypoint 1:** the top row sends him down (off it 6 ticks later: no shot there); he stands at waypoint 1
+  49 ticks after, and the spirit coming onto his row sends him back up within 30 (a turn 8, a jump 15, a climb 6). The
+  only way down there is the hole over him: a landing (13 ticks to stand; a wall bump makes it 9, there is none), then
+  the spacing and a turn, then the cast's 11. Not enough, from either side (the first plan: 520 ticks, no kill).
+- **The way (plan B):** up to room 8's top row from its middle row's col 2 (the climb's seventh tick sends him down),
+  right along the top row, down its gap at col 8 onto the middle row's enclosed right part: he reaches waypoint 1 with
+  the spirit in that zone and runs on to waypoint 2, the whole bottom row, then turns round there (8). The spirit runs
+  left, down the hole behind him, stands (180), casts (181): the fireball (192) reaches him at waypoint 2 (205).
+  Once the spirit's cast is over (1 hit point) Jaffar hunts: on the spirit's row he casts back, and the spirit dies
+  11 ticks later (here he began at 199: 5 ticks to spare).
+- **Searches:** the fight's state space fills the database (8M states by tick ~70, the seed not hashed), so the plan
+  is in the route's steps (`1400/gen.py` routes `fb8`, `fb`; `fightk.sh`), each carrying Jaffar's place: he must have
+  left waypoint 1 leftwards before the spirit goes down the hole (his turning round there fails). A fireball-to-Jaffar
+  pull (Sergio; "Set Fireball Magnet") ranks the shots in flight. Steps that name no room need every magnet "keep".
+
 ## The global potion plan (2026-10-07)
 
 Eight big potions are needed (3 -> 11). With l of them from the levels and n = 8 - l from level 14's room 3 (its

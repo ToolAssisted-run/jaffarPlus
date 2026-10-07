@@ -386,13 +386,34 @@ private:
         }
         _prevDecided[i] = decided;
       }
+      // level 14's fireball (moving object type 0xC) to the nearest live guard (Jaffar): x apart, a row counting 63
+      // (rooms 7 | 8 as one: the characters in the drawn room's coordinates, the fireball in its own room's, 0x71 right
+      // of its x as final.c's hit test takes it); 0 with no fireball or no one to hit
+      _fireballDist = 0.0f;
+      if (_roomLiveGuards > 0)
+      {
+        float bestF = 1.0e9f;
+        for (size_t m = 0; m < _s->mob_count && m < 30; m++)
+          if (_s->mobs[m].type == 0x0C && _s->mobs[m].speed >= 0)
+          {
+            const float fx = (float)_s->mobs[m].x + 113.0f + (_s->mobs[m].room == 8 ? 320.0f : 0.0f);
+            for (size_t i = 0; i < n && i < 5; i++)
+              if ((_s->chars[i].charid == 2 || _s->chars[i].charid == 6) && _s->chars[i].alive < 0)
+              {
+                const float gx = (float)_s->chars[i].x + (_s->drawn_room == 8 ? 320.0f : 0.0f);
+                const float d  = std::abs(fx - gx) + 63.0f * std::abs((float)((int)_s->mobs[m].row - (int)_s->chars[i].curr_row));
+                if (d < bestF) bestF = d;
+              }
+          }
+        if (bestF < 1.0e8f) _fireballDist = bestF;
+      }
       _guardDist   = _roomLiveGuards > 0 ? near : 0.0f;
       _guardRowDist = _roomLiveGuards > 0 ? nearRow : 0.0f;
       _killBalance = (int8_t)(bodies - (int)_roomBigPotions);
     }
     else
     {
-      _guardDist = 0.0f; _guardRowDist = 0.0f; _roomGuardsDamage = 0; _roomGuardsOnRow = 0;
+      _guardDist = 0.0f; _guardRowDist = 0.0f; _roomGuardsDamage = 0; _roomGuardsOnRow = 0; _fireballDist = 0.0f;
       for (size_t i = 0; i < 5; i++) { _prevAlive[i] = 0; _prevDecided[i] = 0; }
     }
     _prevRoom = kr;
@@ -411,6 +432,7 @@ private:
     _headsMagnet.intensity      = 0.0;
     _bigPotionMagnet            = 0.0;
     _guardMagnet                = guardMagnet_t{};
+    _fireballMagnet             = 0.0;
   }
 
   // The rooms visited so far (since the search began): part of the state, so a route can ask for a room to have been
@@ -452,6 +474,7 @@ private:
     if (_puzzleMagnet != 0.0f) reward += _puzzleMagnet * puzzleProgress();
     if (_headsMagnet.intensity != 0.0f) reward += _headsMagnet.intensity * -headsDistance(_headsMagnet.room, _headsMagnet.x, _headsMagnet.row);
     reward += _bigPotionMagnet * -_bigPotionDist;   // (no big potion in his room: nothing)
+    reward += _fireballMagnet * -_fireballDist;   // (Sergio: the fireball's way to Jaffar)
     // the guards of his room (level 14's room 3, where two may stand): the hit points the live ones have lost, the
     // kills so far (a kill must outweigh the damage it wipes: Kill Intensity above 5 Damage Intensity), and the way
     // to the nearest live one
@@ -492,8 +515,8 @@ private:
       jaffarCommon::logger::log("[J+]  + [Opponent]            Room: %u, Pos: %d, %d, Frame: 0x%X, Char Id: %u, HP: %u/%u, Alive: %d\n", o.room, o.x, o.y, o.frame, o.charid, o.f12,
                                 o.f13, o.alive);
     if (_roomLiveGuards != 0 || _guardKills != 0 || _roomBigPotions != 0 || _roomOtherPotions != 0)
-      jaffarCommon::logger::log("[J+]  + [Room]                Live Guards: %u (damage %u, nearest %.0f), Kills: %u (wasted %u), Big Potions: %u (nearest %.0f), Other Potions: %u\n",
-                                _roomLiveGuards, _roomGuardsDamage, _guardDist, _guardKills, _wastedKills, _roomBigPotions, _bigPotionDist, _roomOtherPotions);
+      jaffarCommon::logger::log("[J+]  + [Room]                Live Guards: %u (damage %u, nearest %.0f), Kills: %u (wasted %u), Big Potions: %u (nearest %.0f), Other Potions: %u, Fireball: %.0f\n",
+                                _roomLiveGuards, _roomGuardsDamage, _guardDist, _guardKills, _wastedKills, _roomBigPotions, _bigPotionDist, _roomOtherPotions, _fireballDist);
     jaffarCommon::logger::log("[J+]  + Random Seed:          0x%08X\n", _s->random_seed);
     for (size_t i = 0; i < _s->mob_count && i < 30; i++)
       jaffarCommon::logger::log("[J+]  + Moving Object %lu:      Room: %u, Pos: %d, %d, Type: %u, Row: %u\n", i, _s->mobs[i].room, _s->mobs[i].x, _s->mobs[i].y, _s->mobs[i].type,
@@ -568,6 +591,13 @@ private:
     {
       auto intensity = jaffarCommon::json::getNumber<float>(actionJs, "Intensity");
       rule.addAction([=, this]() { _bigPotionMagnet = intensity; });
+      return true;
+    }
+    // "Set Fireball Magnet": Intensity per pixel between the fireball and the nearest live guard (a row counting 63)
+    if (actionType == "Set Fireball Magnet")
+    {
+      auto intensity = jaffarCommon::json::getNumber<float>(actionJs, "Intensity");
+      rule.addAction([=, this]() { _fireballMagnet = intensity; });
       return true;
     }
     // "Set Guard Magnet": Damage Intensity (per hit point the live guards of his room have lost), Kill Intensity (per
@@ -690,6 +720,8 @@ private:
     float distance = 0.0;
     float row      = 0.0;
   } _guardMagnet;
+  float   _fireballMagnet   = 0.0;
+  float   _fireballDist     = 0.0f;   // level 14's fireball to the nearest live guard (stateUpdatePostHook)
   float   _guardRowDist     = 0.0f;   // the prince's height to the nearest live guard's row
   uint8_t _roomGuardsOnRow  = 0;
 

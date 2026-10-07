@@ -631,13 +631,31 @@ From room 4's middle row at 11/11, in segments (Sergio), ticks from there:
 | Segment | Ticks |
 |---|---|
 | The eight turns on the spot: the spirit leaves the body (3/3) | 43 |
-| 4 5 6: three of the four Jaffars cut down, the fourth leaves; up from room 6's right platform into room 7 (col 7) | 277 |
-| (the same by room 6's left platform, onto room 7's left platform, col 2) | 290 |
-| 7 \| 8 from the right entry: Jaffar struck by the fireball at 205, the level won | **209** |
+| 4 5 6: three of the four Jaffars cut down, the fourth leaves; up into room 7 | see below |
+| 7 \| 8: Jaffar struck by the fireball; the level is won 4 ticks later | see below |
 
-43 + 277 + 209 = **529** from room 4 to the win (`1400/end3/`: `e1.sol`, `r7R.sol`, `fb8R.sol`; Chimera: the level's
-1639 traced ticks equal the headless replay, the final scene plays; `level14-ending-right.mp4`).
+By where the spirit comes up into room 7 (its bottom row; room 6's top row has a left platform, cols 1..3, under room
+7's gap at col 3, and a right one, cols 6..7, under the gap at col 8):
 
+| Entry | Room 6 to standing in room 7 | Fight to the hit | Sum |
+|---|---|---|---|
+| Right platform, onto room 7's col 7 (facing left) | 277 | 205 | **482** |
+| Left platform facing left, onto room 7's left platform (col 2) | 290 | 210 | 500 |
+| Left platform facing right, onto room 7's middle platform (col 4; Sergio) | 300 | 199 | 499 |
+
+**The right entry: 43 + 277 + 205 + 4 = 529 from room 4 to the win** (`1400/end3/`: `e1.sol`, `r7R.sol`, `fb8R.sol`;
+Chimera: the level's 1639 traced ticks equal the headless replay, the final scene plays; `level14-ending-right.mp4`).
+The three fights are the same from the middle row on (all go up at col 5, x 329, onto the middle row's col 6): the
+right entry is on it at 42, the middle platform at 36, the left platform (a standing jump over the gap onto the
+middle one) at 46. The entries differ by more: the left platform's comes 13 ticks after the right one's, the middle
+platform's 10 more (the spirit comes onto room 6's left platform facing left: a turn under the gap, 8).
+
+- **Entry searches end on stray keys:** the game keeps the last keys pressed in a climb, and a search that wins on
+  the first standing frame pressed anything there. The middle platform's first fight began with two turns (a stray
+  Left + Up), 209 instead of 199: `fightk.sh` TRIM=10 starts the fight 10 ticks before the entry's end (the right
+  entry's is 205 either way, the left platform's 210; `end3/fb8C_t10.sol` starts 10 ticks before `r7C.sol`'s end).
+  Its first search also cut down the bottom row's Jaffar and climbed two rows back (321): the bottom row is failed
+  there as for the other two (300).
 - **Room 6:** its Jaffars strike only the prince in his body, so the turns are made at once in room 4. One cut each;
   the search must see the fourth's leaving to its end (room 6's list empty) or no Jaffar waits upstairs.
 - **Jaffar's round** (`final.c`, rooms 7 | 8 as one row of 20 columns): four waypoints, 0 room 8's top row col 7, 1 room
@@ -664,6 +682,9 @@ From room 4's middle row at 11/11, in segments (Sergio), ticks from there:
   is in the route's steps (`1400/gen.py` routes `fb8`, `fb`; `fightk.sh`), each carrying Jaffar's place: he must have
   left waypoint 1 leftwards before the spirit goes down the hole (his turning round there fails). A fireball-to-Jaffar
   pull (Sergio; "Set Fireball Magnet") ranks the shots in flight. Steps that name no room need every magnet "keep".
+  With room 7's top row allowed too (route `fb`: its col 9, over the gap, is reached 11 ticks sooner) the search
+  still goes up in room 8: 205 again. Every fight ends alike (the spirit at x 268 on room 8's bottom row, the cast at
+  181 from the right entry): the entry only moves the time the middle row is reached.
 
 ## The global potion plan (2026-10-07)
 

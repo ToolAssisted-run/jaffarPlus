@@ -251,7 +251,9 @@ FAILS["r7R"] = [NO_ROW2]
 FAILS["r7L"] = [NO_ROW2]
 FAILS["r7L2"] = [NO_RIGHT]
 # (not by room 6's right platform: that comes up at room 7's col 7)
-FAILS["r7C"] = [[SPIRIT, ("Player Room", "==", 7), ("Player Pos X", ">", col_x(6)), ("Current Level", "==", 14)]]
+# (and off room 6's bottom row, as the other two: without it the search cut the bottom row's Jaffar down and climbed
+# two rows back, 321)
+FAILS["r7C"] = [[SPIRIT, ("Player Room", "==", 7), ("Player Pos X", ">", col_x(6)), ("Current Level", "==", 14)], NO_ROW2]
 if "farm" in ROUTES:   # (potions are drunk there)
     # (Sergio) no guard is killed for nothing, on the way back up either: a guard in the way there is passed, or was the
     # last potion's carrier; nor one more than needed (a big potion appearing at the target maximum)

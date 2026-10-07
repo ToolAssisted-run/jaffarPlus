@@ -124,7 +124,9 @@ def rest(*c, via19=False):
 
 ROUTES = {
     # 5 1 2 4 10 9 3 (up the left) 12 ...
-    "np": start() + [step(room(3), (3, col_x(0), U, 1.0, 2.0))] + rest(),
+    # (room 3 without its potion: under the loose floor, col 1, knocked down from below; then up at col 0. With the
+    # magnet at col 0 from the start the search jumped there for 138 ticks and more)
+    "np": start() + [step(room(3), (3, col_x(1), U, 1.0, 2.0)), step(room(3, LOOSE3), (3, col_x(0), U, 1.0, 2.0))] + rest(),
     # ... 3 (right, to the potion, row 2 col 7; then back up into room 12) 12 ...
     "pot": start() + [
         # 3: right to the potion (through row 1's wall at col 2: a wall clip), then (Sergio) back left the same way, under

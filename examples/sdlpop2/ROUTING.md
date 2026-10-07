@@ -463,6 +463,11 @@ other way round), room 12 -> 23 495 (room 7's stall gone with the routegen fix: 
 no less): he climbs the col 6 pillar and must jump from x 338 facing left to knock room 22's loose floors down (from
 x 348, where the climb leaves him, the jump misses), so he climbs down and up again to get there.
 
+- **What the potion costs** (2026-10-07; Sergio: measured between two points common to both ways): from standing on
+  room 9's middle row after the last climb (tick 466 of the route) to the first tick in room 12, **272 with the potion,
+  110 without: 162 ticks** (`1100/a466.sol` to there, then `1100/mpot.sol` / `1100/mnp.sol`). Both knock the loose
+  floor down first (ticks 20..33, gone at 44); without the potion he waits under it and climbs (it costs him a hit
+  point as it falls: 4/5), with it he clips right, drinks (6/6 at 114) and comes back to the same climb at 218.
 - **Room 9 -> 3** (Sergio): a running jump right from room 9's ledge falls short into room 2 from the top; catch its
   right ledge (col 8), climb back into room 9's right side, on into room 3.
 - **Room 3** (the potion): through row 1's wall at col 2 by a wall clip, down at col 7 onto the potion; back the same
@@ -624,7 +629,8 @@ guard, who is fought off but not killed (207..259). So an even number of potions
 Eight big potions are needed (3 -> 11). With l of them from the levels and n = 8 - l from level 14's room 3 (its
 table above: n potions and the way back cost 324, 411, 613, 638, 816, 847, 1009, 1057 for n = 1..8), cheapest level
 potions first (level 13 ~45, level 7's room 7 +63, level 5's potion 2 +260, level 3's potion 1 +276, level 3's
-potion 2 +384 more, level 8 +527, level 4 +580, level 6 +667; levels 10, 11 and 12: far, not counted (Sergio)):
+potion 2 +384 more, level 8 +527, level 4 +580, level 6 +667; level 11's, measured since: +162 (with levels 13 and
+7: 270 + 816 = 1086, no better); levels 10 and 12: far, not counted (Sergio)):
 
 | From the levels | Their cost | From room 3 | Its cost | Total |
 |---|---|---|---|---|

@@ -12,12 +12,12 @@ static int parse(const char *s, pop2_input *in)
 	in->x = s[3] == 76 ? -1 : s[4] == 82 ? 1 : 0; in->y = s[5] == 85 ? -1 : s[6] == 68 ? 1 : 0;
 	in->shift = s[8] == 67 ? 2 : s[7] == 83 ? 1 : 0; return 1;
 }
-static int hl, hv, done;
-static void hpfix(void) { if (!done && hl && pop2_level() == hl) { Kid.f12 = Kid.f13 = start_hp = hv; done = 1; } }
+static int hl, hv, done, hl2, hv2, done2;
+static void hpfix(void) { if (!done2 && hl2 && pop2_level() == hl2) { Kid.f12 = Kid.f13 = start_hp = hv2; done2 = 1; } if (!done && hl && pop2_level() == hl) { Kid.f12 = Kid.f13 = start_hp = hv; done = 1; } }
 int main(int c, char **v)
 {
 	pop2_set_game_version(0); pop2_set_skip_scenes(1); if (!pop2_init(v[1])) return 1; pop2_new_game(1, strtoul(v[2], 0, 0));
-	hl = atoi(v[3]); hv = atoi(v[4]); hpfix();
+	hl = atoi(v[3]); hv = atoi(v[4]); hpfix(); if (getenv("HP14")) { hl2 = 14; hv2 = atoi(getenv("HP14")); }
 	FILE *fp = fopen(v[5], "r"); char line[64]; pop2_input in; while (fgets(line, sizeof line, fp)) if (parse(line, &in)) { pop2_frame(&in); hpfix(); } fclose(fp);
 	printf("start: level %d room %d x %d y %d frame %d hp %d/%d\n", pop2_level(), Kid.room, Kid.x, Kid.y, Kid.frame, Kid.f12, Kid.f13);
 	fp = fopen(v[6], "r"); int t = 0;

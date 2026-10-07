@@ -127,6 +127,21 @@ private:
     // "Room Heads Hunting[room]": its floating heads (charids 7/8, types 5/6) alive and hunting or biting (their record's state,
     // heads.c; the room he is in counts its live characters' hit points), as stateUpdatePostHook counts them
     for (size_t r = 1; r <= levelRooms; r++) registerGameProperty("Room Heads Hunting[" + std::to_string(r) + "]", &_headsHunting[r], dt::dt_uint8, le);
+    // The prince's room (stateUpdatePostHook): its big potions (tile 0x0A, kind 2: a point of maximum hit points) and
+    // its other potions; its guards (charid 2) alive; "Kill Balance", its guards dead for good (alive >= 7: past the
+    // tick that may leave a potion where they fell, level 14's room 3) less its big potions: the kills that left none
+    // (and the potions drunk since, while their bodies lie)
+    registerGameProperty("Room Big Potions", &_roomBigPotions, dt::dt_uint8, le);
+    registerGameProperty("Room Other Potions", &_roomOtherPotions, dt::dt_uint8, le);
+    registerGameProperty("Room Live Guards", &_roomLiveGuards, dt::dt_uint8, le);
+    registerGameProperty("Kill Balance", &_killBalance, dt::dt_int8, le);
+    // "Room Guards Damage": the hit points its live guards have lost, together; "Guard Kills": the guards that died in
+    // the prince's room since the search began (counted as they die: a body gone later does not take it back)
+    registerGameProperty("Room Guards Damage", &_roomGuardsDamage, dt::dt_uint8, le);
+    registerGameProperty("Guard Kills", &_guardKills, dt::dt_uint8, le);
+    // "Wasted Kills": of those, the ones that left no big potion where they fell (seen on the tick the body is dead for
+    // good, alive 7: level 14's room 3 draws what it leaves a tick before)
+    registerGameProperty("Wasted Kills", &_wastedKills, dt::dt_uint8, le);
     registerGameProperty("Bridge Count", &_s->word_693c, dt::dt_int16, le);       // level 5's rope bridge: ticks the prince and room 10's character stood together
     registerGameProperty("Bridge State", &_s->bridge_693e[0], dt::dt_int16, le);  // 0 waiting, 1..3 starting, -1 collapsed
 
@@ -309,6 +324,62 @@ private:
       }
       _headsHunting[r] = n;
     }
+    // the prince's room: potions, guards (see the properties)
+    _roomBigPotions = _roomOtherPotions = _roomLiveGuards = 0;
+    _killBalance    = 0;
+    _bigPotionDist  = 0.0f;
+    const uint8_t kr = _s->Kid.room;
+    if (kr >= 1 && kr <= roomCount)
+    {
+      float best = 1.0e9f;
+      for (int t = 0; t < 30; t++)
+        if (roomTiles(kr)[t] == 0x0A)
+        {
+          if (((roomModifiers(kr)[t] >> 5) & 7) != 2) { _roomOtherPotions++; continue; }
+          _roomBigPotions++;
+          // (column c spans x 146 + 32 c .. 177 + 32 c: its middle; a row counts 63)
+          const float d = std::abs((float)_s->Kid.x - (float)(162 + 32 * (t % 10))) + 63.0f * std::abs((float)((int)_s->Kid.curr_row - t / 10));
+          if (d < best) best = d;
+        }
+      if (_roomBigPotions > 0) _bigPotionDist = best;
+      int        bodies = 0;
+      float      near   = 1.0e9f;
+      const auto n      = _s->level.rooms[kr - 1].nchars;
+      _roomGuardsDamage = 0;
+      for (size_t i = 0; i < 5; i++)
+      {
+        const bool   guard = i < n && _s->chars[i].charid == 2;
+        const int8_t alive = guard ? (_s->chars[i].alive < 0 ? -1 : 1) : 0;   // (-1 alive, 1 dead, 0 no guard in the slot)
+        if (guard && alive < 0)
+        {
+          _roomLiveGuards++;
+          _roomGuardsDamage += (uint8_t)std::max(0, (int)_s->chars[i].f13 - (int)_s->chars[i].f12);
+          const float d = std::abs((float)_s->Kid.x - (float)_s->chars[i].x) + 63.0f * std::abs((float)((int)_s->Kid.curr_row - (int)_s->chars[i].curr_row));
+          if (d < near) near = d;
+        }
+        else if (guard && _s->chars[i].alive >= 7) bodies++;
+        // a guard of this slot alive on the last tick (in this room) and dead now: a kill
+        if (_prevRoom == kr && _prevAlive[i] == -1 && alive == 1 && _guardKills < 255) _guardKills++;
+        _prevAlive[i] = alive;
+        // ... and dead for good since this tick: what did he leave?
+        const uint8_t decided = guard && _s->chars[i].alive >= 7 ? 1 : 0;
+        if (_prevRoom == kr && decided && !_prevDecided[i] && alive == 1)
+        {
+          const int tp = (int)_s->chars[i].curr_row * 10 + (int)_s->chars[i].curr_col;
+          const bool big = tp >= 0 && tp < 30 && roomTiles(kr)[tp] == 0x0A && ((roomModifiers(kr)[tp] >> 5) & 7) == 2;
+          if (!big && _wastedKills < 255) _wastedKills++;
+        }
+        _prevDecided[i] = decided;
+      }
+      _guardDist   = _roomLiveGuards > 0 ? near : 0.0f;
+      _killBalance = (int8_t)(bodies - (int)_roomBigPotions);
+    }
+    else
+    {
+      _guardDist = 0.0f; _roomGuardsDamage = 0;
+      for (size_t i = 0; i < 5; i++) { _prevAlive[i] = 0; _prevDecided[i] = 0; }
+    }
+    _prevRoom = kr;
   }
 
   __INLINE__ void ruleUpdatePreHook() override
@@ -322,6 +393,8 @@ private:
     _opponentPosYMagnet.intensity = 0.0;
     _puzzleMagnet               = 0.0;
     _headsMagnet.intensity      = 0.0;
+    _bigPotionMagnet            = 0.0;
+    _guardMagnet                = guardMagnet_t{};
   }
 
   // The rooms visited so far (since the search began): part of the state, so a route can ask for a room to have been
@@ -331,12 +404,22 @@ private:
     serializer.push(_visited, sizeof(_visited));
     serializer.push(_stood, sizeof(_stood));
     serializer.push(_stoodHP, sizeof(_stoodHP));
+    serializer.push(&_guardKills, sizeof(_guardKills));
+    serializer.push(_prevAlive, sizeof(_prevAlive));
+    serializer.push(&_prevRoom, sizeof(_prevRoom));
+    serializer.push(&_wastedKills, sizeof(_wastedKills));
+    serializer.push(_prevDecided, sizeof(_prevDecided));
   }
   __INLINE__ void deserializeStateImpl(jaffarCommon::deserializer::Base& deserializer) override
   {
     deserializer.pop(_visited, sizeof(_visited));
     deserializer.pop(_stood, sizeof(_stood));
     deserializer.pop(_stoodHP, sizeof(_stoodHP));
+    deserializer.pop(&_guardKills, sizeof(_guardKills));
+    deserializer.pop(_prevAlive, sizeof(_prevAlive));
+    deserializer.pop(&_prevRoom, sizeof(_prevRoom));
+    deserializer.pop(&_wastedKills, sizeof(_wastedKills));
+    deserializer.pop(_prevDecided, sizeof(_prevDecided));
   }
 
   __INLINE__ float calculateGameSpecificReward() const override
@@ -352,6 +435,11 @@ private:
     reward += _opponentPosYMagnet.intensity * (_s->Opp.room != 0 ? -std::abs((float)_opponentPosYMagnet.position - (float)_s->Opp.y) : -1000.0f);
     if (_puzzleMagnet != 0.0f) reward += _puzzleMagnet * puzzleProgress();
     if (_headsMagnet.intensity != 0.0f) reward += _headsMagnet.intensity * -headsDistance(_headsMagnet.room, _headsMagnet.x, _headsMagnet.row);
+    reward += _bigPotionMagnet * -_bigPotionDist;   // (no big potion in his room: nothing)
+    // the guards of his room (level 14's room 3, where two may stand): the hit points the live ones have lost, the
+    // kills so far (a kill must outweigh the damage it wipes: Kill Intensity above 5 Damage Intensity), and the way
+    // to the nearest live one
+    reward += _guardMagnet.damage * (float)_roomGuardsDamage + _guardMagnet.kill * (float)_guardKills - _guardMagnet.distance * _guardDist;
     return reward;
   }
 
@@ -387,6 +475,9 @@ private:
     if (o.room != 0)
       jaffarCommon::logger::log("[J+]  + [Opponent]            Room: %u, Pos: %d, %d, Frame: 0x%X, Char Id: %u, HP: %u/%u, Alive: %d\n", o.room, o.x, o.y, o.frame, o.charid, o.f12,
                                 o.f13, o.alive);
+    if (_roomLiveGuards != 0 || _guardKills != 0 || _roomBigPotions != 0 || _roomOtherPotions != 0)
+      jaffarCommon::logger::log("[J+]  + [Room]                Live Guards: %u (damage %u, nearest %.0f), Kills: %u (wasted %u), Big Potions: %u (nearest %.0f), Other Potions: %u\n",
+                                _roomLiveGuards, _roomGuardsDamage, _guardDist, _guardKills, _wastedKills, _roomBigPotions, _bigPotionDist, _roomOtherPotions);
     jaffarCommon::logger::log("[J+]  + Random Seed:          0x%08X\n", _s->random_seed);
     for (size_t i = 0; i < _s->mob_count && i < 30; i++)
       jaffarCommon::logger::log("[J+]  + Moving Object %lu:      Room: %u, Pos: %d, %d, Type: %u, Row: %u\n", i, _s->mobs[i].room, _s->mobs[i].x, _s->mobs[i].y, _s->mobs[i].type,
@@ -453,6 +544,24 @@ private:
       auto  position  = jaffarCommon::json::getNumber<int16_t>(actionJs, "Position");
       auto& magnet    = actionType == "Set Opponent Pos X Magnet" ? _opponentPosXMagnet : _opponentPosYMagnet;
       rule.addAction([=, this, &magnet]() { magnet = pointMagnet_t{.intensity = intensity, .position = position}; });
+      return true;
+    }
+    // "Set Big Potion Magnet": Intensity: draws the prince to the nearest big potion of his room (x distance to its
+    // tile's middle, a row counting 63; nothing while the room has none)
+    if (actionType == "Set Big Potion Magnet")
+    {
+      auto intensity = jaffarCommon::json::getNumber<float>(actionJs, "Intensity");
+      rule.addAction([=, this]() { _bigPotionMagnet = intensity; });
+      return true;
+    }
+    // "Set Guard Magnet": Damage Intensity (per hit point the live guards of his room have lost), Kill Intensity (per
+    // guard killed so far), Distance Intensity (per pixel to the nearest live guard, a row counting 63)
+    if (actionType == "Set Guard Magnet")
+    {
+      auto damage   = jaffarCommon::json::getNumber<float>(actionJs, "Damage Intensity");
+      auto kill     = jaffarCommon::json::getNumber<float>(actionJs, "Kill Intensity");
+      auto distance = jaffarCommon::json::getNumber<float>(actionJs, "Distance Intensity");
+      rule.addAction([=, this]() { _guardMagnet = guardMagnet_t{.damage = damage, .kill = kill, .distance = distance}; });
       return true;
     }
     // "Set Room Heads Magnet": Room, Position (x), Row, Intensity: draws that room's live heads to that spot (their sum
@@ -542,6 +651,25 @@ private:
     int16_t x         = 0;
     int8_t  row       = 0;
   } _headsMagnet;
+  float   _bigPotionMagnet  = 0.0;
+  float   _bigPotionDist    = 0.0f;   // the prince to the nearest big potion of his room (stateUpdatePostHook)
+  uint8_t _roomBigPotions   = 0;      // his room's potions and guards (stateUpdatePostHook; see the properties)
+  uint8_t _roomOtherPotions = 0;
+  uint8_t _roomLiveGuards   = 0;
+  int8_t  _killBalance      = 0;
+  uint8_t _roomGuardsDamage = 0;
+  float   _guardDist        = 0.0f;   // the prince to the nearest live guard of his room (0: none)
+  uint8_t _guardKills       = 0;      // (state: serialized)
+  int8_t  _prevAlive[5]     = {};     // (state) each slot's guard on the last tick: -1 alive, 1 dead, 0 none
+  uint8_t _prevRoom         = 0;      // (state) the prince's room on the last tick
+  uint8_t _wastedKills      = 0;      // (state)
+  uint8_t _prevDecided[5]   = {};     // (state) each slot's guard dead for good on the last tick
+  struct guardMagnet_t
+  {
+    float damage   = 0.0;
+    float kill     = 0.0;
+    float distance = 0.0;
+  } _guardMagnet;
 
   InputSet::inputIndex_t _nullInputIdx;
 };

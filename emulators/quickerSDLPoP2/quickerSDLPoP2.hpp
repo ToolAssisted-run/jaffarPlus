@@ -45,9 +45,10 @@ namespace emulator
  *   "Initial State File"           (optional, "" none) a savestate to start from instead (quickerSDLPoP2 / SDLPoP2 format)
  *   "Initial Sequence File Path"   (optional) inputs played after that, one per line
  *   "Override RNG Enabled", "Override RNG Value"   (optional) the random seed set after all that
- *   "Max HP At Level"             (optional) [level, hp]: when the initial sequence reaches that level, full health at that
- *                                 many (a level routed as if reached with that many, e.g. the run's big potions taken
- *                                 before it); later chunks' initial sequences replay the same
+ *   "Max HP At Level"             (optional) [level, hp] (or several pairs, [level, hp, level, hp, ...]): when the initial
+ *                                 sequence reaches that level, full health at that many (a level routed as if reached
+ *                                 with that many, e.g. the run's big potions taken before it); later chunks' initial
+ *                                 sequences replay the same
  */
 class QuickerSDLPoP2 final : public Emulator
 {
@@ -75,9 +76,8 @@ public:
     if (_emulatorConfigRemaining.contains("Max HP At Level"))
     {
       const auto v = jaffarCommon::json::popArray<int>(_emulatorConfigRemaining, "Max HP At Level");
-      if (v.size() != 2) JAFFAR_THROW_LOGIC("Max HP At Level: [level, hp]\n");
-      _maxHPLevel = v[0];
-      _maxHP      = v[1];
+      if (v.empty() || v.size() % 2 != 0) JAFFAR_THROW_LOGIC("Max HP At Level: [level, hp] or [level, hp, level, hp, ...]\n");
+      for (size_t i = 0; i < v.size(); i += 2) _maxHPAt.push_back({v[i], v[i + 1], false});
     }
   };
 
@@ -120,13 +120,16 @@ public:
 
   jaffar::InputParser* getInputParser() const override { return _instance->getInputParser(); }
 
-  // "Max HP At Level": once, when the level is first reached
+  // "Max HP At Level": each pair once, when its level is first reached
   void applyMaxHP()
   {
-    if (_maxHPLevel == 0 || _maxHPApplied || _instance->getLevel() != _maxHPLevel) return;
-    auto* core = _instance->getCore();
-    core->Kid.f12 = core->Kid.f13 = core->start_hp = (uint8_t)_maxHP;
-    _maxHPApplied = true;
+    for (auto& e : _maxHPAt)
+    {
+      if (e.applied || _instance->getLevel() != e.level) continue;
+      auto* core = _instance->getCore();
+      core->Kid.f12 = core->Kid.f13 = core->start_hp = (uint8_t)e.hp;
+      e.applied = true;
+    }
   }
 
   void advanceStateImpl(const jaffar::input_t& input) override { _instance->advanceState(input); }
@@ -240,9 +243,13 @@ private:
   std::string _initialSequenceFilePath;
   bool        _overrideRNGEnabled;
   uint32_t    _overrideRNGValue;
-  int         _maxHPLevel   = 0;
-  int         _maxHP        = 0;
-  bool        _maxHPApplied = false;
+  struct maxHPAt_t
+  {
+    int  level;
+    int  hp;
+    bool applied;
+  };
+  std::vector<maxHPAt_t> _maxHPAt;
 };
 
 } // namespace emulator

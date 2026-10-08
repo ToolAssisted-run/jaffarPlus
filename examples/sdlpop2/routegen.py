@@ -12,6 +12,8 @@ the rooms it names.
   gets the -5000 X magnet too: a room the route enters later (or left earlier) scores 0 without a magnet, more than any
   state in the step's room, and the search drifted there (level 6: the head's push into room 7 while climbing past it).
 - `--upto N` makes the N-th step (1-based) the win, with the prince standing, for solving a route in chunks.
+- `--run` is the final run's search: "Music On At Start" (the Music On/Off key on the level's first tick and on the
+  level-end music's first) and the win on the next level loaded, not decided.
 """
 import argparse, copy, json, os
 
@@ -60,7 +62,7 @@ def dedup(steps):
     return out
 
 
-def build(lv, route, upto, db, init, tag, maxsteps, anyframe=False):
+def build(lv, route, upto, db, init, tag, maxsteps, anyframe=False, run=False):
     here = os.path.dirname(os.path.abspath(__file__))
     j = copy.deepcopy(json.load(open(os.path.join(here, "0100/script.jaffar"))))
     j["Driver Configuration"]["Save Intermediate Results"]["Best Solution Path"] = f"/tmp/jaffar.pop2{lv['name']}.{tag}.best.sol"
@@ -79,6 +81,9 @@ def build(lv, route, upto, db, init, tag, maxsteps, anyframe=False):
     # gates and exit doors: their openings are in the tile modifiers, which are not hashed otherwise
     g["Hash Tile Modifiers"] = lv["hash"]
     if lv.get("hash_visited"): g["Hash Visited Rooms"] = lv["hash_visited"]   # the visited flags a rule reads
+    # the final run (--run): the music key as the run presses it (on at the level's first tick, off on the level-end
+    # music's first, which ends the wait for it), so the level's end is the game's own and the win the next level loaded
+    if run: g["Music On At Start"] = True
     g.update(lv.get("game", {}))   # the level's own game and emulator options (e.g. "Max HP At Level")
     e.update(lv.get("emulator", {}))
     rules = []
@@ -118,7 +123,7 @@ def build(lv, route, upto, db, init, tag, maxsteps, anyframe=False):
             stand = [] if anyframe else [{"Property": "Player Frame", "Op": "==", "Value": 15}]   # (--anyframe: as soon as the step holds)
             rules.append({"Label": 3899, "Conditions": conds + stand, "Satisfies": [], "Actions": [{"Type": "Trigger Win"}]})
     if upto is None:
-        rules.append({"Label": 3900, "Conditions": [{"Property": "Next Level", "Op": "==", "Value": lv["next"]}], "Satisfies": [], "Actions": [{"Type": "Trigger Win"}]})
+        rules.append({"Label": 3900, "Conditions": [{"Property": "Current Level" if run else "Next Level", "Op": "==", "Value": lv["next"]}], "Satisfies": [], "Actions": [{"Type": "Trigger Win"}]})
     rules.append({"Label": 3901, "Conditions": [{"Property": "Player Is Alive", "Op": ">=", "Value": 0}], "Satisfies": [], "Actions": [{"Type": "Trigger Fail"}]})
     rules.append({"Label": 3902, "Conditions": [{"Property": "Player Current HP", "Op": "==", "Value": 0}], "Satisfies": [], "Actions": [{"Type": "Trigger Fail"}]})
     rules.append({"Label": 3903, "Conditions": [{"Property": "Player Room", "Op": "==", "Value": 0}], "Satisfies": [], "Actions": [{"Type": "Trigger Fail"}]})
@@ -144,6 +149,7 @@ def main(lv):
     a.add_argument("--tag")
     a.add_argument("--maxsteps", type=int, default=3000)
     a.add_argument("--anyframe", action="store_true")   # a chunk's last step wins in any frame (not only standing)
+    a.add_argument("--run", action="store_true")        # the final run's search: the music key, the win is the next level loaded
     o = a.parse_args()
     tag = o.tag or o.route
-    json.dump(build(lv, o.route, o.upto, o.db, o.init, tag, o.maxsteps, o.anyframe), open(o.out or f"script-{o.route}.jaffar", "w"), indent=2)
+    json.dump(build(lv, o.route, o.upto, o.db, o.init, tag, o.maxsteps, o.anyframe, o.run), open(o.out or f"script-{o.route}.jaffar", "w"), indent=2)

@@ -108,6 +108,12 @@ Level notes:
   The prince has to stand on it until col 5's gate is open enough, then run. That gate's modifier carries 0x400
   above its opening.
 - **Skeletons:** an Opponent HP magnet keeps the search beside a downed skeleton; the level 4 scripts use none.
+- **The way back** from the plate is the bottom row: out of the plate's alcove (room 26, row 1 cols 7..8) by its left
+  end, a row down, then running jumps over the downed skeletons through 28, 27, 25 and 24 to room 22's door. The
+  scripts pulled up there after the door opens (for a way back along the top row, which there is none). 15 and 100 GB
+  got through all the same; at 300 GB (12 M states) the database filled with the alcove's states, the falls scored
+  63 less and were dropped: 300 steps in room 26, twice. Room 26 now pulls down and left, the rooms after it left
+  only (`gen.py`). A magnet pointing the wrong way is hidden by a small database and fatal in a wide one.
 - **Falls:** without the slow-fall potion, room 10's holes drop the prince through 23 into 22 to his death; the potion
   route stands at room 10's col 9 before going down.
 - In quicker the level ends ("Next Level" = 5) one tick before level 5 loads; the times count to "Next Level".
@@ -768,7 +774,7 @@ on either device; the MT-32's start-up takes 655 frames more.
   counted from level 1's first tick (the game's own clock stays stopped until the story scene after level 4; the
   Chimera core's "IGT Ticks" adds the ticks before it, its `igt_from_level_1` setting, the game unchanged). So the
   searches' ticks are the measure; the boot and the story scenes cost nothing; the level ends' music waits count
-  (neither Sound On/Off nor Music On/Off shortens them: Alt+M only stops the ambient pieces).
+  (Music On/Off during the piece ends them: the next section, which the run uses; this table is the run without it).
 
 | Level | Ticks | IGT at its end | First row in Chimera | DOS (MT-32 and Sound Blaster disks) |
 |---|---|---|---|---|
@@ -818,12 +824,26 @@ as an input (quickerSDLPoP2 f5f8763, local: `M` in the key's place of an input s
 core's button is "Music On/Off" (the movie letter `m`).
 
 **The run's rule (Sergio): the music off during each level-end piece, on again on the next level's first tick.**
-- A level's solution ends on the tick the next level is decided (the search's win, as before). In the chain its line
-  one tick after the piece starts gets the `M`, and every line after the door's Up press is emptied: the prince inside
-  the door (frame 0) is still under the running control, and a fresh press of the direction behind him walks him out
-  again (seen in DOS with the Alt flag held over a leftover Right; nothing held is the clean way).
-- The next level's first input carries `M` (music on). The search does it by itself with `"Music On At Start": true`
-  in the game's configuration: while the music is off, every input offered has the music key.
+- The `M` goes on the first tick the piece plays: the piece is queued, and started, in the tick after the one that
+  leaves the prince on the stairs' frame 0xE0, so `M` is two lines after that one (level 3: frame 0xE0 after tick
+  372, the piece starts in 373, `M` on line 374). A line earlier it switches the music off before the piece starts,
+  which then plays to its end (level 4's dry run: 6A, the skeletons' music, was stopped instead).
+- What is left of the wait is the effect playing (169B:0541 `level_end_effect_playing`: any effect but 4, 7 and 0x36
+  holds a level's end). The caverns' drips (effects 0x17 / 0x18, drawn at random every few ticks) do: level 3 loads
+  on the tick it is decided (387), level 4's dry run a tick later. So the end depends on the random numbers too.
+- Every line after the door's Up press is emptied: the prince inside the door (frame 0) is still under the running
+  control, and a fresh press of the direction behind him walks him out again (seen in DOS with the Alt flag held
+  over a leftover Right; nothing held is the clean way).
+- The next level's first input carries `M` (music on).
+- **The search plays it all by itself** with `"Music On At Start": true` in the game's configuration (`gen.py ROUTE
+  --run`): every input offered carries the music key on the first tick the level-end piece plays (music on), and
+  while the music is off outside a level's end (the level's first tick). Its win is the next level loaded
+  ("Current Level"), not decided ("Next Level"), so the effect's hold and the random numbers behind it are part of
+  what it minimises. (Levels 1 to 3 were searched before this, to the tick the next level is decided; they load on
+  that tick.)
+- `tools/cutlevel.py GAMEDIR SEED CHAIN.sol LEVEL.sol OUT.sol [NEWCHAIN.sol]` makes the run's lines of a solution of
+  either kind (puts the `M` in if it is missing, empties the lines after Up, adds empty lines until the next level
+  loads) and checks them tick for tick against the solution (`trs`). Level 3's search file gives the chain's lines.
 - Levels 1 to 3 keep their solutions: no random number is drawn in level 1's wait, level 2 has none, and with the
   music back on its first tick level 2 and level 3 replay tick for tick (the fixed core against the old chain; DOS
   against the fixed core: `CUT3d.script`, both disks, every tick equal up to level 4's first ticks). Level 4 starts
@@ -838,7 +858,7 @@ core's button is "Music On/Off" (the movie letter `m`).
 | 1 | 433 | 433 | 664 | every tick equal |
 | 2 | 101 | 534 | 1107 | every tick equal |
 | 3 | 387 | 921 | 1275 | every tick equal |
-| 4 | searching (`0400/script-slowfall-cut.jaffar`) | | 1673 | |
+| 4 | searching (`0400/script-slowfall-cut.jaffar`, `l04b`) | | 1673 | |
 
 The table further up is the same run with the music left alone (1120 at level 4's start).
 

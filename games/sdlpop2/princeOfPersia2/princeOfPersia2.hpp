@@ -244,9 +244,19 @@ private:
     uint64_t              keys[64];
     size_t                nKeys = 0;
     // "Music On At Start": the run switches the ambient music off to end a level's wait for its music (the game's
-    // Alt+M during the level-end music loads the next level at once) and on again on the next level's first tick, so
-    // while the music is off every input offered carries that key (a search starts on such a tick; later it is on)
-    const bool music = _musicOnAtStart && _s->amb_state[0] == 0;
+    // Alt+M during the level-end music loads the next level at once) and on again on the next level's first tick. So
+    // every input offered carries that key on two kinds of tick: with the music on, while the level-end music plays
+    // (its first tick: the key stops it, and the search plays the level's end as the run does: what is left of the
+    // wait is the effect playing, and the win is the next level loaded), and with the music off outside a level's
+    // end (the next level's first tick, where a search starts; the prince inside the door is frame 0)
+    bool music = false;
+    if (_musicOnAtStart)
+    {
+      const int16_t piece    = _s->snd_ch[1].id;
+      const bool    endMusic = (piece == 0x1C || piece == 0x1D || piece == 0x1E) && (int32_t)(_s->snd_ch[1].end - _s->snd_time) > 0;
+      const bool    levelEnd = _s->Kid.frame == 0 || (_s->Kid.frame >= 0xD9 && _s->Kid.frame <= 0xE2) || (int8_t)_s->word_32d8 != (int16_t)_s->counter_5cec;
+      music                  = _s->amb_state[0] != 0 ? endMusic : !levelEnd;
+    }
     for (size_t j = 0; j < _prunedInputs.size(); j++)
     {
       const auto& p = _prunedInputs[j];

@@ -478,7 +478,7 @@
             "Type": "Set Player Pos Y Magnet",
             "Room": 26,
             "Intensity": 1.0,
-            "Position": -50
+            "Position": 300
           },
           {
             "Type": "Set Player Pos X Magnet",
@@ -489,8 +489,8 @@
           {
             "Type": "Set Player Pos Y Magnet",
             "Room": 28,
-            "Intensity": 1.0,
-            "Position": -50
+            "Intensity": 0.0,
+            "Position": 300
           },
           {
             "Type": "Set Player Pos X Magnet",
@@ -501,8 +501,8 @@
           {
             "Type": "Set Player Pos Y Magnet",
             "Room": 27,
-            "Intensity": 1.0,
-            "Position": -50
+            "Intensity": 0.0,
+            "Position": 300
           },
           {
             "Type": "Set Player Pos X Magnet",
@@ -513,8 +513,8 @@
           {
             "Type": "Set Player Pos Y Magnet",
             "Room": 25,
-            "Intensity": 1.0,
-            "Position": -50
+            "Intensity": 0.0,
+            "Position": 300
           },
           {
             "Type": "Set Player Pos X Magnet",
@@ -525,8 +525,8 @@
           {
             "Type": "Set Player Pos Y Magnet",
             "Room": 24,
-            "Intensity": 1.0,
-            "Position": -50
+            "Intensity": 0.0,
+            "Position": 300
           },
           {
             "Type": "Set Player Pos X Magnet",
@@ -573,8 +573,8 @@
           {
             "Type": "Set Player Pos Y Magnet",
             "Room": 28,
-            "Intensity": 1.0,
-            "Position": -50
+            "Intensity": 0.0,
+            "Position": 300
           },
           {
             "Type": "Set Player Pos X Magnet",
@@ -585,8 +585,8 @@
           {
             "Type": "Set Player Pos Y Magnet",
             "Room": 27,
-            "Intensity": 1.0,
-            "Position": -50
+            "Intensity": 0.0,
+            "Position": 300
           },
           {
             "Type": "Set Player Pos X Magnet",
@@ -597,8 +597,8 @@
           {
             "Type": "Set Player Pos Y Magnet",
             "Room": 25,
-            "Intensity": 1.0,
-            "Position": -50
+            "Intensity": 0.0,
+            "Position": 300
           },
           {
             "Type": "Set Player Pos X Magnet",
@@ -609,8 +609,8 @@
           {
             "Type": "Set Player Pos Y Magnet",
             "Room": 24,
-            "Intensity": 1.0,
-            "Position": -50
+            "Intensity": 0.0,
+            "Position": 300
           },
           {
             "Type": "Set Player Pos X Magnet",
@@ -663,8 +663,8 @@
           {
             "Type": "Set Player Pos Y Magnet",
             "Room": 27,
-            "Intensity": 1.0,
-            "Position": -50
+            "Intensity": 0.0,
+            "Position": 300
           },
           {
             "Type": "Set Player Pos X Magnet",
@@ -675,8 +675,8 @@
           {
             "Type": "Set Player Pos Y Magnet",
             "Room": 25,
-            "Intensity": 1.0,
-            "Position": -50
+            "Intensity": 0.0,
+            "Position": 300
           },
           {
             "Type": "Set Player Pos X Magnet",
@@ -687,8 +687,8 @@
           {
             "Type": "Set Player Pos Y Magnet",
             "Room": 24,
-            "Intensity": 1.0,
-            "Position": -50
+            "Intensity": 0.0,
+            "Position": 300
           },
           {
             "Type": "Set Player Pos X Magnet",
@@ -741,8 +741,8 @@
           {
             "Type": "Set Player Pos Y Magnet",
             "Room": 25,
-            "Intensity": 1.0,
-            "Position": -50
+            "Intensity": 0.0,
+            "Position": 300
           },
           {
             "Type": "Set Player Pos X Magnet",
@@ -753,8 +753,8 @@
           {
             "Type": "Set Player Pos Y Magnet",
             "Room": 24,
-            "Intensity": 1.0,
-            "Position": -50
+            "Intensity": 0.0,
+            "Position": 300
           },
           {
             "Type": "Set Player Pos X Magnet",
@@ -807,8 +807,8 @@
           {
             "Type": "Set Player Pos Y Magnet",
             "Room": 24,
-            "Intensity": 1.0,
-            "Position": -50
+            "Intensity": 0.0,
+            "Position": 300
           },
           {
             "Type": "Set Player Pos X Magnet",
@@ -895,7 +895,7 @@
         "Label": 3900,
         "Conditions": [
           {
-            "Property": "Next Level",
+            "Property": "Current Level",
             "Op": "==",
             "Value": 5
           }

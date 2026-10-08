@@ -16,7 +16,9 @@ OPP = None   # no Opponent HP Magnet: the skeletons (char id 4) fall to 0 HP and
 
 def tail():
     """10 -> 23 -> 22 -> 24 -> 25 -> 27 -> 28 -> 26 (the plate) -> 28 -> 27 -> 25 -> 24 -> 22 (the door)"""
-    back = lambda r: (r, L, U, 1.0, 1.0, "keep")   # (the top row: the walls there can be slid through, over the guards)
+    # the way back is the bottom row (out of the plate's alcove, row 1 cols 7..8, by its left end; running jumps over the
+    # downed skeletons). Room 26 pulls down: pulled up, a wide search fills its database with the alcove and drops the falls
+    back = lambda r: (r, L, D, 1.0, 0.0, "keep")
     return [
         step(room(10), (10, None, D, 1.0, 1.0)),
         step(room(23), (23, None, D, 1.0, 1.0), opp=OPP),
@@ -27,12 +29,12 @@ def tail():
         step(room(28), (28, R, D, 1.0, 1.0), opp=OPP),
         step(room(26), (26, col_x(8), ROW_Y[1], 1.0, 2.0), opp=OPP),
         # the door opens: everything leads back left to room 22
-        step([DOOR], (26, L, U, 1.0, 1.0, "keep"), back(28), back(27), back(25), back(24),
+        step([DOOR], (26, L, D, 1.0, 1.0, "keep"), back(28), back(27), back(25), back(24),
              (22, col_x(4), D, 1.0, 1.0, "keep"), opp=OPP),
-        step(room(28, DOOR), (28, L, U, 1.0, 1.0), back(27), back(25), back(24), (22, col_x(4), D, 1.0, 1.0, "keep"), opp=OPP),
-        step(room(27, DOOR), (27, L, U, 1.0, 1.0), back(25), back(24), (22, col_x(4), D, 1.0, 1.0, "keep"), opp=OPP),
-        step(room(25, DOOR), (25, L, U, 1.0, 1.0), back(24), (22, col_x(4), D, 1.0, 1.0, "keep")),
-        step(room(24, DOOR), (24, L, U, 1.0, 1.0), (22, col_x(4), D, 1.0, 1.0, "keep")),
+        step(room(28, DOOR), (28, L, D, 1.0, 0.0), back(27), back(25), back(24), (22, col_x(4), D, 1.0, 1.0, "keep"), opp=OPP),
+        step(room(27, DOOR), (27, L, D, 1.0, 0.0), back(25), back(24), (22, col_x(4), D, 1.0, 1.0, "keep"), opp=OPP),
+        step(room(25, DOOR), (25, L, D, 1.0, 0.0), back(24), (22, col_x(4), D, 1.0, 1.0, "keep")),
+        step(room(24, DOOR), (24, L, D, 1.0, 0.0), (22, col_x(4), D, 1.0, 1.0, "keep")),
         step(room(22, DOOR), (22, col_x(4), D, 1.0, 1.0)),
         ENTER,
     ]

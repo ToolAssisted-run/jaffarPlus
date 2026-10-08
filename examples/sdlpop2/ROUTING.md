@@ -211,7 +211,8 @@ Level notes:
   magnet for that tick, and pulls to the potion once he is past it. Left: the two jump, grab and climb crossings
   (rooms 12 and 4, ~20 deep for 17 ticks, nothing standing above them).
   On the run's chain (`l01020304cut.sol`, another seed) the old solution still replays, level 6 loading on tick
-  1436, with the same dips: the run's search is `script-none-run.jaffar` (tag `l05`, launched 2026-10-08 12:52 UTC).
+  1436, with the same dips: the run's search is `script-none-run.jaffar` (tag `l05b`, launched 2026-10-08 13:54 UTC,
+  after the first one's flood: the final run's section).
 
 ## The original DOS game (checked 2026-10-01 by the OpenSamurai session, DOSBox-X oracle, 1.1)
 
@@ -915,7 +916,7 @@ core's button is "Music On/Off" (the movie letter `m`).
 | 2 | 101 | 534 | 1107 | every tick equal |
 | 3 | 387 | 921 | 1275 | every tick equal |
 | 4 | **590** | 1511 | 1673 | room, x, y, frame, hit points equal on every tick; the seed a draw ahead for one tick, twice |
-| 5 | searching (`0500/script-none-run.jaffar`, `l05`) | | 2273 | |
+| 5 | searching (`0500/script-none-run.jaffar`, `l05b`) | | 2273 | |
 
 The table further up is the same run with the music left alone (1120 at level 4's start).
 
@@ -937,6 +938,15 @@ potion on, 5 after level 13's; no "Max HP At Level"). What the old solutions sho
 | 12 | `via22` (the 735 solution, `np.sol`, goes by room 22) | Room 6 counts once past its gate (x < col 8): the jump's three ticks in it before that scored 5000 down | Room 16's step keeps room 6 on its own scale (x 120) |
 | 13 | `pot` | The same at room 20's gate: two ticks 5000 down | Room 3's step keeps room 20 on its scale |
 
+**Level 5's first search at 300 GB flooded** (stopped at step 333, 2026-10-08). The exit is not a carpet but the
+pit trap under the ceiling's mouth (lever5.c): crouching on the trap lifts him whatever the mouth does, and under a
+shut one he dies at the top. The trap lies under room 3's middle row, which the route comes along at tick ~265, and
+the wide search found the crouch on it at tick 279. The lift's step asked for the sequence only; a step marks every
+step before it done, so 23 steps' rewards went to a ride to his death, and its states (50 ticks each, by the
+million) took the database's top, the worst reward kept jumping from 1500 to 6400. The old searches never crouched
+there. Now the lift's step asks for the mouth open, the lift under a shut mouth fails (`0500/gen.py`), and
+`watch_level.sh` also ends on a jump of four or more rules done in one step. Relaunched as `l05b`.
+
 What recurs (for any new script):
 
 - **A hang reads the room below** (its top row, y 56). That room needs the step's magnet too ("keep"), and its y a
@@ -950,6 +960,9 @@ What recurs (for any new script):
 - **The Opponent HP Magnet loses its credit for a tick now and then** (level 7's tick 685, level 11's 1638: it read
   what the prince himself had lost, as if the opponent's slot held his record that tick). A kill that matters is a
   step (the opponent's room, its char id, 0 hit points), which also ends the magnet.
+- **A step marks the steps before it done.** Its condition must not be met early by a way that ends badly: the
+  search then pours into that way (level 5's lift; level 6's push step without the sword, met on his first pass
+  through room 4). A late step carries what makes it the route's (the mouth open, the sword, a room seen).
 - **A dip is no trap when the place above it is on the way too** (level 6's door: the states nearer the door enter as
   soon as it opens), or is the search's own to-and-fro in a wall (levels 6, 7, 8: the head's push, the clips).
 

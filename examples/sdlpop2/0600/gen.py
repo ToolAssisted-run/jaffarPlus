@@ -179,6 +179,9 @@ for k in ROUTES:
     if "push" in k: FAILS[k].append([("Player Room", "==", 7), ("Player Current Row", "==", 0)])
     # (the sword routes end with it: room 7 without the sword is another route)
     if "push" in k and k.startswith("sw-"): FAILS[k].append([("Player Room", "==", 7), ("Tile[17][16]", "==", 0x16)])
+    # (and no hit before the sword: the push and room 16's head take the two he can spare of 3; the crawl tunnel's
+    # way to the sword starts with the hole's fall, a hit point, and its states would die at the end)
+    if k in ("sw-push-L", "sw-push-R"): FAILS[k].append([("Tile[17][16]", "==", 0x16), ("Player Current HP", "<", 3), ("Current Level", "==", 6)])
 for k in ROUTES:
     if "pot" in k:
         FAILS[k] += [[("Tile[6][26]", "==", 0), ("Player Max HP", "==", 3)],

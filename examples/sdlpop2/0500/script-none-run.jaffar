@@ -1285,6 +1285,11 @@
             "Value": 128
           },
           {
+            "Property": "Tile Modifier[3][7]",
+            "Op": "==",
+            "Value": 3
+          },
+          {
             "Property": "Player Max HP",
             "Op": "==",
             "Value": 3
@@ -1383,6 +1388,37 @@
             "Property": "Player Max HP",
             "Op": ">",
             "Value": 3
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3905,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 3
+          },
+          {
+            "Property": "Player Current Sequence",
+            "Op": "==",
+            "Value": 128
+          },
+          {
+            "Property": "Tile Modifier[3][7]",
+            "Op": "!=",
+            "Value": 3
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 5
           }
         ],
         "Satisfies": [],

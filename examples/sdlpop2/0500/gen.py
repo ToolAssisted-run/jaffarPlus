@@ -17,7 +17,12 @@ MOUTH = ("Tile Modifier[3][7]", "==", 3)                # the hatch open (0 shut
 # crouched on the trap: lifted (seq 0x80); he rises through the open hatch in ~43 ticks and the level ends. The magnet
 # keeps the rising states ahead of the others (at the trap's x 268, upwards; at 1x: at 4x the lift's first ticks, still
 # at the floor, cost more than the step's reward and were pruned)
-LIFT = step([("Player Room", "==", 3), ("Player Current Sequence", "==", 0x80)], (3, 268, -200, 1.0, 1.0))
+# The hatch open is part of the step: the trap lifts him whatever the hatch does, and under a shut one he dies at the
+# top (lever5.c: y < 0x37). The trap is under the middle row he comes along first: a wide search found the crouch on
+# it at tick 279, and the step, which marks every step before it done, put 23000 on a ride to his death: its states
+# flooded the database (the run's first level 5 search). Lifted with the hatch shut fails (TRAP_SHUT, every route).
+LIFT = step([("Player Room", "==", 3), ("Player Current Sequence", "==", 0x80), MOUTH], (3, 268, -200, 1.0, 1.0))
+TRAP_SHUT = [("Player Room", "==", 3), ("Player Current Sequence", "==", 0x80), ("Tile Modifier[3][7]", "!=", 3), ("Current Level", "==", 5)]
 
 
 def finish():
@@ -186,6 +191,8 @@ LEVEL = {
               "p2": [[("Player Room", "==", 22), ("Player Max HP", "==", 4)], GATE20_SHUT],       # (potion 2 only: not room 22's)
               "both": [POTION22_BROKEN, GATE20_SHUT]},
 }
+
+for k in ROUTES: LEVEL["fails"].setdefault(k, []).append(TRAP_SHUT)
 
 if __name__ == "__main__":
     main(LEVEL)

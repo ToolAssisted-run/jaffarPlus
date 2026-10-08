@@ -32,7 +32,8 @@ int main(int c, char **v)
 	FILE *fp = fopen(v[3], "r"); char line[64]; pop2_input in; while (fgets(line, sizeof line, fp)) if (parse(line, &in)) pop2_frame(&in); fclose(fp);
 	int from = c > 5 ? atoi(v[5]) : 1; dup2(1, 2); setvbuf(stdout, 0, _IONBF, 0);
 	fp = fopen(v[4], "r"); int t = 0;
-	while (fgets(line, sizeof line, fp)) if (parse(line, &in)) { t++; if (t >= from) sound_debug = 3; pop2_frame(&in);
-		if (t >= from) printf("%d L%d room %d x %d frame %d hp %d | effect %X music %X | ch0 %X %.1f ch1 %X %.1f\n", t, pop2_level(), Kid.room, Kid.x, Kid.frame, Kid.f12,
+	int killat = getenv("KILLAT") ? atoi(getenv("KILLAT")) : 0;   /* KILLAT=tick: the prince's hit points taken before that tick */
+	while (fgets(line, sizeof line, fp)) if (parse(line, &in)) { t++; if (t >= from) sound_debug = 3; if (t == killat) Kid.f12 = 0; pop2_frame(&in);
+		if (t >= from) printf("%d L%d room %d x %d frame %d hp %d alive %d | effect %X music %X | ch0 %X %.1f ch1 %X %.1f\n", t, pop2_level(), Kid.room, Kid.x, Kid.frame, Kid.f12, (int8_t)Kid.alive,
 			word_0882, word_0884, snd_ch_id(0), snd_ch_left(0) / 83335.0, snd_ch_id(1), snd_ch_left(1) / 83335.0); }
 }

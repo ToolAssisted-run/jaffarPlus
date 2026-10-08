@@ -810,6 +810,13 @@ Level 2 has none; levels 5 and 9 end without stairs. About 1590 ticks of the run
 whether the channel still holds that piece). Checked in DOS (MT-32 disk, `WC1.script`): music 0x65 written into the
 queue word (DS:0880) at tick 445 of level 1's wait: the story scene comes after tick 446, not 538.
 
+**A prince not under his usual control at the stairs' frame 0xE0 never starts the music** (control.c `control`: the
+stairs' handler is not reached when he is dead, when his action is 4, 5 or 9, or with his sword drawn; the sequence
+plays on and decides the next level all the same). Checked in the core and in DOS (MT-32 disk, `WC3.script`): his hit
+points written to 0 on level 3's stairs (tick 370): level 4 loads after tick 387, not 481, at full health. No way
+to get there in play is known yet: every hit found so far (swords, rocks, falling floors) also starts another
+sequence, and a prince dead inside the door (frame 0) plays no death music.
+
 What queues music in play (`sound_1611_01a8`): an opponent's death (fight.c `dead_char_music`: a guard 6 ticks after
 it dies, a skeleton when its fall's sound is over, a head when its 18.6-tick cry is over; not on level 1), a head hit
 and falling back (heads.c, music 0x92, once a head), the exit door starting to open (mobs.c, 0x1B), a potion drunk

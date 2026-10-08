@@ -898,9 +898,10 @@ core's button is "Music On/Off" (the movie letter `m`).
   music back on its first tick level 2 and level 3 replay tick for tick (the fixed core against the old chain; DOS
   against the fixed core: `CUT3d.script`, both disks, every tick equal up to level 4's first ticks). Level 4 starts
   with another seed (level 3 draws every tick), so it is searched from the new chain.
-- Chains: `0400/l010203cut.sol` (921 lines; the last is the tick level 4 loads in), `0500/l01020304cut.sol` (1511).
-  Movie: `tas/run_cut.mov` (2273 rows: level 1 from row 664, level 2 from 1107, level 3 from 1275, level 4 from 1673,
-  level 5's first row 2273, IGT 1511 there), built against the runner on the fixed SDLPoP2
+- Chains: `0400/l010203cut.sol` (921 lines; the last is the tick level 4 loads in), `0500/l01020304cut.sol` (1511),
+  `0600/l0102030405cut.sol` (2886).
+  Movie: `tas/run_cut.mov` (3658 rows: level 1 from row 664, level 2 from 1107, level 3 from 1275, level 4 from 1673,
+  level 5 from 2273, level 6's first row 3658, IGT 2886 there), built against the runner on the fixed SDLPoP2
   (`~/pop2render/bin/run-native-a5ee`; a level further with `tools/mvextend.py`). The project file waits for a core
   release with the fix (the released one, on SDLPoP2 37112da, plays the music out).
 - **A level of the run, step by step** (jaffanator2, `~/jaffarPlus-run/examples/sdlpop2`): `gen.py ROUTE --run --init
@@ -909,6 +910,18 @@ core's button is "Music On/Off" (the movie letter `m`).
   chain); DOS on both disks (`sol2script.py` with `NOALT=1 SYNC=CORE.txt`, Space at the scenes after levels 5 and
   9, `orun.sh`, `tools/ocmp3.py`: the next section but one); `tools/mvextend.py`; the video
   (`~/pop2render/l8/render-run.sh NAME MOVIE START`).
+- **The same as two scripts** (from level 5's end on): `start_level.sh N ROUTE TAG MAXSTEPS` (the run's script from
+  the chain, the launch) and `post_level.sh N TAG cut movie video dos`. The next level is launched right after
+  `cut` (the machine is the searches'), the rest runs beside it: `movie` is `tools/mvextend.py` with the search
+  core's trace (`CORE`), which compares Chimera's core with the search core on every tick of the level (room, x,
+  frame, random seed) and lays a scene inside a level (levels 8 and 14) by the runner's tick count standing still;
+  `dos` runs both disks at once. A search's progress as a video: `tools/mvpartial.py PREV.mov BEST.sol OUT.mov`
+  (a copy of the running search's `/tmp/jaffar.run.TAG.best.sol`), then `render-run.sh`.
+- **Level 5** at 300 GB (`l05b`, 4 h 23 min): 1375 (`tas/l05.sol`), 61 less than the old 1436, all of it in rooms
+  14 to 16 (room 13 at tick 460 as before, room 17 at 747 for 808) and a tick more at the lift. No stairs: the
+  level ends on the lift (room 27 is level 6's), the music stays on, level 6's first line has no `M`. Chimera's
+  core against the search core: all 1374 ticks equal, the seed too (4143532311 at level 6's load). The story
+  scene after it: Space on the row after the level's last, level 6's first row 3658.
 
 | Level | Ticks | IGT at its end | First row in Chimera | DOS (both disks) |
 |---|---|---|---|---|
@@ -916,7 +929,8 @@ core's button is "Music On/Off" (the movie letter `m`).
 | 2 | 101 | 534 | 1107 | every tick equal |
 | 3 | 387 | 921 | 1275 | every tick equal |
 | 4 | **590** | 1511 | 1673 | room, x, y, frame, hit points equal on every tick; the seed a draw ahead for one tick, twice |
-| 5 | searching (`0500/script-none-run.jaffar`, `l05b`) | | 2273 | |
+| 5 | **1375** (was 1436) | 2886 | 2273 | in segments (MT-32 20, Sound Blaster 9): room, x, y, frame, hit points equal on all 2896 ticks; the draws apart by one ambient draw on the ticks that end a segment |
+| 6 | searching (`0600/script-sw-push-L-run.jaffar`, `l06`) | | 3658 | |
 
 The table further up is the same run with the music left alone (1120 at level 4's start).
 

@@ -245,10 +245,12 @@ private:
     size_t                nKeys = 0;
     // "Music On At Start": the run switches the ambient music off to end a level's wait for its music (the game's
     // Alt+M during the level-end music loads the next level at once) and on again on the next level's first tick. So
-    // every input offered carries that key on two kinds of tick: with the music on, while the level-end music plays
+    // the key is the one input offered on two kinds of tick: with the music on, while the level-end music plays
     // (its first tick: the key stops it, and the search plays the level's end as the run does: what is left of the
     // wait is the effect playing, and the win is the next level loaded), and with the music off outside a level's
-    // end (the next level's first tick, where a search starts; the prince inside the door is frame 0)
+    // end (the next level's first tick, where a search starts; the prince inside the door is frame 0).
+    // The key alone: it is Alt+M, and with Alt held the arrows are not the prince's (Chimera's core, a keyboard as
+    // DOS has it, drops a direction pressed with it; this core's input would take both)
     bool music = false;
     if (_musicOnAtStart)
     {
@@ -257,16 +259,24 @@ private:
       const bool    levelEnd = _s->Kid.frame == 0 || (_s->Kid.frame >= 0xD9 && _s->Kid.frame <= 0xE2) || (int8_t)_s->word_32d8 != (int16_t)_s->counter_5cec;
       music                  = _s->amb_state[0] != 0 ? endMusic : !levelEnd;
     }
+    if (music)
+    {
+      for (size_t j = 0; j < _prunedInputs.size(); j++)
+      {
+        const auto& in = _prunedInputs[j].first;
+        if (in.x == 0 && in.y == 0 && in.shift == 0 && in.keystroke == 0) allowedInputSet.push_back(_musicInputs[j]);
+      }
+      return;
+    }
     for (size_t j = 0; j < _prunedInputs.size(); j++)
     {
-      const auto& p = _prunedInputs[j];
-      if (music && p.first.keystroke != 0) continue;
-      const auto k    = pruner.key(p.first);
-      bool       seen = false;
+      const auto& p    = _prunedInputs[j];
+      const auto  k    = pruner.key(p.first);
+      bool        seen = false;
       for (size_t i = 0; i < nKeys && !seen; i++) seen = keys[i] == k;
       if (seen) continue;
       keys[nKeys++] = k;
-      allowedInputSet.push_back(music ? _musicInputs[j] : p.second);
+      allowedInputSet.push_back(p.second);
     }
 
     // Restart Level at the checkpoint: the whole state is reloaded from it, so it needs no other input

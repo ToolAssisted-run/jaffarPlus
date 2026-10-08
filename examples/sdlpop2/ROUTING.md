@@ -872,6 +872,12 @@ core's button is "Music On/Off" (the movie letter `m`).
   control, and a fresh press of the direction behind him walks him out again (seen in DOS with the Alt flag held
   over a leftover Right; nothing held is the clean way).
 - The next level's first input carries `M` (music on).
+- **The key is pressed alone.** It is Alt+M, and with Alt held the arrows are not the prince's: Chimera's core (a
+  keyboard as DOS has it: Alt down, M, Alt up) drops a direction on the same row, while the search core's input
+  would take both (level 6's first tick, a test: `mL` leaves him standing in Chimera, `|M|L.....|` starts his run in
+  the search core). So on the ticks the search has to press the key it is offered that input only (`|M|......|`,
+  the game class, from level 6's search on), and `tools/cutlevel.py` makes any `M` line the key alone and checks the
+  run is the same. Levels 2 to 5 have it alone already.
 - **The search plays it all by itself** with `"Music On At Start": true` in the game's configuration (`gen.py ROUTE
   --run`): every input offered carries the music key on the first tick the level-end piece plays (music on), and
   while the music is off outside a level's end (the level's first tick). Its win is the next level loaded
@@ -881,6 +887,12 @@ core's button is "Music On/Off" (the movie letter `m`).
 - `tools/cutlevel.py GAMEDIR SEED CHAIN.sol LEVEL.sol OUT.sol [NEWCHAIN.sol]` makes the run's lines of a solution of
   either kind (puts the `M` in if it is missing, empties the lines after Up, adds empty lines until the next level
   loads) and checks them tick for tick against the solution (`trs`). Level 3's search file gives the chain's lines.
+  A level without stairs (5, 9: no level-end music, the music stays on, the next level's first input has no `M`)
+  is kept as it is and checked.
+- **Level 6's start, tried ahead** (the run's chain to level 4, level 5's old solution, which replays on it, the
+  story scene skipped by Space): Chimera's runner and the search core agree on 460 ticks of level 6 with its old
+  solution, the seed too (1775488991 after its first tick: the ambient sound's draw), and that old solution plays
+  to the door there (426). Level 5 leaves the same seed whatever seed it started with.
 - Levels 1 to 3 keep their solutions: no random number is drawn in level 1's wait, level 2 has none, and with the
   music back on its first tick level 2 and level 3 replay tick for tick (the fixed core against the old chain; DOS
   against the fixed core: `CUT3d.script`, both disks, every tick equal up to level 4's first ticks). Level 4 starts

@@ -797,6 +797,51 @@ on either device; the MT-32's start-up takes 655 frames more.
 - **Videos** of the final run: `~/pop2render/l8/render-run.sh NAME MOVIE START` on jaffanator2 (the runner on SDLPoP2
   e927d0f with the raw picture dump put back, `~/pop2render/gate-rawvideo.patch`; MT-32, Random Seed 25).
 
+### Alt+M ends the level-end wait (2026-10-08, Sergio's question; the run uses it)
+
+The game's Music On/Off key (Alt+M, 1611:07D4), switched off, stops the piece the MIDI channel took last, and while
+the level-end music plays that piece is it: the level ends on the tick the next level is decided, with no wait. The
+music has to be on when the piece starts; switched off before, the piece plays all the same and cannot be stopped.
+DOS (1.1; the MT-32 and the Sound Blaster disks agree):
+
+| Level | Alt+M at | The level ends after tick | Without |
+|---|---|---|---|
+| 1 | 400 (before the piece, queued at 430) | 538 | 538 |
+| 1 | 400 and again at 445 (on) | 538 | 538 |
+| 1 | 431 | **433** | 538 |
+| 1 | 434 / 445 (in the wait) | 434 / 445 | 538 |
+| 3 | 374 or 376 (on the stairs; the piece starts in tick 373) | **387** | 481 |
+
+Alt+S (the sound) does not shorten the wait. SDLPoP2 only flipped the flag (so an earlier test here in the core saw no
+effect): fixed in SDLPoP2 a5ee4ee (`music_toggle`, sound.c; local commit), the search core regenerated with the key
+as an input (quickerSDLPoP2 f5f8763, local: `M` in the key's place of an input string, `|M|......|`), the Chimera
+core's button is "Music On/Off" (the movie letter `m`).
+
+**The run's rule (Sergio): the music off during each level-end piece, on again on the next level's first tick.**
+- A level's solution ends on the tick the next level is decided (the search's win, as before). In the chain its line
+  one tick after the piece starts gets the `M`, and every line after the door's Up press is emptied: the prince inside
+  the door (frame 0) is still under the running control, and a fresh press of the direction behind him walks him out
+  again (seen in DOS with the Alt flag held over a leftover Right; nothing held is the clean way).
+- The next level's first input carries `M` (music on). The search does it by itself with `"Music On At Start": true`
+  in the game's configuration: while the music is off, every input offered has the music key.
+- Levels 1 to 3 keep their solutions: no random number is drawn in level 1's wait, level 2 has none, and with the
+  music back on its first tick level 2 and level 3 replay tick for tick (the fixed core against the old chain; DOS
+  against the fixed core: `CUT3d.script`, both disks, every tick equal up to level 4's first ticks). Level 4 starts
+  with another seed (level 3 draws every tick), so it is searched from the new chain.
+- Chains: `0400/l010203cut.sol` (921 lines; the last is the tick level 4 loads in). Movie: `tas/run_cut.mov` (1673
+  rows: level 1 from row 664, level 2 from 1107, level 3 from 1275, level 4's first row 1673, IGT 921 there), built
+  row by row against the runner on the fixed SDLPoP2 (`~/pop2render/bin/run-native-a5ee`). The project file waits for
+  a core release with the fix (the released one, on SDLPoP2 37112da, plays the music out).
+
+| Level | Ticks | IGT at its end | First row in Chimera | DOS (both disks) |
+|---|---|---|---|---|
+| 1 | 433 | 433 | 664 | every tick equal |
+| 2 | 101 | 534 | 1107 | every tick equal |
+| 3 | 387 | 921 | 1275 | every tick equal |
+| 4 | searching (`0400/script-slowfall-cut.jaffar`) | | 1673 | |
+
+The table further up is the same run with the music left alone (1120 at level 4's start).
+
 ### The level ends' music (found 2026-10-08)
 
 A level's end waits for its music, and the wait is long: the piece is queued at the stairs' frame 0xE0 (level 1: the

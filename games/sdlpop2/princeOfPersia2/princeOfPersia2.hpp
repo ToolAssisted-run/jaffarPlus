@@ -67,6 +67,8 @@ public:
         _gameConfigRemaining.contains("Restart At Checkpoint") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Restart At Checkpoint");
     _levelEndLookahead =
         _gameConfigRemaining.contains("Level End Lookahead") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Level End Lookahead");
+    _musicOnAtStart =
+        _gameConfigRemaining.contains("Music On At Start") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Music On At Start");
   }
 
 private:
@@ -213,6 +215,12 @@ private:
         std::string str = std::string("|") + (in.keystroke ? 'K' : '.') + "|" + (in.x < 0 ? 'L' : '.') + (in.x > 0 ? 'R' : '.') + (in.y < 0 ? 'U' : '.') +
                           (in.y > 0 ? 'D' : '.') + (in.shift == 1 ? 'S' : '.') + (in.shift == 2 ? 'C' : '.') + "|";
         _prunedInputs.push_back({in, _emulator->registerInput(str)});
+        // "Music On At Start": the same input with the game's Music On/Off key (Alt+M) in the key's place
+        if (_musicOnAtStart)
+        {
+          if (in.keystroke == 0) str[1] = 'M';
+          _musicInputs.push_back(in.keystroke == 0 ? _emulator->registerInput(str) : _prunedInputs.back().second);
+        }
       }
       if (_restartAtCheckpoint) _restartInputIdx = _emulator->registerInput("|R|......|");
     }
@@ -223,6 +231,7 @@ private:
   {
     std::set<std::string> inputs;
     for (const auto& p : _prunedInputs) inputs.insert(_emulator->getRegisteredInput(p.second).inputString);
+    for (const auto& i : _musicInputs) inputs.insert(_emulator->getRegisteredInput(i).inputString);
     if (_restartAtCheckpoint) inputs.insert("|R|......|");
     return inputs;
   }
@@ -234,14 +243,20 @@ private:
     InputPruner           pruner(_s);
     uint64_t              keys[64];
     size_t                nKeys = 0;
-    for (const auto& p : _prunedInputs)
+    // "Music On At Start": the run switches the ambient music off to end a level's wait for its music (the game's
+    // Alt+M during the level-end music loads the next level at once) and on again on the next level's first tick, so
+    // while the music is off every input offered carries that key (a search starts on such a tick; later it is on)
+    const bool music = _musicOnAtStart && _s->amb_state[0] == 0;
+    for (size_t j = 0; j < _prunedInputs.size(); j++)
     {
+      const auto& p = _prunedInputs[j];
+      if (music && p.first.keystroke != 0) continue;
       const auto k    = pruner.key(p.first);
       bool       seen = false;
       for (size_t i = 0; i < nKeys && !seen; i++) seen = keys[i] == k;
       if (seen) continue;
       keys[nKeys++] = k;
-      allowedInputSet.push_back(p.second);
+      allowedInputSet.push_back(music ? _musicInputs[j] : p.second);
     }
 
     // Restart Level at the checkpoint: the whole state is reloaded from it, so it needs no other input
@@ -759,6 +774,8 @@ private:
   uint8_t _roomGuardsOnRow  = 0;
 
   bool                 _levelEndLookahead = false;   // "Level End Lookahead"
+  bool                 _musicOnAtStart    = false;   // "Music On At Start"
+  std::vector<InputSet::inputIndex_t> _musicInputs;  // _prunedInputs' inputs with the Music On/Off key
   uint16_t             _levelEndWait      = 65535;   // (updateLevelEndWait)
   std::vector<uint8_t> _lookaheadBuffer;
 

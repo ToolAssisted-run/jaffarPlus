@@ -15,7 +15,7 @@ extern uint16_t word_0882, word_0884;
 static int parse(const char *s, pop2_input *in)
 {
 	memset(in, 0, sizeof *in); if (strlen(s) < 10 || s[0] != (char)124) return 0;
-	if (s[1] == 82) in->restart_level = 1; else if (s[1] == 75) in->keystroke = 1;
+	if (s[1] == 82) in->restart_level = 1; else if (s[1] == 77) in->music_toggle = 1; else if (s[1] == 75) in->keystroke = 1;
 	in->x = s[3] == 76 ? -1 : s[4] == 82 ? 1 : 0; in->y = s[5] == 85 ? -1 : s[6] == 68 ? 1 : 0;
 	in->shift = s[8] == 67 ? 2 : s[7] == 83 ? 1 : 0; return 1;
 }

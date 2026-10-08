@@ -2,9 +2,12 @@
 
 #include <emulator.hpp>
 #include <game.hpp>
+#include <jaffarCommon/deserializers/contiguous.hpp>
 #include <jaffarCommon/json.hpp>
+#include <jaffarCommon/serializers/contiguous.hpp>
 #include <quickerSDLPoP2/quickerSDLPoP2.hpp>
 #include "inputPruning.hpp"
+#include <vector>
 
 namespace jaffarPlus
 {
@@ -62,6 +65,8 @@ public:
     _pruneInputs    = _gameConfigRemaining.contains("Prune Inputs") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Prune Inputs");
     _restartAtCheckpoint =
         _gameConfigRemaining.contains("Restart At Checkpoint") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Restart At Checkpoint");
+    _levelEndLookahead =
+        _gameConfigRemaining.contains("Level End Lookahead") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Level End Lookahead");
   }
 
 private:
@@ -102,6 +107,7 @@ private:
 
     registerGameProperty("Current Level", &_s->level_number, dt::dt_uint8, le);
     registerGameProperty("Next Level", &_s->counter_5cec, dt::dt_uint16, le);
+    registerGameProperty("Level End Wait", &_levelEndWait, dt::dt_uint16, le);   // (updateLevelEndWait)
     registerGameProperty("Drawn Room", &_s->drawn_room, dt::dt_uint8, le);
     registerGameProperty("Minutes Left", &_s->minutes_left, dt::dt_uint16, le);
     registerGameProperty("Clock Ticks", &_s->clock_ticks, dt::dt_uint16, le);
@@ -302,8 +308,35 @@ private:
   //   hanging (seqs 9, 25, 210)          f87..f99   20 px up
   //   climb up (seq 10 -> 235, 73)       f135..f140 24..44 px up, then (63 px higher from f141) f141..f149 17..1 px down
   //   climb down (seq 68)                f148..f141 0..14 px down, then (63 px lower from f140) f140..f136 45..35 px up
+  // The level's end: once the next level is decided ("Next Level" differs from the level played) the game still waits
+  // for the level-end music, and any other music piece started in the meantime ends that wait (SDLPoP2 sound.c; so does
+  // DOS: a piece queued in level 1's wait loads level 2 on the next tick). From the door's stairs on (frames 0xD9..0xE2)
+  // the prince can do nothing, so the rest is read off the game itself: the ticks played ahead without input until the
+  // next level loads ("Level End Wait": 65535 before that, or without "Level End Lookahead" in the game's
+  // configuration; 400 when it does not load, e.g. the prince hit on the stairs)
+  __INLINE__ void updateLevelEndWait()
+  {
+    _levelEndWait = 65535;
+    if (_levelEndLookahead == false) return;
+    if ((int8_t)_s->word_32d8 == (int16_t)_s->counter_5cec && (_s->Kid.frame < 0xD9 || _s->Kid.frame > 0xE2)) return;
+    if (_lookaheadBuffer.size() != _emulator->getStateSize()) _lookaheadBuffer.resize(_emulator->getStateSize());
+    jaffarCommon::serializer::Contiguous s(_lookaheadBuffer.data(), _lookaheadBuffer.size());
+    _emulator->serializeState(s);
+    const uint8_t level = _s->level_number;
+    uint16_t      wait  = 0;
+    while (_s->level_number == level && wait < 400)
+    {
+      _emulator->advanceState(_nullInputIdx);
+      wait++;
+    }
+    jaffarCommon::deserializer::Contiguous d(_lookaheadBuffer.data(), _lookaheadBuffer.size());
+    _emulator->deserializeState(d);
+    _levelEndWait = wait;
+  }
+
   __INLINE__ void stateUpdatePostHook() override
   {
+    updateLevelEndWait();
     const int f = _s->Kid.frame;
     float     o = 0.0f;
     if (f >= 67 && f <= 80) o = -(float)(f - 66);
@@ -506,7 +539,7 @@ private:
   void printInfoImpl() const override
   {
     const auto& k = _s->Kid;
-    jaffarCommon::logger::log("[J+]  + Level / Next Level:   %2u / %2u\n", _s->level_number, _s->counter_5cec);
+    jaffarCommon::logger::log("[J+]  + Level / Next Level:   %2u / %2u (level end wait: %u)\n", _s->level_number, _s->counter_5cec, _levelEndWait);
     jaffarCommon::logger::log("[J+]  + Time Left:            %u minutes, %u ticks\n", _s->minutes_left, _s->clock_ticks);
     jaffarCommon::logger::log("[J+]  + [Prince]              Room: %u, Pos: %d, %d (smooth %.0f), Row: %d, Col: %d, Frame: 0x%X, Action: %u, Dir: %d, HP: %u/%u, Alive: %d\n", k.room,
                               k.x, k.y, _kidPosY, k.curr_row, k.curr_col, k.frame, k.action, k.direction, k.f12, k.f13, k.alive);
@@ -724,6 +757,10 @@ private:
   float   _fireballDist     = 0.0f;   // level 14's fireball to the nearest live guard (stateUpdatePostHook)
   float   _guardRowDist     = 0.0f;   // the prince's height to the nearest live guard's row
   uint8_t _roomGuardsOnRow  = 0;
+
+  bool                 _levelEndLookahead = false;   // "Level End Lookahead"
+  uint16_t             _levelEndWait      = 65535;   // (updateLevelEndWait)
+  std::vector<uint8_t> _lookaheadBuffer;
 
   InputSet::inputIndex_t _nullInputIdx;
 };

@@ -774,7 +774,8 @@ on either device; the MT-32's start-up takes 655 frames more.
 |---|---|---|---|---|
 | 1 | 433 + 105 (the music) = 538 | 538 | 664 | every tick equal |
 | 2 | **101** (was 102) | 639 | 1212 | every tick equal (639 ticks, the seed 1640912200 at the end) |
-| 3 | searching (`0300/script-left.jaffar`) | | 1380 | |
+| 3 | **387** (was 476) + 94 (the music) = 481 | 1120 | 1380 | every tick equal (1120 ticks, level 4 loads) |
+| 4 | searching (`0400/script-slowfall-run.jaffar`) | | 1872 | |
 
 - **Level 1** at 300 GB: 433 again; the solution kept is the old one (`tas/l01.sol`), which Random Seed 25 ties to
   level 2's sand trick.
@@ -784,8 +785,45 @@ on either device; the MT-32's start-up takes 655 frames more.
   (`tas/l02.sol`).
 - **The copy protection** after level 2 (its question is drawn): the second symbol of the top row here (Space,
   Right, a free row, Shift); level 3's first frame is row 1380.
+- **Level 3** at 300 GB: 387 (`tas/l03.sol`), 89 less than the 100 GB run's 476. Same rooms (1 5 7 8 11 13); in room 13
+  it takes two hits from the skeleton on the bottom row (3 -> 1), presses the door's plate (row 2 col 2) with the sword
+  frames' push and brings the skeleton down, then climbs to the door. The hit points cost nothing: a level starts at
+  full health (game.c: `start_hp = Kid.f13`). The story scene after it: Space on row 1861, level 4's first row 1872.
 - **The project:** `tas/pop2-tas.chimeraProject` (`tools/mkproject.py`: the released core package 4d44f96, MT-32,
-  Random Seed 25, a marker a level), from `tas/run.mov`. The runner built from the same sources plays it to level 3
-  (IGT 639 at its first row). The headless Chimera built here is a month old and refuses the project's "id" key,
-  which the current one knows: not yet played through Chimera itself.
+  Random Seed 25, a marker a level), from `tas/run.mov`: 1872 rows, to level 4's first. The runner built from the same
+  sources plays it to level 4 (IGT 1120 there), level 3's 480 rows equal to the search core's ticks. The headless
+  Chimera built here is a month old and refuses the project's "id" key, which the current one knows: not yet played
+  through Chimera itself.
+- **Videos** of the final run: `~/pop2render/l8/render-run.sh NAME MOVIE START` on jaffanator2 (the runner on SDLPoP2
+  e927d0f with the raw picture dump put back, `~/pop2render/gate-rawvideo.patch`; MT-32, Random Seed 25).
 
+### The level ends' music (found 2026-10-08)
+
+A level's end waits for its music, and the wait is long: the piece is queued at the stairs' frame 0xE0 (level 1: the
+railing's frame 0x95) and the next level loads when it has played out (sound.c `level_end_sound_playing`, game.c
+`frame_after_tick`). By level kind (`kind_music`): 0x1C, 107.4 ticks (levels 1, 3, 4: 105 / 94 / 94 after the level
+is decided); 0x1D, 223.4 ticks (the ruins, levels 6..8: ~210); 0x1E, 180.6 ticks (the temple, levels 10..13: ~167).
+Level 2 has none; levels 5 and 9 end without stairs. About 1590 ticks of the run are these waits (105 + 2 x 94 +
+3 x 210 + 4 x 167), which the exploration's times (~11200) did not count.
+
+**Any other music piece started in the meantime ends the wait** (the pieces share the MIDI channel; "playing" asks
+whether the channel still holds that piece). Checked in DOS (MT-32 disk, `WC1.script`): music 0x65 written into the
+queue word (DS:0880) at tick 445 of level 1's wait: the story scene comes after tick 446, not 538.
+
+What queues music in play (`sound_1611_01a8`): an opponent's death (fight.c `dead_char_music`: a guard 6 ticks after
+it dies, a skeleton when its fall's sound is over, a head when its 18.6-tick cry is over; not on level 1), a head hit
+and falling back (heads.c, music 0x92, once a head), the exit door starting to open (mobs.c, 0x1B), a potion drunk
+(0x65), level 4's skeletons getting up once the door is open (0x6A), the prince's own death (6 ticks after it), and
+places of levels 5, 8, 9, 13, 14. All the effects (`play_sound`) are digital and do not touch the MIDI channel.
+Useful facts: a falling loose floor takes 100 hit points from an opponent under it (mobs.c: a kill with a delay); a
+dead opponent's count runs only in the drawn room; the next level starts at full health whatever happens in the wait.
+
+The search reads the wait off the game: with `"Level End Lookahead": true` in the game's configuration, from the
+stairs' first frame on the property "Level End Wait" is the number of ticks to the next level's load, played ahead
+without input (`updateLevelEndWait`). A cut search wins on a short wait and fails the others, so the door's
+states do not fill the database (`0300/script-left-cut.jaffar`: from level 3's tick 262, 222 steps, 100 GB).
+
+| Level | Wait | Cut search |
+|---|---|---|
+| 1 | 105 | nothing queues music there |
+| 3 | 94 | none found (the skeleton is on the row below the door: its death's music comes 41 ticks before the stairs) |

@@ -906,8 +906,8 @@ core's button is "Music On/Off" (the movie letter `m`).
 - **A level of the run, step by step** (jaffanator2, `~/jaffarPlus-run/examples/sdlpop2`): `gen.py ROUTE --run --init
   CHAIN.sol --db 300000 --maxsteps N --out script-ROUTE-run.jaffar`; `tools/rewardcheck.py` of it with the level's old
   solution; `run_level.sh DIR SCRIPT TAG`, `watch_level.sh TAG`; `tools/cutlevel.py` (the run's lines and the next
-  chain); DOS on both disks (`sol2script.py` with `NOALT=1`, `orun.sh`, `tools/ocmp.py` and `tools/ocmp2.py`: the
-  positions past a seed mismatch, and how many draws DOS is ahead); `tools/mvextend.py`; the video
+  chain); DOS on both disks (`sol2script.py` with `NOALT=1 SYNC=CORE.txt`, Space at the scenes after levels 5 and
+  9, `orun.sh`, `tools/ocmp3.py`: the next section but one); `tools/mvextend.py`; the video
   (`~/pop2render/l8/render-run.sh NAME MOVIE START`).
 
 | Level | Ticks | IGT at its end | First row in Chimera | DOS (both disks) |
@@ -919,6 +919,31 @@ core's button is "Music On/Off" (the movie letter `m`).
 | 5 | searching (`0500/script-none-run.jaffar`, `l05b`) | | 2273 | |
 
 The table further up is the same run with the music left alone (1120 at level 4's start).
+
+### DOS and the random numbers: the check is synced every tick (2026-10-08)
+
+Tried ahead of the run: its chain to level 4, then the old solutions of levels 5 and 6 (which replay on it: level 7
+loads on tick 3373), in DOS on both disks, the story scene after level 5 skipped by Space as the run does (Space in
+the keyboard buffer at the scene's start). **Unsynced, DOS leaves the core in level 5**: positions equal to its end
+(but for the rope bridge's sway, a pixel, on three ticks), yet the seed two draws ahead there; in level 6, three
+draws apart, room 16's head kills him at tick 396.
+
+- **Whose draw:** the ambient music's next piece (`sound.c` ambient_update, 1611:03CC). It is drawn at the end of the
+  pass in which the piece is found over, and that moment moves with the drawing's time in DOS (tens of ms); the
+  core's model has it 5 ms into the pass (SDLPoP2 docs/FINDINGS.md 5.11: "a piece ending within ~40 ms of a check can
+  go either way"). With 25..46 ms of the piece left at a check DOS was a tick early in 5 cases of the run's first
+  2200 ticks (levels 4 and 5), and the two disks disagree between themselves on three of them. A tick early means
+  another random number for the piece, so another piece, with its own length, and from then on the draws come on
+  other ticks. Levels 1 to 4 had the early draws too (ticks 997, 1287) but the same pieces after them.
+- **Not a defect of the core's logic, and not to be tuned away:** it hangs on how long DOS takes to draw each pass.
+  The run is the core's (Chimera's), where the model is fixed. What DOS can confirm is the game's logic.
+- **The check from here on:** the oracle's script writes the core's seed at every tick's start (`sol2script.py` with
+  `SYNC=CORE.txt`; the snapshot is taken before the write, so each tick's own draws are still compared).
+  `tools/ocmp3.py SNAP CORE.txt` lists the position mismatches and the ticks whose draws differ. The same chain,
+  synced, MT-32 disk: **all 3383 ticks equal in room, x, y, frame and hit points, level 7 loading on the same tick**;
+  23 ticks differ in their draws, every one by a single ambient draw (11 where the core drew a piece and DOS did
+  not: all of them the core's ambient draws; 12 where DOS drew one more; 36 of the core's 47 ambient draws fall on
+  the same tick in DOS).
 
 ### The later levels' scripts, checked before their searches (2026-10-08)
 

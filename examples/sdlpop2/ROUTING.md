@@ -119,7 +119,7 @@ Level notes:
   core and chain). The old magnets: 41 deep for 29 steps from the alcove's exit, the fatal one; the new: gone. Left:
   36 for 47 steps while he drinks the slow-fall potion (step 117, early: the database is not full yet), and with the
   door's own magnets 49 over the stairs' 17 ticks (the first in scores less than those behind him): the entry step
-  now pulls along the stairs, right and up (`routegen.py`; level 4's running script still has the old ending).
+  now pulls along the stairs, right and up (`routegen.py`; level 4's run had the old ending and got through it).
   What makes a dip fatal is a place to stand that scores above it, wide, and with something that keeps its states
   apart (level 4: the downed skeletons' timers, a draw every tick, the sword's moves): the database then fills with
   that place within a few steps (worst reward 6309 -> 12209 in six). A dip in mid-air, or with only the take-off edge
@@ -134,6 +134,13 @@ Level notes:
   before the core does. The pieces' ends are real time, a fraction of a tick either way; nothing else drew in the
   first of those ticks, and the drips' draw in the second changed nothing seen. Not a defect of the solution, but a
   draw by a guard in such a tick would differ: each level's DOS check has to look for it.
+- **The run's level 4** (300 GB, `0400/script-slowfall-cut.jaffar`, 2026-10-08): **590** with its end (`tas/l04.sol`;
+  the search's own lines `0400/l04b.sol`), the slow-fall rooms, 3 -> 2 hit points at tick 48 and 1 at 285. Up on line
+  565, the stairs from tick 568, the level-end piece starts in tick 576, `M` on line 577, level 5 loads on tick 590
+  (13 ticks after the `M`, as level 3: no effect held it). The old solution took 592 to the tick the level is decided,
+  the dry run 596. DOS, both disks: every tick's room, x, y, frame and hit points equal (1521 compared: the chain and
+  level 5's first ten ticks), level 5 loading after tick 1511 on both; the seed's one-draw transients are those of the
+  dry run, on the same ticks (997 on the MT-32 disk, 1287 on both: the ambient pieces start with the level).
 - **Falls:** without the slow-fall potion, room 10's holes drop the prince through 23 into 22 to his death; the potion
   route stands at room 10's col 9 before going down.
 - In quicker the level ends ("Next Level" = 5) one tick before level 5 loads; the times count to "Next Level".
@@ -203,6 +210,8 @@ Level notes:
   states at the room's entry kept the top. Room 14 now pulls left until the push throws him into the gate, has no
   magnet for that tick, and pulls to the potion once he is past it. Left: the two jump, grab and climb crossings
   (rooms 12 and 4, ~20 deep for 17 ticks, nothing standing above them).
+  On the run's chain (`l01020304cut.sol`, another seed) the old solution still replays, level 6 loading on tick
+  1436, with the same dips: the run's search is `script-none-run.jaffar` (tag `l05`, launched 2026-10-08 12:52 UTC).
 
 ## The original DOS game (checked 2026-10-01 by the OpenSamurai session, DOSBox-X oracle, 1.1)
 
@@ -876,17 +885,25 @@ core's button is "Music On/Off" (the movie letter `m`).
   music back on its first tick level 2 and level 3 replay tick for tick (the fixed core against the old chain; DOS
   against the fixed core: `CUT3d.script`, both disks, every tick equal up to level 4's first ticks). Level 4 starts
   with another seed (level 3 draws every tick), so it is searched from the new chain.
-- Chains: `0400/l010203cut.sol` (921 lines; the last is the tick level 4 loads in). Movie: `tas/run_cut.mov` (1673
-  rows: level 1 from row 664, level 2 from 1107, level 3 from 1275, level 4's first row 1673, IGT 921 there), built
-  row by row against the runner on the fixed SDLPoP2 (`~/pop2render/bin/run-native-a5ee`). The project file waits for
-  a core release with the fix (the released one, on SDLPoP2 37112da, plays the music out).
+- Chains: `0400/l010203cut.sol` (921 lines; the last is the tick level 4 loads in), `0500/l01020304cut.sol` (1511).
+  Movie: `tas/run_cut.mov` (2273 rows: level 1 from row 664, level 2 from 1107, level 3 from 1275, level 4 from 1673,
+  level 5's first row 2273, IGT 1511 there), built against the runner on the fixed SDLPoP2
+  (`~/pop2render/bin/run-native-a5ee`; a level further with `tools/mvextend.py`). The project file waits for a core
+  release with the fix (the released one, on SDLPoP2 37112da, plays the music out).
+- **A level of the run, step by step** (jaffanator2, `~/jaffarPlus-run/examples/sdlpop2`): `gen.py ROUTE --run --init
+  CHAIN.sol --db 300000 --maxsteps N --out script-ROUTE-run.jaffar`; `tools/rewardcheck.py` of it with the level's old
+  solution; `run_level.sh DIR SCRIPT TAG`, `watch_level.sh TAG`; `tools/cutlevel.py` (the run's lines and the next
+  chain); DOS on both disks (`sol2script.py` with `NOALT=1`, `orun.sh`, `tools/ocmp.py` and `tools/ocmp2.py`: the
+  positions past a seed mismatch, and how many draws DOS is ahead); `tools/mvextend.py`; the video
+  (`~/pop2render/l8/render-run.sh NAME MOVIE START`).
 
 | Level | Ticks | IGT at its end | First row in Chimera | DOS (both disks) |
 |---|---|---|---|---|
 | 1 | 433 | 433 | 664 | every tick equal |
 | 2 | 101 | 534 | 1107 | every tick equal |
 | 3 | 387 | 921 | 1275 | every tick equal |
-| 4 | searching (`0400/script-slowfall-cut.jaffar`, `l04b`) | | 1673 | |
+| 4 | **590** | 1511 | 1673 | room, x, y, frame, hit points equal on every tick; the seed a draw ahead for one tick, twice |
+| 5 | searching (`0500/script-none-run.jaffar`, `l05`) | | 2273 | |
 
 The table further up is the same run with the music left alone (1120 at level 4's start).
 

@@ -16,7 +16,9 @@ import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from routegen import L, R, U, D, ROW_Y, col_x, room, hp, row, step, dedup, main  # noqa: E402
 
-H0 = 5   # max HP at level 10's start ("Max HP At Level", as levels 7 to 9)
+RUN = "--run" in sys.argv
+H0 = 4 if RUN else 5   # max HP at level 10's start ("Max HP At Level", as levels 7 to 9); the final run (--run) comes
+                       # with the 4 it has, no "Max HP At Level"
 LOOSE12 = ("Tile[12][22]", "!=", 0x0B)    # room 12's loose floor (row 2 col 1) gone (falling, onto room 19's plate)
 EXIT = ("Tile Opening[19][16]", ">", 0)   # room 19's exit door (row 1 cols 4..5) opening
 
@@ -28,11 +30,16 @@ ROUTES = {
         step(room(8), (8, R, ROW_Y[1], 1.0, 2.0)),
         # 14: across to room 12 (a short jump hangs from its floor's edge, his body in room 19: not penalized there,
         # drawn up, back into room 12)
-        step(room(14), (14, R, None, 1.0, 1.0), (19, col_x(0), U, 1.0, 1.0, "keep")),
-        step(room(12), (12, col_x(1), ROW_Y[2], 1.0, 1.0), (19, col_x(0), U, 1.0, 1.0, "keep")),
+        # (the hang's magnet stands just above it, y 30: the 18 ticks hanging and climbing score what the jump did)
+        step(room(14), (14, R, None, 1.0, 1.0), (19, col_x(0), 30, 1.0, 1.0, "keep")),
+        # 12: right, over the loose floor (col 1, on his way: it falls ~11 ticks later) and on to the room's right
+        # end (pulled to the loose floor, the 11 ticks running on from it scored 145 less than standing on it); the
+        # hang in room 19 pulls right as room 12 does
+        step(room(12), (12, R, ROW_Y[2], 1.0, 1.0), (19, R, 30, 1.0, 1.0, "keep")),
         step(room(12, LOOSE12), (12, R, D, 1.0, 1.0)),
-        step(room(19, LOOSE12), (19, col_x(5), ROW_Y[1], 1.0, 1.0)),
-        step(room(19, EXIT), (19, col_x(5), ROW_Y[1], 1.0, 1.0)),
+        # (room 19 by the door's side, where he drops in: under the loose floor, x ~186, it is no step)
+        step(room(19, LOOSE12, ("Player Pos X", ">=", 250)), (19, col_x(5), ROW_Y[1], 1.0, 1.0)),
+        step(room(19, EXIT, ("Player Pos X", ">=", 250)), (19, col_x(5), ROW_Y[1], 1.0, 1.0)),
         # into the door (Up by it: sequence 0x46): its frames take him inside it (x ~col 5 + 31, y 26 above the floor)
         step(room(19, ("Player Current Sequence", "==", 0x46)), (19, col_x(5) + 31, ROW_Y[1] - 26, 1.0, 1.0)),
     ],
@@ -49,7 +56,7 @@ LEVEL = {
     "hash": [[19, 15], [19, 16]],   # the exit door
     "fails": FAILS,
     "penalize_ahead": True,
-    "emulator": {"Max HP At Level": [10, H0]},
+    "emulator": {} if RUN else {"Max HP At Level": [10, H0]},
 }
 
 if __name__ == "__main__":

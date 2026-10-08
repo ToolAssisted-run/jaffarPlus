@@ -15,7 +15,8 @@ import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from routegen import L, R, U, D, ROW_Y, col_x, room, hp, row, step, dedup, main  # noqa: E402
 
-H0 = 6   # max HP at level 12's start (level 11's potion)
+RUN = "--run" in sys.argv
+H0 = 4 if RUN else 6   # max HP at level 12's start (level 11's potion); the final run (--run) comes with the 4 it has
 EXIT = ("Tile Opening[7][24]", ">", 0)   # the exit door (room 7 row 2 col 3) opening
 
 GATE16 = ("Tile Opening[16][29]", ">", 0)  # room 16's gate (row 2 col 8), opened by room 15's plate (row 2 col 5)
@@ -45,7 +46,9 @@ ROUTES = {
     "np": DOOR + [
         step(room(15, EXIT), (15, L, ROW_Y[2], 1.0, 1.0)),
         step(room(16, EXIT, GATE16), (16, col_x(3), ROW_Y[2], 1.0, 1.0)),
-        step(room(16, EXIT, GATE6), (16, L, ROW_Y[2], 1.0, 1.0)),
+        # (room 6 counts once he is past its gate, x < col 8; the three ticks of the jump through it before that score
+        # as room 16 goes on, x 120 there: left as a room ahead they scored 5000 less and a full database drops them)
+        step(room(16, EXIT, GATE6), (16, L, ROW_Y[2], 1.0, 1.0), (6, 120, ROW_Y[2], 1.0, 1.0, "keep")),
         step(room(6, EXIT, GATE6, ("Player Pos X", "<", col_x(8))), (6, L, ROW_Y[2], 1.0, 1.0)),
         step(room(17, EXIT), (17, col_x(5), U, 1.0, 2.0)),
         step(room(17, EXIT, SHAKE10), (17, col_x(5), U, 1.0, 2.0)),
@@ -65,7 +68,8 @@ ROUTES = {
         step(room(7, EXIT, SEEN8, ("Player Current Sequence", "==", 0x46)), (7, col_x(3) + 31, ROW_Y[2] - 26, 1.0, 1.0)),
     ],
 }
-# (a test against the clip left: its 2-row fall in room 15 costs a hit point and a ~42-tick hard landing) right off
+# The run's route (np.sol, 735, is this way): against the clip left (its 2-row fall in room 15 costs a hit point and a
+# ~42-tick hard landing) right off
 # the plate's ledge (col 9) into room 22's left column, hanging first (a 1-row drop), back left along room 14's and
 # room 15's bottom rows; the clip (room 15 entered above its bottom row) fails
 SEEN22 = ("Visited Room[22]", "==", 1)
@@ -102,7 +106,7 @@ LEVEL = {
     "hash_visited": [8, 22],
     "fails": FAILS,
     "penalize_ahead": True,
-    "emulator": {"Max HP At Level": [11, 5]},   # (level 11 replays as searched: 5, its potion 6)
+    "emulator": {} if RUN else {"Max HP At Level": [11, 5]},   # (level 11 replays as searched: 5, its potion 6)
 }
 
 if __name__ == "__main__":

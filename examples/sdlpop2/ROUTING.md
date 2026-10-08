@@ -907,6 +907,46 @@ core's button is "Music On/Off" (the movie letter `m`).
 
 The table further up is the same run with the music left alone (1120 at level 4's start).
 
+### The later levels' scripts, checked before their searches (2026-10-08)
+
+While level 5 searched, every later level's script (the generator's, as the run will use it) was replayed against its
+old solution with `tools/rewardcheck.py` (the old chains and the exploration tree's player: the reward's shape hangs
+on the script and the path only). Each `gen.py` now takes the run's hit points with `--run` (3 at level 7, 4 from its
+potion on, 5 after level 13's; no "Max HP At Level"). What the old solutions showed, and what was changed:
+
+| Level | Route (`gen.py`) | Found | Changed |
+|---|---|---|---|
+| 6 | `sw-push-L` | Never run as one search (two chunks). Its steps described the crawl tunnel; the solution goes 6, the hang (room 18's top row), 6, 4, down its hole into 17, the sword, up into 4: 36 and 125 ticks 5000 down | `sword_by4()`: the steps of that way; the push's step asks for the sword; once inside the wall (x < 140) is a step; no room 7 without the sword; the door's stairs pull right and up |
+| 7 | `r1c-pot` | Room 7 pulled to the potion along its middle row: the wall's states 135 above the bottom row's for 50 ticks, col 8's above the drinking ones; the hang over room 12's hole 116 down for 18 ticks; room 2's head-kill credit lost for one tick | `potion7clip()`: down and right, up at col 7, the potion at x 429; the hang's magnet at y 30; the head dead is a step |
+| 8 | `np` | Room 11's top row pulled to col 2's left end, the jump up is at x 236 | The magnet there |
+| 9 | `np` | The top row's gaps (rooms 4 and 8) are jumped short: 18 ticks hanging 60 below the gap's near edge; a runner on the middle row outscores the hang | A weaker pull up in those rooms; the middle row left of a hang, and anything below, fails |
+| 10 | `np` | Room 12 pulled to its loose floor: running on from it 145 down for 11 ticks; the hang 33 down | Room 12 pulls right; the hang's magnet at y 30; room 19 counts by the door's side only |
+| 11 | `np` | No wrong way on the potion route's solution, nor on the room 3 chunk without it; the hang under room 20's floor 68 down | The hang's magnet at y 30; room 17 after the exit's plate fails on `np` too. **Hit points: see below** |
+| 12 | `via22` (the 735 solution, `np.sol`, goes by room 22) | Room 6 counts once past its gate (x < col 8): the jump's three ticks in it before that scored 5000 down | Room 16's step keeps room 6 on its own scale (x 120) |
+| 13 | `pot` | The same at room 20's gate: two ticks 5000 down | Room 3's step keeps room 20 on its scale |
+
+What recurs (for any new script):
+
+- **A hang reads the room below** (its top row, y 56). That room needs the step's magnet too ("keep"), and its y a
+  little above the hang (30): the climb's smoothed y rises 4 px a tick, so hanging and climbing gain. At y 56 the
+  climb's ticks lose 4 each; far above (-50, the usual "up") the hang scores less than the gap's near edge.
+- **A step with a place in its condition** (past a gate, a row) leaves the room's first ticks without a step: the
+  room is one ahead, 5000 down, and a full database drops every state that enters. The step before it has to keep
+  that room on its own scale (the next room left: x 120 for a pull to the left edge).
+- **The magnet stands where he acts** (the tick he drinks, jumps up, takes the sword), not at the tile's end: a
+  place to stand between the two scores above the ticks of the act.
+- **The Opponent HP Magnet loses its credit for a tick now and then** (level 7's tick 685, level 11's 1638: it read
+  what the prince himself had lost, as if the opponent's slot held his record that tick). A kill that matters is a
+  step (the opponent's room, its char id, 0 hit points), which also ends the magnet.
+- **A dip is no trap when the place above it is on the way too** (level 6's door: the states nearer the door enter as
+  soon as it opens), or is the search's own to-and-fro in a wall (levels 6, 7, 8: the head's push, the clips).
+
+**Level 11's hit points.** The route without the potion takes four hits on its old path: room 3's loose floor as
+it falls (the chunk without the potion), the fall into room 13 from room 18's hole, the drop in room 29, the fall
+from room 28 into 26. The exploration had 5; the run has 4. The search fails a dead prince, but it keeps the fastest
+states, which take each hit as it comes: the ones that spared a hit point further back are behind and dropped. To
+settle before level 11's search: which hits can be dodged, and at what cost.
+
 ### The level ends' music (found 2026-10-08)
 
 A level's end waits for its music, and the wait is long: the piece is queued at the stairs' frame 0xE0 (level 1: the

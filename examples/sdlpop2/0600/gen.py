@@ -42,10 +42,29 @@ def to_sword():
     ]
 
 
+def sword_by4():
+    """The sword by room 4, the way the searches took (the crawl tunnel costs the hole's fall, a hit point): 27 (the
+    start) -> 3 -> 6: a running jump over its floor's hole, short of the far side: the edge (col 0) is caught hanging
+    (his room reads 18 there, its top row) and climbed -> 4: a running jump into its floor's hole (x ~210), down onto
+    room 17's row 1 -> the sword (taken from x ~286) -> back to x ~210 and up, two climbs, into room 4 again.
+    The magnets stand where he falls, takes and climbs, not past them: a place to stand that scores above a tick of
+    the way fills a wide database (../ROUTING.md, level 4)."""
+    return [
+        step(room(27), (27, L, None)),
+        step(room(3), (3, L, None)),
+        step(room(6), (6, col_x(1), D, 1.0, 1.0)),
+        # (hanging from room 6's edge: up; room 6 again, left of the hole: on to the left)
+        step(room(18), (18, L, U, 1.0, 2.0), (6, L, U, 1.0, 0.0, "keep")),
+        step(room(4), (4, 210, D, 1.0, 1.0)),
+        step(room(17), (17, 286, ROW_Y[1], 1.0, 1.0)),
+        step(room(17, SWORD), (17, 205, U, 1.0, 1.0)),
+    ]
+
+
 def to4(sword):
-    """the start to room 4: with the sword (the crawl tunnel) or straight across room 6 (a running jump short of its
-    floor's far side, caught from room 18's top row, then up)"""
-    if sword: return to_sword() + [step(room(4, SWORD), (4, col_x(0), U, 1.0, 2.0))]
+    """the start to room 4: with the sword (by room 4's hole and room 17, back up into room 4) or straight across
+    room 6 (a running jump short of its floor's far side, caught from room 18's top row, then up)"""
+    if sword: return sword_by4() + [step(room(4, SWORD), (4, col_x(0), U, 1.0, 2.0))]
     return [step(room(27), (27, L, None)), step(room(3), (3, L, None)), step(room(6), (6, L, None)),
             step(room(4), (4, col_x(0), U, 1.0, 2.0))]
 
@@ -113,9 +132,10 @@ def exit16(door):
     return [
         step(room(16), (16, plate, D, 1.0, 1.0)),
         step(room(16, DOOR[door]), (16, DOORX[door], D, 1.0, 1.0)),
-        # into that door (Up by it: sequence 0x46): the left one is cols 1..2, the right one cols 5..6
+        # into that door (Up by it: sequence 0x46): the left one is cols 1..2, the right one cols 5..6; its stairs
+        # go right and up (routegen's ENTER pulls the same way)
         step(room(16, ("Player Current Sequence", "==", 0x46),
-                  ("Player Current Col", "<=", 3) if door == "L" else ("Player Current Col", ">=", 4))),
+                  ("Player Current Col", "<=", 3) if door == "L" else ("Player Current Col", ">=", 4)), (16, R, U, 1.0, 1.0)),
     ]
 
 
@@ -131,7 +151,12 @@ for sw in (0, 1):
     # the first head's push through room 4's left wall into room 7
     for door in ("L", "R"):
         name = ("sw-" if sw else "ns-") + "push-" + door
-        ROUTES[name] = dedup(to4(sw) + [step(room(4), (4, L, None, 1.0, 1.0)), step(room(7), (7, L, D, 1.0, 1.0))] + exit16(door))
+        # (with the sword the push's step asks for it: his first pass through room 4, down to room 17, is not it.
+        # The push throws him to and fro, x 115 .. 198 from tick to tick, before he is through: once inside the wall
+        # (x < 140, a step of its own) he stays above those the head has not pushed yet, whatever the tick's x)
+        push = [step(room(4, SWORD), (4, L, None, 1.0, 1.0)),
+                step(room(4, SWORD, row(2), ("Player Pos X", "<", 140)), (4, L, None, 1.0, 1.0))] if sw else [step(room(4), (4, L, None, 1.0, 1.0))]
+        ROUTES[name] = dedup(to4(sw) + push + [step(room(7), (7, L, D, 1.0, 1.0))] + exit16(door))
         MAXHP[name] = 3
 for door in ("L", "R"):
     ROUTES["sw-pot-push-" + door] = dedup(potion_push() + exit16(door))
@@ -152,6 +177,8 @@ for k in ROUTES:
 # a push from room 4's upper rows (climbing) lands inside room 7's top-row walls (cols 7..9), for good
 for k in ROUTES:
     if "push" in k: FAILS[k].append([("Player Room", "==", 7), ("Player Current Row", "==", 0)])
+    # (the sword routes end with it: room 7 without the sword is another route)
+    if "push" in k and k.startswith("sw-"): FAILS[k].append([("Player Room", "==", 7), ("Tile[17][16]", "==", 0x16)])
 for k in ROUTES:
     if "pot" in k:
         FAILS[k] += [[("Tile[6][26]", "==", 0), ("Player Max HP", "==", 3)],

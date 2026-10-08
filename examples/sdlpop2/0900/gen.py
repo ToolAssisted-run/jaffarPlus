@@ -15,9 +15,14 @@ import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from routegen import L, R, U, D, ROW_Y, col_x, room, hp, row, step, dedup, main  # noqa: E402
 
-H0 = 5   # max HP at level 9's start ("Max HP At Level", as levels 7 and 8)
+RUN = "--run" in sys.argv
+H0 = 4 if RUN else 5   # max HP at level 9's start ("Max HP At Level", as levels 7 and 8); the final run (--run) comes
+                       # with the 4 it has, no "Max HP At Level"
 TOP = ("Player Pos Y", "<", 100)   # on the top row (its floor at y 56; row 1's at 119)
 HEADS8 = {"Type": "Set Room Heads Magnet", "Room": 8, "Position": col_x(0), "Row": 2, "Intensity": 1.0}   # (pot)
+
+
+HANG = {4: 332, 8: 399}   # the hangs' x (the far edges of the top row's gaps in rooms 4 and 8)
 
 
 def east_start():
@@ -33,7 +38,9 @@ def top_row(*c):
     return [
         step(room(1, *c), (1, col_x(7), U, 1.0, 2.0)),
         step(room(1, *c, row(0)), (1, L, ROW_Y[0], 1.0, 2.0)),
-    ] + [step(room(r, *c, TOP), (r, L, ROW_Y[0], 1.0, 2.0)) for r in (5, 4, 6, 8)]
+    # (rooms 4 and 8: the top row's gap is jumped short, 18 ticks hanging from its far edge (y 119) and climbing: a
+    # weaker pull up there, or the gap's near edge scores above the hang)
+    ] + [step(room(r, *c, TOP), (r, L, ROW_Y[0], 1.0, 0.5 if r in HANG else 2.0)) for r in (5, 4, 6, 8)]
 
 
 ROUTES = {
@@ -60,6 +67,12 @@ MAXHP = {"np": H0, "pot": H0 + 1}
 # fails (not their tiles: room 9's loose floor at row 1 col 2, under the landing past its gap, falls on its potion)
 FAILS = {k: [[("Player Current Sequence", "==", 0x4E), ("Player Room", "!=", 13), ("Current Level", "==", 9)]] for k in ROUTES}
 FAILS["pot"].append([("Next Level", "==", 10), ("Player Max HP", "==", H0), ("Current Level", "==", 9)])   # (the end before the potion)
+# np: off the top-row path there is nothing: below the hangs' height in its rooms, or on the middle row left of a
+# hang (a runner down there outscores the hang above him, the room pulling left)
+for r in (5, 4, 6, 8):
+    FAILS["np"].append([("Player Room", "==", r), ("Player Pos Y", ">", 130), ("Current Level", "==", 9)])
+for r, x in HANG.items():
+    FAILS["np"].append([("Player Room", "==", r), ("Player Pos Y", ">=", 100), ("Player Pos X", "<", x - 4), ("Current Level", "==", 9)])
 # (Sergio) hit points: none lost before the potion (the drink's own tick aside: max HP up first); on the way back
 # along the bottom row some bites are allowed (the woken heads of rooms 8, 4 and 5 follow him from room to room and fly
 # faster than he runs: a probe found no way back unbitten), down to 3 left (the HP magnet still counts each one); none
@@ -80,7 +93,7 @@ LEVEL = {
     "hash": [],
     "fails": FAILS,
     "penalize_ahead": True,
-    "emulator": {"Max HP At Level": [9, H0]},
+    "emulator": {} if RUN else {"Max HP At Level": [9, H0]},
 }
 
 # pot: room 8's heads, woken on the way west, live in the room records while he is away: hashed, so that the search

@@ -47,7 +47,10 @@ def tail():
         # room 12: across its hole (cols 2..5, down to room 10) to col 6: the running jump from room 17's floor falls
         # short, Shift (and Up) catches col 6's edge as he drops into room 10's top (x ~340) and he climbs onto it (as
         # level 6's potion); then up its pillar (col 7) to the middle row, right into 6
-        step(room(12), (12, col_x(6), ROW_Y[2], 1.0, 1.0), (10, 337, -100, 1.0, 1.0, "keep")),
+        # (the hang reads room 10's top row, x ~341, y 56: its magnet stands just above it, so the 18 ticks hanging
+        # and climbing (the smoothed y rises 4 px a tick) score what the jump did and more, not 116 less than the
+        # hole's near edge)
+        step(room(12), (12, col_x(6), ROW_Y[2], 1.0, 1.0), (10, 337, 30, 1.0, 1.0, "keep")),
         step(room(12, row(2), ("Player Current Col", ">=", 6)), (12, col_x(7), U, 1.0, 2.0)),
         step(room(12, row(1)), (12, R, ROW_Y[1], 1.0, 1.0)),
         step(room(6), (6, R, U, 1.0, 1.0)),
@@ -56,6 +59,10 @@ def tail():
         # col 1 kept the sword-stance steps toward it over the sheathing, ~50 ticks lost)
         step(room(29), (29, col_x(1), U, 0.2, 2.0)),
         step(room(2), (2, 184, U, 1.0, 2.0), opp=KILL2),   # (the climbs start at col 1 facing left: col 0 has no ledge above)
+        # (the head dead is a step of its own and ends the magnet: ~21 ticks after its death the opponent's hit points
+        # read full again for a tick, 598 less on the magnet, and a full database drops that tick's states)
+        step(room(2, ("Opponent Room", "==", 2), ("Opponent Char Id", "==", 8), ("Opponent Current HP", "==", 0)),
+             (2, 184, U, 1.0, 2.0), opp=0.0),
         step(room(16), (16, L, ROW_Y[1], 1.0, 1.0), opp=0.0),
         step(room(28), (28, L, ROW_Y[1], 1.0, 1.0)),
         step(room(20), (20, col_x(7), D, 1.0, 1.0)),
@@ -113,6 +120,23 @@ def potion7(n):
     ]
 
 
+def potion7clip(n):
+    """room 7 from its left wall (the r1c routes): he comes out of room 31's wall on the middle row's left end (x 78 ..
+    202, thrown to and fro, for three ticks back in room 31 at x ~436, the same place), the head's bite drops him to
+    the bottom row, right along it, up at col 7 (x ~393) onto the potion's floor (row 1 col 8, drunk at x ~429), then
+    the head's push through the right wall into 17. The room pulls down and right until he is under the potion, then
+    up to where he drinks: pulled to the potion on its row from the start, the wall's states stood 135 above the
+    bottom row's for 50 ticks, and those at col 8 above the drinking ones."""
+    return [
+        # (room 31 at its right end scores what room 7's wall does: no way back further)
+        step(room(7, hp(n)), (7, 395, D, 1.0, 1.0), (31, 896, U, 1.0, 0.0, "keep")),
+        step(room(7, hp(n), row(2)), (7, 395, D, 1.0, 1.0)),
+        step(room(7, hp(n), row(2), ("Player Pos X", ">=", 380)), (7, 395, U, 1.0, 1.0)),
+        step(room(7, hp(n), row(1), ("Player Pos X", ">=", 395)), (7, 429, ROW_Y[1], 1.0, 1.0)),
+        step(room(7, hp(n + 1)), (7, R, ROW_Y[1], 1.0, 1.0)),
+    ]
+
+
 def potion24(n):
     """5's bottom row: down a gap (0x0F, col 4 or 6) into 9's top row, left into 24, the potion (row 0 col 3), back
     through 9 up into 5, right along 5's bottom row (the low tunnel, 0x07) into 1, its plate (row 2 col 8) opens its
@@ -140,16 +164,18 @@ def west(n):
     ]
 
 
-# max HP 5 at level 7's start ("Max HP At Level", Sergio: the run reaches it with enough): the potions' counts from there
-H0 = 5
+# max HP 5 at level 7's start ("Max HP At Level", Sergio: the run reaches it with enough): the potions' counts from there.
+# The final run (--run) comes with the 3 it has: no "Max HP At Level", room 7's potion makes 4.
+RUN = "--run" in sys.argv
+H0 = 3 if RUN else 5
 ROUTES = {
     # (Sergio) 32 31 (its wall) 7 (the head's push or a clip through its right wall) 17, then as route 1
     "r1c": from32clip() + [step(room(7), (7, R, ROW_Y[1], 1.0, 1.0))] + tail(),
     # 32 31 7 (the potion; the push) 17, then as route 1
-    "r1c-pot": from32clip() + potion7(H0)[2:] + tail(),
+    "r1c-pot": from32clip() + potion7clip(H0) + tail(),
     # 32 31 7 (potion; push) 17 11 10 (the head's push through the bottom row's right wall) 5 9 24 (potion) 9 5 1 (the
     # gate) 5 10 11 17, then as route 1
-    "r1c-pot2": from32clip() + potion7(H0)[2:] + [
+    "r1c-pot2": from32clip() + potion7clip(H0) + [
         step(room(17, hp(H0 + 1)), (17, col_x(3), D, 1.0, 1.0)),
         step(room(11, hp(H0 + 1)), (11, R, ROW_Y[1], 1.0, 1.0)),
         step(room(10, hp(H0 + 1)), (10, R, ROW_Y[2], 1.0, 1.0)),
@@ -209,7 +235,7 @@ LEVEL = {
              [30, 4], [30, 6]],
     "fails": FAILS,
     "penalize_ahead": True,
-    "emulator": {"Max HP At Level": [7, H0]},
+    "emulator": {} if RUN else {"Max HP At Level": [7, H0]},
 }
 
 if __name__ == "__main__":

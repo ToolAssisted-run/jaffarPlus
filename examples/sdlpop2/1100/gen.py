@@ -24,7 +24,9 @@ import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from routegen import L, R, U, D, ROW_Y, col_x, room, hp, row, step, dedup, main  # noqa: E402
 
-H0 = 5   # max HP at level 11's start ("Max HP At Level", as levels 7 to 10)
+RUN = "--run" in sys.argv
+H0 = 4 if RUN else 5   # max HP at level 11's start ("Max HP At Level", as levels 7 to 10); the final run (--run) comes
+                       # with the 4 it has, no "Max HP At Level"
 SEEN9 = ("Visited Room[9]", "==", 1)         # room 2 the second time: fallen into from room 9's jump
 RIGHT9 = ("Player Pos X", ">", col_x(7))     # room 9's right side (cols 8..9), up from room 2's right ledge
 LOOSE3 = ("Tile[3][2]", "!=", 0x0B)          # room 3's top-row loose floor (col 1) broken
@@ -108,9 +110,10 @@ def rest(*c, via19=False):
         # climbing); col 6's loose floor, run over, falls all the way down onto room 1's plate (row 2 col 6), which opens
         # room 20's gate (row 2 col 0): wait there for it, then left
         # (the hang under its floor's edge counts as room 19, below: not penalized there, drawn up)
-        step(room(20, *c, EXIT), (20, col_x(1), ROW_Y[2], 1.0, 1.0), (19, col_x(1), U, 1.0, 1.0, "keep")),
+        # (its magnet just above the hang, y 30: hanging and climbing score what the jump did, not 68 less)
+        step(room(20, *c, EXIT), (20, col_x(1), ROW_Y[2], 1.0, 1.0), (19, col_x(1), 30, 1.0, 1.0, "keep")),
         step(room(20, *c, EXIT, ("Player Pos X", "<", col_x(2)), row(2)), (20, col_x(1), ROW_Y[2], 1.0, 1.0),
-             (19, col_x(1), U, 1.0, 1.0, "keep")),
+             (19, col_x(1), 30, 1.0, 1.0, "keep")),
         step(room(20, *c, EXIT, GATE20), (20, L, ROW_Y[2], 1.0, 1.0)),
         step(room(27, *c, EXIT), (27, L, ROW_Y[2], 1.0, 1.0)),
         step(room(28, *c, EXIT), (28, None, D, 1.0, 1.0)),
@@ -156,7 +159,7 @@ FAILS = {"np": [[("Player Current Sequence", "==", 0x4E), ("Current Level", "=="
          "pot": [[("Player Current Sequence", "==", 0x4E), ("Player Room", "!=", 3), ("Current Level", "==", 11)]]}
 # (down room 20's gap past its ledge: through room 19 into room 17 once the exit door opens; the catch itself dips to
 # y ~205 in room 20, then hangs in room 19)
-FAILS["pot"].append([("Player Room", "==", 17), EXIT, ("Current Level", "==", 11)])
+for k in ("np", "pot"): FAILS[k].append([("Player Room", "==", 17), EXIT, ("Current Level", "==", 11)])
 FAILS["pot19"] = FAILS["pot"][:-1]
 
 LEVEL = {
@@ -167,7 +170,7 @@ LEVEL = {
     "fails": FAILS,
     "penalize_ahead": True,
     "hash_visited": [9, 25],   # (rules read them)
-    "emulator": {"Max HP At Level": [11, H0]},
+    "emulator": {} if RUN else {"Max HP At Level": [11, H0]},
 }
 
 if __name__ == "__main__":

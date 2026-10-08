@@ -25,7 +25,9 @@ import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from routegen import L, R, U, D, ROW_Y, col_x, room, hp, row, step, dedup, main  # noqa: E402
 
-H0 = 5   # max HP at level 8's start ("Max HP At Level", as level 7: the run reaches it with enough)
+RUN = "--run" in sys.argv
+H0 = 4 if RUN else 5   # max HP at level 8's start ("Max HP At Level", as level 7: the run reaches it with enough); the
+                       # final run (--run) comes with the 4 it has, no "Max HP At Level"
 SWORD = ("Tile[9][26]", "!=", 0x16)       # the heirloom sword taken (room 9 row 2 col 5)
 EXIT = ("Tile Opening[23][23]", ">", 0)   # room 23's exit door (row 2 col 2)
 # room 2's gate (row 2 col 9, between rooms 3 and 2): open at the start (200), it slams ~3 ticks after he comes over room
@@ -60,7 +62,9 @@ def west():
         # 11: in on its middle row (from 22's), up to its top row at col 7 (the one gap above it), left, up through
         # room 9's floor gap (col 2)
         step(room(11), (11, col_x(7), U, 1.0, 2.0)),
-        step(room(11, row(0)), (11, col_x(2), U, 1.0, 2.0)),
+        # (the jump up and the climb are at x ~236, under the gap's middle: pulled to col 2's left end, standing there
+        # scored 20 above the jump's 18 ticks)
+        step(room(11, row(0)), (11, 236, U, 1.0, 2.0)),
     ]
 
 
@@ -147,7 +151,7 @@ LEVEL = {
     "hash": [[23, 22], [23, 23], [2, 30], [17, 14], [17, 24], [9, 29], [12, 16], [17, 3]],
     "fails": FAILS,
     "penalize_ahead": True,
-    "emulator": {"Max HP At Level": [8, H0]},
+    "emulator": {} if RUN else {"Max HP At Level": [8, H0]},
 }
 
 if __name__ == "__main__":

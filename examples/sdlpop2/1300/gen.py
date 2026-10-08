@@ -25,7 +25,8 @@ import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from routegen import L, R, U, D, ROW_Y, col_x, room, hp, row, step, dedup, main  # noqa: E402
 
-H0 = 6   # max HP at level 13's start (level 11's potion)
+RUN = "--run" in sys.argv
+H0 = 4 if RUN else 6   # max HP at level 13's start (level 11's potion); the final run (--run) comes with the 4 it has
 LOOSE3 = ("Tile[3][18]", "!=", 0x0B)          # room 3's loose floor (row 1 col 7) gone (falling, onto room 5's plate)
 GATE20 = ("Tile Opening[20][20]", ">", 0)    # room 20's gate (row 1 col 9) opening
 GATE19 = ("Tile Opening[19][12]", ">", 0)    # room 19's gate (row 1 col 1) opening (room 10's plate)
@@ -39,7 +40,9 @@ def way(*c):
         # 3: right onto the loose floor (col 7): it falls onto room 5's plate, room 20's gate opens; back left, through it
         # (straight left the search dropped the same floor from afar, by three jumps' knocks: 140 ticks against 100)
         step(room(3, *c), (3, col_x(7), ROW_Y[1], 1.0, 1.0)),
-        step(room(3, *c, LOOSE3), (3, L, ROW_Y[1], 1.0, 1.0)),
+        # (room 20 counts once he is past its gate, x < col 8; the ticks in it before that score as room 3 goes on,
+        # x 120 there: left as a room ahead they scored 5000 less and a full database drops them)
+        step(room(3, *c, LOOSE3), (3, L, ROW_Y[1], 1.0, 1.0), (20, 120, ROW_Y[1], 1.0, 1.0, "keep")),
         step(room(20, *c, GATE20, PAST20), (20, L, ROW_Y[1], 1.0, 1.0)),
         step(room(9, *c), (9, L, ROW_Y[1], 1.0, 1.0)),
         step(room(10, *c), (10, L, ROW_Y[1], 1.0, 1.0)),
@@ -98,7 +101,7 @@ LEVEL = {
     "hash": [[20, 20], [19, 12], [28, 17], [32, 13], [32, 16], [3, 18], [5, 18], [11, 15], [19, 8], [13, 16], [4, 13]],
     "fails": FAILS,
     "penalize_ahead": True,
-    "emulator": {"Max HP At Level": [11, 5]},   # (level 11 replays as searched: 5, its potion 6)
+    "emulator": {} if RUN else {"Max HP At Level": [11, 5]},   # (level 11 replays as searched: 5, its potion 6)
 }
 
 if __name__ == "__main__":

@@ -944,8 +944,16 @@ What recurs (for any new script):
 **Level 11's hit points.** The route without the potion takes four hits on its old path: room 3's loose floor as
 it falls (the chunk without the potion), the fall into room 13 from room 18's hole, the drop in room 29, the fall
 from room 28 into 26. The exploration had 5; the run has 4. The search fails a dead prince, but it keeps the fastest
-states, which take each hit as it comes: the ones that spared a hit point further back are behind and dropped. To
-settle before level 11's search: which hits can be dodged, and at what cost.
+states, which take each hit as it comes: the ones that spared a hit point further back are behind and dropped. Two
+tests (4 GB, the old chain, a fail on any hit):
+
+- **Room 3's floor is stepped away from at no cost:** room 9's ledge to room 12 in 111 ticks unhurt, 110 with the
+  hit. (The first try sat 200 ticks in room 3: the step after the floor's fall pulled to col 0's left end, where the
+  jump up catches nothing; the hit had thrown him to the right x, ~178..184. The magnet is there now.)
+- **The fall into room 13** (a medium landing: a hit point and ~28 ticks crouched): room 17's plate to room 23 in 91
+  ticks with it, 96 unhurt (down by the hole's edge, a row's drop).
+
+So the run's script (`np --run`) fails any hit up to room 3 and leaves the three falls: 4 -> 1 at the door.
 
 ### The level ends' music (found 2026-10-08)
 

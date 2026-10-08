@@ -31,6 +31,7 @@ SEEN9 = ("Visited Room[9]", "==", 1)         # room 2 the second time: fallen in
 RIGHT9 = ("Player Pos X", ">", col_x(7))     # room 9's right side (cols 8..9), up from room 2's right ledge
 LOOSE3 = ("Tile[3][2]", "!=", 0x0B)          # room 3's top-row loose floor (col 1) broken
 SHAKE3 = ("Tile Opening[3][2]", ">", 0)      # ... or set shaking (bumped from below: its low byte counts up)
+CLIMB3 = 178                                 # room 3: the jump up onto the top row's col 0, once the loose floor is gone
 LOOSE_FIRST = "--loosefirst" in sys.argv       # (room 3: the loose floor before the potion)
 if LOOSE_FIRST: sys.argv.remove("--loosefirst")
 GATE6 = ("Tile Opening[6][20]", ">", 0)     # room 6's gate (row 1 col 9), opened from room 12's top row (col 4)
@@ -129,7 +130,9 @@ ROUTES = {
     # 5 1 2 4 10 9 3 (up the left) 12 ...
     # (room 3 without its potion: under the loose floor, col 1, knocked down from below; then up at col 0. With the
     # magnet at col 0 from the start the search jumped there for 138 ticks and more)
-    "np": start() + [step(room(3), (3, col_x(1), U, 1.0, 2.0)), step(room(3, LOOSE3), (3, col_x(0), U, 1.0, 2.0))] + rest(),
+    # (the climb's jump is at x ~178..184, under col 0's right end: pulled to col 0's left end he jumped there, where
+    # nothing is caught, for 200 ticks: a test without the falling floor's hit, which had thrown him to the right x)
+    "np": start() + [step(room(3), (3, col_x(1), U, 1.0, 2.0)), step(room(3, LOOSE3), (3, CLIMB3, U, 1.0, 2.0))] + rest(),
     # ... 3 (right, to the potion, row 2 col 7; then back up into room 12) 12 ...
     "pot": start() + [
         # 3: right to the potion (through row 1's wall at col 2: a wall clip), then (Sergio) back left the same way, under
@@ -140,11 +143,11 @@ ROUTES = {
         step(room(3, hp(H0)), (3, col_x(1), U, 1.0, 2.0)),
         step(room(3, hp(H0), SHAKE3), (3, col_x(7), ROW_Y[2], 1.0, 1.0)),
         step(room(3, hp(H0 + 1)), (3, col_x(1), ROW_Y[1], 1.0, 1.0)),
-        step(room(3, hp(H0 + 1), LOOSE3), (3, col_x(0), U, 1.0, 2.0)),
+        step(room(3, hp(H0 + 1), LOOSE3), (3, CLIMB3, U, 1.0, 2.0)),
     ] if LOOSE_FIRST else [
         step(room(3, hp(H0)), (3, col_x(7), ROW_Y[2], 1.0, 1.0)),
         step(room(3, hp(H0 + 1)), (3, col_x(1), ROW_Y[1], 1.0, 1.0)),
-        step(room(3, hp(H0 + 1), LOOSE3), (3, col_x(0), U, 1.0, 2.0)),
+        step(room(3, hp(H0 + 1), LOOSE3), (3, CLIMB3, U, 1.0, 2.0)),
     ]) + [
     ] + rest(),
 }
@@ -160,6 +163,9 @@ FAILS = {"np": [[("Player Current Sequence", "==", 0x4E), ("Current Level", "=="
 # (down room 20's gap past its ledge: through room 19 into room 17 once the exit door opens; the catch itself dips to
 # y ~205 in room 20, then hangs in room 19)
 for k in ("np", "pot"): FAILS[k].append([("Player Room", "==", 17), EXIT, ("Current Level", "==", 11)])
+# the run (4 hit points, three falls to come that cost one each: into room 13, in room 29, into room 26): none lost
+# up to room 3, whose falling floor is stepped away from at no cost (111 ticks against 110 with its hit)
+if RUN: FAILS["np"].append([("Player Room", "==", 3), ("Player Current HP", "<", "Player Max HP"), ("Current Level", "==", 11)])
 FAILS["pot19"] = FAILS["pot"][:-1]
 
 LEVEL = {

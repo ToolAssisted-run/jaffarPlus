@@ -99,6 +99,9 @@ def build(lv, route, upto, db, init, tag, maxsteps, anyframe=False, run=False):
         acts = [{"Type": "Add Reward", "Value": 1000.0}]
         own = s["cond"][0][2] if s["cond"] and s["cond"][0][0] == "Player Room" else prev
         mags = list(s["mags"])
+        # the door's stairs take the prince 45 px right and 25 up over the level's last ~20 ticks: the room pulls that
+        # way once he is on them (left to the door's own magnets, the first in scored 49 less than those behind him)
+        if s["cond"] == ENTER["cond"] and not mags and prev is not None: mags = [(prev, R, U, 1.0, 1.0)]
         if prev is not None and own != prev and prev not in [m[0] for m in mags]: mags.append((prev, None, None))
         if lv.get("penalize_ahead"): mags += [(r, None, None) for r in sorted(on) if r != own and r not in [m[0] for m in mags]]
         prev = own

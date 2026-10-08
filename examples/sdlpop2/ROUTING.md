@@ -114,6 +114,12 @@ Level notes:
   got through all the same; at 300 GB (12 M states) the database filled with the alcove's states, the falls scored
   63 less and were dropped: 300 steps in room 26, twice. Room 26 now pulls down and left, the rooms after it left
   only (`gen.py`). A magnet pointing the wrong way is hidden by a small database and fatal in a wide one.
+- **Checking a script before a wide search:** `tools/rewardcheck.py SCRIPT SOLUTION` replays a known solution through
+  the script and lists where its reward dips below what it had (the old 592 solution replays unchanged on the new
+  core and chain). The old magnets: 41 deep for 29 steps from the alcove's exit, the fatal one; the new: gone. Left:
+  36 for 47 steps while he drinks the slow-fall potion (step 117, early: the database is not full yet), and with the
+  door's own magnets 49 over the stairs' 17 ticks (the first in scores less than those behind him): the entry step
+  now pulls along the stairs, right and up (`routegen.py`; level 4's running script still has the old ending).
 - **Falls:** without the slow-fall potion, room 10's holes drop the prince through 23 into 22 to his death; the potion
   route stands at room 10's col 9 before going down.
 - In quicker the level ends ("Next Level" = 5) one tick before level 5 loads; the times count to "Next Level".

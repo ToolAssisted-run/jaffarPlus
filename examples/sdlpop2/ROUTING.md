@@ -713,3 +713,34 @@ factor of two. To do: level 7 with its potion in the chain (1027), levels 8..13 
 points the run really has (3, then 4 from level 7; they were searched with 5), level 11 without its potion, level 14's
 room 3 from 5.
 
+## The global route (2026-10-08, the exploration closed)
+
+Ticks in play (12 a second). Estimates: the levels after a change replay differently (the random numbers, the hit
+points), so each is searched again in the chain.
+
+| Level | Route | Max HP after | Ticks | Running total |
+|---|---|---|---|---|
+| 1 | Restart Level at the checkpoint | 3 | 433 | 433 |
+| 2 | The sand puzzle on its best seed | 3 | 102 | 535 |
+| 3 | Left exit (1 5 7 8 11 13) | 3 | 476 | 1011 |
+| 4 | Slow fall, the top-row slide | 3 | 592 | 1603 |
+| 5 | No potion: round the bottom, the bridge, the carpet | 3 | 1436 | 3039 |
+| 6 | The sword, the head's push into room 7, left door | 3 | 426 | 3465 |
+| 7 | 32 31 (the wall) 7 **(its big potion)** ... 2 16 28 20 21 8 21 | 4 | 1027 | 4492 |
+| 8 | No potion (16 13 4 3 2 12 20 22 11 9 1 24 23) | 4 | 817 | 5309 |
+| 9 | No potion (10 9 1 5 4 6 8, the top row) | 4 | 373 | 5682 |
+| 10 | The shortcut (22 11 8 14 12 19) | 4 | 298 | 5980 |
+| 11 | The route without room 3's potion | 4 | ~2283 | 8263 |
+| 12 | 19 7 (clip) 14 (the plate) 22 14 15 16 6 17 10 9 8 19 7 | 4 | 735 | 8998 |
+| 13 | To the flame room alive, **room 29's big potion** on the way, room 28's door | 5 | 775 | 9773 |
+| 14 | The scene 51, **six big potions from room 3** ~847, the ending 529 | 11 | ~1427 | **~11200** |
+
+~11200 ticks, 15 min 33 s of play; in Chimera ~920 movie frames more (the boot, the scenes skipped, level 8's sword
+scene). What is estimated, not measured:
+
+- **Level 11** without its potion: the potion route's 2445 less the potion's 162 (measured between two common points).
+- **Level 14's room 3 from 5 hit points:** the 847 is six potions and the way back from 3 (3 -> 9); it hangs on the
+  random numbers (a potion 1 kill in 3, the guards' rows).
+- **Levels 8..13 were searched with 5 hit points**; the run has 4 there (level 11's falling floor costs one, level
+  12's route none).
+- **Level 13** is two chunks, not optimized; level 5's routes from before the smoothed y may hold waits.

@@ -1,0 +1,59 @@
+#!/bin/bash
+# post_level.sh N TAG STAGE... : the final run's level N once its search TAG has found a solution (NN00/TAG.sol), on
+# jaffanator2. The stages, in this order (ROUTING.md "The final run"):
+#   cut    tools/cutlevel.py: NN00/lNNcut.sol (the level as the run plays it) and the next level's chain
+#          (N+1)00/l0102..NNcut.sol
+#   movie  the search core's trace of the level and tools/mvextend.py with it: ~/pop2tas/run_cut_lNN.mov, Chimera's
+#          core checked against the search core on every tick (env AFTER: the rows pressed after the level)
+#   video  ~/pop2render/l8/render-run.sh: levelN-TICKS.mp4 (the level's rows and 30 more; env SHOWHP=1)
+#   dos    the chain in DOS in segments, both disks at once (sol2script.py with SYNC, orun.sh, tools/ocmp3.py); env
+#          SCENES: the hits of the scene probe that get Space, as the run presses it (default "5": the scene after
+#          level 5, whose skipping costs a draw), env END: the oracle's last frame
+# The chain before the level is NN00/l0102..(N-1)cut.sol, the movie before it ~/pop2tas/run_cut_l(N-1).mov.
+set -e
+N=$1; TAG=$2; shift 2
+S=$HOME/jaffarPlus-run/examples/sdlpop2; SEED=7881336
+NN=$(printf %02d $N); PP=$(printf %02d $((N - 1))); NX=$((N + 1))
+D=$S/${NN}00; NXD=$S/$(printf %02d $NX)00
+nums() { for i in $(seq 1 $1); do printf %02d $i; done; }
+CHAIN=l$(nums $((N - 1)))cut.sol; NEWCHAIN=l$(nums $N)cut.sol; CUT=l${NN}cut.sol
+for STAGE in "$@"; do
+  case $STAGE in
+  cut)
+    mkdir -p $NXD; [ -e $NXD/prince2 ] || ln -s $(readlink -f $D/prince2) $NXD/prince2
+    cd $D && python3 ../tools/cutlevel.py prince2 $SEED $CHAIN $TAG.sol $CUT $NXD/$NEWCHAIN
+    ;;
+  movie)
+    cd $D && $HOME/pop2tools-m/trs prince2 $SEED 0 0 $CHAIN $CUT > /dev/shm/core_l$NN.txt
+    cd $HOME/pop2render/l8 && CORE=/dev/shm/core_l$NN.txt python3 $S/tools/mvextend.py $HOME/pop2tas/run_cut_l$PP.mov $D/$CUT $NX $HOME/pop2tas/run_cut_l$NN.mov $AFTER
+    ;;
+  video)
+    FIRST=$(wc -l < $HOME/pop2tas/run_cut_l$PP.mov); T=$(grep -c "^|" $D/$CUT)
+    cp $HOME/pop2tas/run_cut_l$NN.mov /dev/shm/vid_l$NN.mov
+    # the level ended on the stairs, its music cut: the next level's first row switches the music on again
+    if tail -n +2 $D/$CUT | grep -q "^|M|"; then echo m >> /dev/shm/vid_l$NN.mov; fi
+    for i in $(seq 30); do echo . >> /dev/shm/vid_l$NN.mov; done
+    cd $HOME/pop2render/l8 && NEXT=$NX ./render-run.sh level$N-$T /dev/shm/vid_l$NN.mov $FIRST
+    ;;
+  dos)
+    SOL=/dev/shm/dos_l$NN.sol; CORE=/dev/shm/core_dos$NN.txt; NAME=RUN$NN
+    cp $NXD/$NEWCHAIN $SOL
+    if tail -n +2 $D/$CUT | grep -q "^|M|"; then echo "|M|......|" >> $SOL; else echo "|.|......|" >> $SOL; fi
+    for i in $(seq 9); do echo "|.|......|" >> $SOL; done
+    T=$(grep -c "^|" $SOL)
+    cd $D && $HOME/pop2tools-m/trs prince2 $SEED 0 0 /dev/shm/empty.sol $SOL > $CORE
+    cd $HOME/pop2dec/oracle
+    E=${END:-$((13000 + T * 63 / 10 + 2500 * (N - 4)))}
+    NOALT=1 SYNC=$CORE python3 sol2script.py $NAME $E $SOL
+    for k in ${SCENES:-5}; do sed -i "s|^end $E|probepoke scene $k 41A 1E0020002039\nend $E|" $NAME.script; done
+    for d in popmt32 pop; do ./orun.sh $NAME $d "prince yippeeyahoo LEVEL1" & done
+    wait
+    for d in popmt32 pop; do
+      echo "== $d: $T ticks scripted, the oracle's last frame $E"
+      python3 $HOME/pop2tools-run/ocmp3.py $NAME-$d-snap.txt $CORE
+      grep -a -E "probe=[0-9]+ (scene|loadlevel) at" $NAME-$d-snap.txt | sed -E "s/ n=.*probe=[0-9]+ / /; s/ bx=.*//" | tr "\n" ";"; echo
+    done
+    ;;
+  *) echo "unknown stage $STAGE"; exit 1;;
+  esac
+done

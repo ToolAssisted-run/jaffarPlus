@@ -9,8 +9,11 @@ the core's runner (env RUNNER, default ../bin/run-native-a5ee, run from its game
 Prints the level's first row and IGT there; OUT.mov ends on the row before it.
 
 env CORE: the search core's trace of the level (trs GAMEDIR SEED 0 0 CHAIN.sol LEVEL.sol > CORE): the runner's room,
-x and frame are compared with it on every tick of the level (the core's tick on its line's row), which is the check
-that Chimera's core plays the level as the search did.
+x, frame and random seed (the trace prints 9 digits of it) are compared with it on every tick of the level (the
+core's tick on its line's row), which is the check that Chimera's core plays the level as the search did.
+
+Without AFTER given, Space is tried first and nothing if the next level then starts on Space's row (no story scene
+after the level).
 
 A scene inside the level (level 8's sword scene, level 14's Jaffar scene: the search core plays none, in Chimera it
 is skipped by Space and takes rows) shows as the runner's tick count standing still on one of the level's rows:
@@ -29,7 +32,7 @@ def letters(s):
 
 
 def play(rows):
-    """the runner's trace, per row: (level, room, x, frame, tick count, IGT ticks), each after the row's frame"""
+    """the runner's trace, per row: (level, room, x, frame, tick count, IGT ticks, seed), each after the row's frame"""
     with tempfile.TemporaryDirectory() as d:
         mov, tr = os.path.join(d, "m.mov"), os.path.join(d, "t.txt")
         open(mov, "w").write("\n".join(rows) + "\n")
@@ -38,7 +41,7 @@ def play(rows):
         out = {}
         for l in open(tr):
             f = l.split()
-            if f[0].isdigit(): out[int(f[0])] = tuple(int(float(f[i])) for i in (3, 4, 5, 6, 8, 9))
+            if f[0].isdigit(): out[int(f[0])] = tuple(int(float(f[i])) for i in (3, 4, 5, 6, 8, 9, 7))
     return out
 
 
@@ -50,22 +53,23 @@ def first_rows(tr):
 
 
 def core_trace(path):
-    """trs: tick, room, x, y, frame, hp, seed, Llevel -> tick: (level, room, x, frame)"""
+    """trs: tick, room, x, y, frame, hp, seed, Llevel -> tick: (level, room, x, frame, seed)"""
     out = {}
     for l in open(path):
         f = l.split()
-        if f and f[0].isdigit(): out[int(f[0])] = (int(f[7][1:]), int(f[1]), int(f[2]), int(f[4]))
+        if f and f[0].isdigit(): out[int(f[0])] = (int(f[7][1:]), int(f[1]), int(f[2]), int(f[4]), int(f[6]))
     return out
 
 
 def differ(tr, core, rowof, lv):
     """the level's ticks on which the runner is not where the core is"""
-    return [t for t in sorted(core) if core[t][0] == lv and t - 1 < len(rowof) and tr.get(rowof[t - 1], (None,))[:4] != core[t]]
+    def same(r, c): return r is not None and r[:4] == c[:4] and abs(r[6] - c[4]) <= 8
+    return [t for t in sorted(core) if core[t][0] == lv and t - 1 < len(rowof) and not same(tr.get(rowof[t - 1]), core[t])]
 
 
 def main():
     prev, level, nxt, out = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
-    after = sys.argv[5:] or ["_"]
+    after = sys.argv[5:] or ["_"]; given = len(sys.argv) > 5
     core = core_trace(os.environ["CORE"]) if os.environ.get("CORE") else None
     rows = [l.strip() for l in open(prev) if l.strip()]
     start = len(rows)
@@ -106,10 +110,15 @@ def main():
     if core is not None:
         bad = differ(tr, core, rowof, lv)
         print("the runner against the core: %d ticks of level %d compared, %s" % (sum(1 for t in core if core[t][0] == lv), lv,
-              "all equal (room, x, frame)" if not bad else "%d DIFFER, from tick %d (row %d)" % (len(bad), bad[0], rowof[bad[0] - 1])))
+              "all equal (room, x, frame, seed)" if not bad else "%d DIFFER, from tick %d (row %d)" % (len(bad), bad[0], rowof[bad[0] - 1])))
         if bad: sys.exit(1)
     if nxt not in r: sys.exit("level %d not reached: %s" % (nxt, r))
     row, igt = r[nxt]
+    if row < len(rows) and not given and after:
+        # no story scene after the level: the next one starts on the row after its last line
+        rows = rows[:len(rows) - len(after)]; after = []
+        r = first_rows(play(rows + ["."] * 400)); row, igt = r[nxt]
+        print("no scene after the level: nothing pressed there")
     if row < len(rows): sys.exit("level %d starts on row %d, before the rows end (%d)" % (nxt, row, len(rows)))
     rows += ["."] * (row - len(rows))
     open(out, "w").write("\n".join(rows) + "\n")

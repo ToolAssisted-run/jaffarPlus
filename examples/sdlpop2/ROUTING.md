@@ -893,7 +893,7 @@ core's button is "Music On/Off" (the movie letter `m`).
 - **Level 6's start, tried ahead** (the run's chain to level 4, level 5's old solution, which replays on it, the
   story scene skipped by Space): Chimera's runner and the search core agree on 460 ticks of level 6 with its old
   solution, the seed too (1775488991 after its first tick: the ambient sound's draw), and that old solution plays
-  to the door there (426). Level 5 leaves the same seed whatever seed it started with.
+  to the door there (426): level 5's old solution leaves the old chain's seed, from another seed at its start.
 - Levels 1 to 3 keep their solutions: no random number is drawn in level 1's wait, level 2 has none, and with the
   music back on its first tick level 2 and level 3 replay tick for tick (the fixed core against the old chain; DOS
   against the fixed core: `CUT3d.script`, both disks, every tick equal up to level 4's first ticks). Level 4 starts

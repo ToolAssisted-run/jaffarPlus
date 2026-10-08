@@ -764,4 +764,28 @@ on either device; the MT-32's start-up takes 655 frames more.
 - **Chimera:** the core's runner built on the same SDLPoP2 (`run-native-e927`): 105 more ticks after level 1, then the
   story scene. The project file is written by the core's own `waterbox/tests/make-project.py` from a movie in the
   runner's letters.
+- **What counts is the in-game time** (Sergio): the game clock, a tick of play at a time while the prince lives,
+  counted from level 1's first tick (the game's own clock stays stopped until the story scene after level 4; the
+  Chimera core's "IGT Ticks" adds the ticks before it, its `igt_from_level_1` setting, the game unchanged). So the
+  searches' ticks are the measure; the boot and the story scenes cost nothing; the level ends' music waits count
+  (neither Sound On/Off nor Music On/Off shortens them: Alt+M only stops the ambient pieces).
+
+| Level | Ticks | IGT at its end | First row in Chimera | DOS (MT-32 and Sound Blaster disks) |
+|---|---|---|---|---|
+| 1 | 433 + 105 (the music) = 538 | 538 | 664 | every tick equal |
+| 2 | **101** (was 102) | 639 | 1212 | every tick equal (639 ticks, the seed 1640912200 at the end) |
+| 3 | searching (`0300/script-left.jaffar`) | | 1380 | |
+
+- **Level 1** at 300 GB: 433 again; the solution kept is the old one (`tas/l01.sol`), which Random Seed 25 ties to
+  level 2's sand trick.
+- **Level 2:** its fast solutions (101..107) do not hang on the puzzle's right tile but on a trick of the sand tiles
+  that few seeds allow (the old 102 holds for 5 settings in 4000, with tile 4 in two variants; the plain solutions
+  take 136..148 and hold for most seeds of their tile). A 40 GB search from the real chain misses it; 300 GB: 101
+  (`tas/l02.sol`).
+- **The copy protection** after level 2 (its question is drawn): the second symbol of the top row here (Space,
+  Right, a free row, Shift); level 3's first frame is row 1380.
+- **The project:** `tas/pop2-tas.chimeraProject` (`tools/mkproject.py`: the released core package 4d44f96, MT-32,
+  Random Seed 25, a marker a level), from `tas/run.mov`. The runner built from the same sources plays it to level 3
+  (IGT 639 at its first row). The headless Chimera built here is a month old and refuses the project's "id" key,
+  which the current one knows: not yet played through Chimera itself.
 

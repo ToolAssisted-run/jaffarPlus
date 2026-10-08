@@ -9,6 +9,10 @@
 #   dos    the chain in DOS in segments, both disks at once (sol2script.py with SYNC, orun.sh, tools/ocmp3.py); env
 #          SCENES: the hits of the scene probe that get Space, as the run presses it (default "5": the scene after
 #          level 5, whose skipping costs a draw), env END: the oracle's last frame
+#   project  the run so far as a Chimera project, ~/pop2tas/pop2-tas.chimeraProject (tools/mkproject.py, a marker a
+#          level), after the packaged core (sandboxed: run-wbx with core.wbx, what Chimera loads) has played the
+#          movie as the runner does. The package is a local build (~/pop2tas/sdlpop2-a5ee-local.chimeraCore, from
+#          ~/pop2render/core-pkg: the core's tree with SDLPoP2's Music On/Off fix) until a release has the fix.
 # The chain before the level is NN00/l0102..(N-1)cut.sol, the movie before it ~/pop2tas/run_cut_l(N-1).mov.
 set -e
 N=$1; TAG=$2; shift 2
@@ -53,6 +57,18 @@ for STAGE in "$@"; do
       python3 $HOME/pop2tools-run/ocmp3.py $NAME-$d-snap.txt $CORE
       grep -a -E "probe=[0-9]+ (scene|loadlevel) at" $NAME-$d-snap.txt | sed -E "s/ n=.*probe=[0-9]+ / /; s/ bx=.*//" | tr "\n" ";"; echo
     done
+    ;;
+  project)
+    P=$HOME/pop2render/core-pkg; PKG=$HOME/pop2tas/sdlpop2-a5ee-local.chimeraCore; MOV=$HOME/pop2tas/run_cut_l$NN.mov
+    R=$(wc -l < $MOV); PR="Level,Kid.Room,Kid.X,Kid.Frame,Random Seed,Tick,IGT Ticks"
+    cd $HOME/pop2render/l8
+    $P/build/native/run-wbx $P/build/guest/core.wbx . --movie $MOV --frames $R --trace /dev/shm/tr_wbx.txt --trace-props "$PR" > /dev/null 2>&1
+    ../bin/run-native-a5ee . --movie $MOV --frames $R --trace /dev/shm/tr_nat.txt --trace-props "$PR" > /dev/null 2>&1
+    if cmp -s /dev/shm/tr_wbx.txt /dev/shm/tr_nat.txt; then echo "the packaged core (sandboxed) against the runner: $R rows equal; the last: $(tail -1 /dev/shm/tr_wbx.txt)"
+    else echo "the packaged core DIFFERS from the runner"; exit 1; fi
+    MARKS=("664:Level 1" "1107:Level 2" "1275:Level 3" "1673:Level 4")
+    for k in $(seq 5 $N); do MARKS+=("$(wc -l < $HOME/pop2tas/run_cut_l$(printf %02d $((k - 1))).mov):Level $k"); done
+    python3 $HOME/pop2tools-run/mkproject.py $PKG $P/waterbox/tests/make-project.py $MOV $HOME/pop2tas/pop2-tas.chimeraProject "${MARKS[@]}"
     ;;
   *) echo "unknown stage $STAGE"; exit 1;;
   esac

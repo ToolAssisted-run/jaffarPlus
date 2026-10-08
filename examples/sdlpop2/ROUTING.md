@@ -917,6 +917,14 @@ core's button is "Music On/Off" (the movie letter `m`).
   frame, random seed) and lays a scene inside a level (levels 8 and 14) by the runner's tick count standing still;
   `dos` runs both disks at once. A search's progress as a video: `tools/mvpartial.py PREV.mov BEST.sol OUT.mov`
   (a copy of the running search's `/tmp/jaffar.run.TAG.best.sol`), then `render-run.sh`.
+- **The project** (`tas/pop2-tas.chimeraProject`, from level 5 on the run itself, with the music cut): written by
+  `post_level.sh N TAG project` from the run's movie, a marker a level. It pins a **locally built core package**
+  (`~/pop2tas/sdlpop2-a5ee-local.chimeraCore`, SHA-1 804B3038...; the core repository's main 4d44f96 with SDLPoP2
+  e927d0f + the Music On/Off fix, built with Chimera's miniBox on jaffanator2: `~/pop2render/core-pkg`, its diffs
+  in `~/pop2tas/core-src`), because no release has the fix yet; once one has, the same command with that package
+  gives the final file. Before it is written the packaged core, sandboxed (`run-wbx` with `core.wbx`, what Chimera
+  loads), plays the movie against the native runner: every row's level, room, x, frame, seed, tick count and IGT
+  equal (3658 rows through level 5). Not yet opened in Chimera itself.
 - **Level 5** at 300 GB (`l05b`, 4 h 23 min): 1375 (`tas/l05.sol`), 61 less than the old 1436, all of it in rooms
   14 to 16 (room 13 at tick 460 as before, room 17 at 747 for 808) and a tick more at the lift. No stairs: the
   level ends on the lift (room 27 is level 6's), the music stays on, level 6's first line has no `M`. Chimera's

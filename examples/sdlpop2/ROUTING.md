@@ -924,7 +924,14 @@ core's button is "Music On/Off" (the movie letter `m`).
   in `~/pop2tas/core-src`), because no release has the fix yet; once one has, the same command with that package
   gives the final file. Before it is written the packaged core, sandboxed (`run-wbx` with `core.wbx`, what Chimera
   loads), plays the movie against the native runner: every row's level, room, x, frame, seed, tick count and IGT
-  equal (3658 rows through level 5, 4054 through level 6). Not yet opened in Chimera itself.
+  equal (3658 rows through level 5, 4054 through level 6).
+- **The project in Chimera** (`chimera_check.sh PROJECT PACKAGE MOVIE`, part of the `project` stage): Chimera's own
+  headless runner, `chimera-run --project`, built from upstream's main of 2026-10-08 (e5fbb9c; a worktree
+  `~/chimera-new` on jaffanator2: the month-old build there refused the project's "id" key), takes the project and
+  the local package, the game's files and the MT-32's ROMs given as firmware (`--firmware ID=PATH`, an id a file
+  name), and plays it: status OK, 4054 frames (through level 6), and the core's memory domains after the last
+  frame (Game State, Kid, Characters, Level, Mobs, Trobs) are byte for byte the native runner's on the same
+  movie. Not opened in the frontend's window (no display there).
 - **Level 6** at 300 GB (`l06`, 57 min): 396 with its end (`tas/l06.sol`; Up on line 374, `M` on 383, level 7 loads
   on 396), 30 less than the old 426: the same rooms (27 3 6 18 6 4 17 4 7 16), room 7 at tick 285 for 297 and room
   16 at 329 for 355. The old solution does not replay on this chain (the guard at the door kills it: other random

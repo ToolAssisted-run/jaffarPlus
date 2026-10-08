@@ -13,6 +13,8 @@
 #          level), after the packaged core (sandboxed: run-wbx with core.wbx, what Chimera loads) has played the
 #          movie as the runner does. The package is a local build (~/pop2tas/sdlpop2-a5ee-local.chimeraCore, from
 #          ~/pop2render/core-pkg: the core's tree with SDLPoP2's Music On/Off fix) until a release has the fix.
+#          Then chimera_check.sh: the project played by Chimera's own headless runner, the core's memory domains at
+#          the end against the core's runner.
 # The chain before the level is NN00/l0102..(N-1)cut.sol, the movie before it ~/pop2tas/run_cut_l(N-1).mov.
 set -e
 N=$1; TAG=$2; shift 2
@@ -69,6 +71,8 @@ for STAGE in "$@"; do
     MARKS=("664:Level 1" "1107:Level 2" "1275:Level 3" "1673:Level 4")
     for k in $(seq 5 $N); do MARKS+=("$(wc -l < $HOME/pop2tas/run_cut_l$(printf %02d $((k - 1))).mov):Level $k"); done
     python3 $HOME/pop2tools-run/mkproject.py $PKG $P/waterbox/tests/make-project.py $MOV $HOME/pop2tas/pop2-tas.chimeraProject "${MARKS[@]}"
+    # and the project in Chimera's own headless runner (a current build), against the core's runner
+    [ -x $HOME/chimera-new/build/meson-linux/chimera-run ] && $S/chimera_check.sh $HOME/pop2tas/pop2-tas.chimeraProject $PKG $MOV
     ;;
   *) echo "unknown stage $STAGE"; exit 1;;
   esac

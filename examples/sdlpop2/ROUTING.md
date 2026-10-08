@@ -120,6 +120,20 @@ Level notes:
   36 for 47 steps while he drinks the slow-fall potion (step 117, early: the database is not full yet), and with the
   door's own magnets 49 over the stairs' 17 ticks (the first in scores less than those behind him): the entry step
   now pulls along the stairs, right and up (`routegen.py`; level 4's running script still has the old ending).
+  What makes a dip fatal is a place to stand that scores above it, wide, and with something that keeps its states
+  apart (level 4: the downed skeletons' timers, a draw every tick, the sword's moves): the database then fills with
+  that place within a few steps (worst reward 6309 -> 12209 in six). A dip in mid-air, or with only the take-off edge
+  above it, is harmless.
+- **Watching a search:** `watch_level.sh TAG` ends when the search does, or when it stalls: 40 steps with the best
+  reward no higher and the whole database within 200 of it (the two failed runs: called at step 449, 250 steps
+  before they gave up; the good runs: never. The best reward alone stands still for 225 steps of the slow fall).
+- **DOS, a dry run** (the stalled run's first 388 ticks and a short search's 207 from there; 596 with the level's
+  end): both disks play it, room, x, y, frame and hit points equal on all 1527 ticks, level 5 loading on the same
+  tick (the effect's hold included). The random seed is one draw ahead of the core's for one tick, twice: where an
+  ambient piece ends (level 4's ticks 76, MT-32 disk only, and 366, both disks), DOS draws the next piece a tick
+  before the core does. The pieces' ends are real time, a fraction of a tick either way; nothing else drew in the
+  first of those ticks, and the drips' draw in the second changed nothing seen. Not a defect of the solution, but a
+  draw by a guard in such a tick would differ: each level's DOS check has to look for it.
 - **Falls:** without the slow-fall potion, room 10's holes drop the prince through 23 into 22 to his death; the potion
   route stands at room 10's col 9 before going down.
 - In quicker the level ends ("Next Level" = 5) one tick before level 5 loads; the times count to "Next Level".
@@ -181,6 +195,14 @@ Level notes:
 - **The carpet** starts from a crouch that is not the landing (sequence 0x14) or the stoop (0x11); holding Down after
   landing on it starts it ~46 ticks later. (The first scripts' lift reward was outweighed by its own magnet; fixed.)
 - **The level's end:** quicker loads level 6 on the tick the carpet leaves the top; level 6 starts in room 27.
+- **Before the final run's search** (2026-10-08): the old 1436 solution replays unchanged on the new core and chain,
+  and `tools/rewardcheck.py` on it showed three places where the script pulled off the way: room 2 (the jump up
+  that bumps the loose floor scored a point less a frame: no pull down now), room 4 (the magnet stood 60 px before
+  the point he falls from: moved to it), and room 14, the one of level 4's kind: the gate at row 1 col 2 is shut and
+  the sword frames' push takes him through it, backing off 46 px to the left first, 13 ticks scored down while the
+  states at the room's entry kept the top. Room 14 now pulls left until the push throws him into the gate, has no
+  magnet for that tick, and pulls to the potion once he is past it. Left: the two jump, grab and climb crossings
+  (rooms 12 and 4, ~20 deep for 17 ticks, nothing standing above them).
 
 ## The original DOS game (checked 2026-10-01 by the OpenSamurai session, DOSBox-X oracle, 1.1)
 

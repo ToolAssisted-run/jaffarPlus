@@ -43,7 +43,9 @@ def to3(hpn):
     return [
         step(room(1, hp(hpn)), (1, R, None)),
         step(room(23), (23, R, None)),
-        step(room(2), (2, col_x(2), D, 1.0, 1.0)),          # under the loose floor: bump it down onto the plate
+        # under the loose floor (he comes in on the bottom row): bump it down onto the plate. No pull down: the jump up
+        # that bumps it would score a point less a frame than standing under it
+        step(room(2), (2, col_x(2), None)),
         # it falling: up at col 3 at once (the pull down, kept until the gate jammed, had him crouch ~20 ticks too long)
         step(room(2, LOOSE2), (2, col_x(3), U, 1.0, 1.0)),
         step(room(2, GATE2), (2, R, U, 1.0, 1.0)),
@@ -96,15 +98,23 @@ def around(detour6, base=3):
     gate (its loose floor dropped on its plate) -> 20 -> 25 (top right) -> up into 6 (the potion) -> 11 (its plate opens
     its gate) -> 18 (top row) -> 12; then -> 10 (the bridge) -> 7 -> 4 (top row) -> 3 (top row: the hatch) -> the carpet"""
     out = [
-        step(room(4), (4, col_x(4), D, 1.0, 1.0)),
+        # a standing jump from the bottom row's edge (col 2) over the gap, down onto room 5's potion ledge (row 0 col 6)
+        step(room(4), (4, col_x(6), D, 1.0, 1.0)),
         step(room(5), (5, None, D, 1.0, 1.0)),
         step(room(8), (8, None, D, 1.0, 1.0)),
         step(room(13), (13, R, D, 1.0, 1.0)),
     ]
     if not detour6:
         out += [
-            # room 14's small potion (row 2 col 6): climbing onto room 18's plate (row 1 col 5) costs a hit point
-            step(room(14), (14, col_x(6), D, 1.0, 1.0)),
+            # room 14, row 1: the gate at col 2 is shut, and the sword frames' push takes him through it: he backs off
+            # 46 px to the left first, which a pull to the right scored down for 13 ticks while the states standing at
+            # the room's entry kept the top (the kind of pocket that held a 300 GB search in level 4). So: left until
+            # the push throws him into the gate (x jumps from ~80 to ~199: no magnet for that tick, a pull either way
+            # would score it below every state behind him), then, past the gate, the small potion (row 2 col 6):
+            # climbing onto room 18's plate (row 1 col 5) costs a hit point
+            step(room(14), (14, L, None)),
+            step(room(14, ("Player Pos X", ">=", 190)), (14, None, None)),
+            step(room(14, ("Player Current Col", ">=", 3)), (14, col_x(6), D, 1.0, 1.0)),
             step(room(14, ("Player Current HP", ">=", 2)), (14, R, None)),
         ]
     else:

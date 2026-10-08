@@ -117,8 +117,11 @@ def main():
     if row < len(rows) and not given and after:
         # no story scene after the level: the next one starts on the row after its last line
         rows = rows[:len(rows) - len(after)]; after = []
-        r = first_rows(play(rows + ["."] * 400)); row, igt = r[nxt]
+        tr = play(rows + ["."] * 400); row, igt = first_rows(tr)[nxt]
         print("no scene after the level: nothing pressed there")
+    if row == len(rows) - 1 and not after:
+        # then the level's number changes in the tick that loads it (the level's last line), not on its first tick
+        row += 1; igt = tr[row][5]
     if row < len(rows): sys.exit("level %d starts on row %d, before the rows end (%d)" % (nxt, row, len(rows)))
     rows += ["."] * (row - len(rows))
     open(out, "w").write("\n".join(rows) + "\n")

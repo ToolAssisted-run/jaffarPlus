@@ -899,9 +899,9 @@ core's button is "Music On/Off" (the movie letter `m`).
   against the fixed core: `CUT3d.script`, both disks, every tick equal up to level 4's first ticks). Level 4 starts
   with another seed (level 3 draws every tick), so it is searched from the new chain.
 - Chains: `0400/l010203cut.sol` (921 lines; the last is the tick level 4 loads in), `0500/l01020304cut.sol` (1511),
-  `0600/l0102030405cut.sol` (2886).
-  Movie: `tas/run_cut.mov` (3658 rows: level 1 from row 664, level 2 from 1107, level 3 from 1275, level 4 from 1673,
-  level 5 from 2273, level 6's first row 3658, IGT 2886 there), built against the runner on the fixed SDLPoP2
+  `0600/l0102030405cut.sol` (2886), `0700/l010203040506cut.sol` (3282).
+  Movie: `tas/run_cut.mov` (4054 rows: level 1 from row 664, level 2 from 1107, level 3 from 1275, level 4 from 1673,
+  level 5 from 2273, level 6 from 3658, level 7's first row 4054, IGT 3282 there), built against the runner on the fixed SDLPoP2
   (`~/pop2render/bin/run-native-a5ee`; a level further with `tools/mvextend.py`). The project file waits for a core
   release with the fix (the released one, on SDLPoP2 37112da, plays the music out).
 - **A level of the run, step by step** (jaffanator2, `~/jaffarPlus-run/examples/sdlpop2`): `gen.py ROUTE --run --init
@@ -924,7 +924,14 @@ core's button is "Music On/Off" (the movie letter `m`).
   in `~/pop2tas/core-src`), because no release has the fix yet; once one has, the same command with that package
   gives the final file. Before it is written the packaged core, sandboxed (`run-wbx` with `core.wbx`, what Chimera
   loads), plays the movie against the native runner: every row's level, room, x, frame, seed, tick count and IGT
-  equal (3658 rows through level 5). Not yet opened in Chimera itself.
+  equal (3658 rows through level 5, 4054 through level 6). Not yet opened in Chimera itself.
+- **Level 6** at 300 GB (`l06`, 57 min): 396 with its end (`tas/l06.sol`; Up on line 374, `M` on 383, level 7 loads
+  on 396), 30 less than the old 426: the same rooms (27 3 6 18 6 4 17 4 7 16), room 7 at tick 285 for 297 and room
+  16 at 329 for 355. The old solution does not replay on this chain (the guard at the door kills it: other random
+  numbers); room 4's push shows in the reward as single ticks 40 to 80 down (the prince's and the head's records
+  change places on those ticks), which the wide search took in its stride. **No story scene follows level 6**:
+  level 7's first tick is the row after level 6's last, and the level's number changes in the load tick itself
+  (`tools/mvextend.py` presses nothing there).
 - **Level 5** at 300 GB (`l05b`, 4 h 23 min): 1375 (`tas/l05.sol`), 61 less than the old 1436, all of it in rooms
   14 to 16 (room 13 at tick 460 as before, room 17 at 747 for 808) and a tick more at the lift. No stairs: the
   level ends on the lift (room 27 is level 6's), the music stays on, level 6's first line has no `M`. Chimera's
@@ -938,7 +945,8 @@ core's button is "Music On/Off" (the movie letter `m`).
 | 3 | 387 | 921 | 1275 | every tick equal |
 | 4 | **590** | 1511 | 1673 | room, x, y, frame, hit points equal on every tick; the seed a draw ahead for one tick, twice |
 | 5 | **1375** (was 1436) | 2886 | 2273 | in segments (MT-32 20, Sound Blaster 9): room, x, y, frame, hit points equal on all 2896 ticks; the draws apart by one ambient draw on the ticks that end a segment |
-| 6 | searching (`0600/script-sw-push-L-run.jaffar`, `l06`) | | 3658 | |
+| 6 | **396** (was 426) | 3282 | 3658 | in segments (MT-32 22, Sound Blaster 11): all 3292 ticks equal in position, level 7 loads on the same tick |
+| 7 | searching (`0700/script-r1c-pot-run.jaffar`, `l07`) | | 4054 | |
 
 The table further up is the same run with the music left alone (1120 at level 4's start).
 

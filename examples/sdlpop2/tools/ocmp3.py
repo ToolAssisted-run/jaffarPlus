@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""ocmp3.py SNAP CORE.txt [FROM]: a DOS run synced to the core's random seed at every tick's start (the oracle's
-script made with SYNC=CORE.txt) against the core's trace (tools/trs.c): the prince's room, x, y, frame and hit points
-on every tick, and the ticks whose draws differ (DOS's seed after the tick, read before the next write, is not the
-core's): how many draws DOS made more (+) or fewer (-) in that tick.
+"""ocmp3.py SNAP CORE.txt [FROM]: the run checked in DOS in segments. The oracle's script (made with SYNC=CORE.txt)
+writes the core's random seed at every tick's start; where DOS's own seed is the core's already the write changes
+nothing, so DOS plays on by itself until a tick whose draws differ, and a new segment starts on the tick after it.
+Against the core's trace (tools/trs.c): the prince's room, x, y, frame and hit points on every tick, the segments, and
+the ticks that end them (DOS's seed after the tick, read before the next write, is not the core's): how many draws
+DOS made more (+) or fewer (-) in that tick.
 
 DOS starts the ambient music's next piece (one draw) at the end of the pass in which the piece is found over, and that
 moment moves with the drawing's time; the core's model has it 5 ms into the pass. So DOS is often a tick early with
@@ -45,5 +47,8 @@ for k in posbad[:3]: print("    tick %d (%s): dos %s core %s" % (k, level[k], do
 ks = sorted(drawbad)
 pairs = [k for k in ks if drawbad[k] == 1 and drawbad.get(k + 1) == -1]
 single = [k for k in ks if k not in pairs and (k - 1) not in pairs]
+seg = [frm] + [k + 1 for k in ks if k + 1 < frm + n]
+lens = [b - a for a, b in zip(seg, seg[1:] + [frm + n])]
+print("  %d segments (DOS by itself in each; the longest %d ticks, the shortest %d); they start on ticks %s%s" % (len(seg), max(lens), min(lens), ", ".join(str(x) for x in seg[:30]), " ..." if len(seg) > 30 else ""))
 print("  ticks whose draws differ: %d; of them a draw a tick early in DOS (+1, then -1): %d pairs" % (len(ks), len(pairs)))
 print("  the others: %s" % ", ".join("%d (%s): %s" % (k, level[k], "%+d" % drawbad[k] if drawbad[k] is not None else "?") for k in single[:40]))

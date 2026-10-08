@@ -920,7 +920,7 @@ core's button is "Music On/Off" (the movie letter `m`).
 
 The table further up is the same run with the music left alone (1120 at level 4's start).
 
-### DOS and the random numbers: the check is synced every tick (2026-10-08)
+### DOS and the random numbers: the run is checked in DOS in segments (2026-10-08)
 
 Tried ahead of the run: its chain to level 4, then the old solutions of levels 5 and 6 (which replay on it: level 7
 loads on tick 3373), in DOS on both disks, the story scene after level 5 skipped by Space as the run does (Space in
@@ -935,15 +935,22 @@ draws apart, room 16's head kills him at tick 396.
   2200 ticks (levels 4 and 5), and the two disks disagree between themselves on three of them. A tick early means
   another random number for the piece, so another piece, with its own length, and from then on the draws come on
   other ticks. Levels 1 to 4 had the early draws too (ticks 997, 1287) but the same pieces after them.
-- **Not a defect of the core's logic, and not to be tuned away:** it hangs on how long DOS takes to draw each pass.
-  The run is the core's (Chimera's), where the model is fixed. What DOS can confirm is the game's logic.
-- **The check from here on:** the oracle's script writes the core's seed at every tick's start (`sol2script.py` with
-  `SYNC=CORE.txt`; the snapshot is taken before the write, so each tick's own draws are still compared).
-  `tools/ocmp3.py SNAP CORE.txt` lists the position mismatches and the ticks whose draws differ. The same chain,
-  synced, MT-32 disk: **all 3383 ticks equal in room, x, y, frame and hit points, level 7 loading on the same tick**;
-  23 ticks differ in their draws, every one by a single ambient draw (11 where the core drew a piece and DOS did
-  not: all of them the core's ambient draws; 12 where DOS drew one more; 36 of the core's 47 ambient draws fall on
-  the same tick in DOS).
+- **It hangs on the machine's speed** (measured in the oracle: watches on the driver's 240 Hz interrupt, DS:1FBE,
+  on the free 60 Hz count, DS:24E4, and on the music channel's busy flag, DS:209E; a probe on each pass's sound
+  phase, 1611:04D0). A pass is 20 interrupt periods (24 in a fight), and the sound phase comes 0.5 to 3 periods
+  into it on the oracle's 486 (22000 cycles a ms); but in some rooms every third pass draws 5 to 10 periods, and a
+  pass that draws a new room takes 20 to 61 (so it runs late, and the next one starts off the grid). At ten times
+  the cycles the same room changes still take 7 to 14. No fixed model in the core can follow that, so (Sergio) it
+  is not pursued: the core keeps its model (every pass on time, the sound phase 5 ms in), the run is the core's.
+- **The check (Sergio): in segments.** The oracle's script writes the core's seed at every tick's start
+  (`sol2script.py` with `SYNC=CORE.txt`). Where DOS's own seed is the core's the write changes nothing, so DOS plays
+  by itself until a tick whose draws differ, and a new segment starts after it; the snapshot is taken before the
+  write, so every tick's draws are compared. `tools/ocmp3.py SNAP CORE.txt` lists the position mismatches, the
+  segments and the ticks that end them. The same chain, MT-32 disk: **24 segments, all 3383 ticks equal in room,
+  x, y, frame and hit points, level 7 loading on the same tick**; the 23 ticks that end a segment differ by a
+  single ambient draw each (11 where the core drew a piece and DOS did not: all of them the core's ambient draws;
+  12 where DOS drew one more; 36 of the core's 47 ambient draws fall on the same tick in DOS). The Sound Blaster
+  disk: 18 segments, all equal.
 
 ### The later levels' scripts, checked before their searches (2026-10-08)
 

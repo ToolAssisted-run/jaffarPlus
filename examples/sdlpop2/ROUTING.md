@@ -744,3 +744,24 @@ scene). What is estimated, not measured:
 - **Levels 8..13 were searched with 5 hit points**; the run has 4 there (level 11's falling floor costs one, level
   12's route none).
 - **Level 13** is two chunks, not optimized; level 5's routes from before the smoothed y may hold waits.
+
+## The final run (from 2026-10-08)
+
+Each level searched again with its route above and a 300 GB database (`run_level.sh`, 12.1 M states), on the core
+rebuilt from SDLPoP2's latest (e927d0f; quickerSDLPoP2 cf963ae): the exploration ran on SDLPoP2 3e2bf50, before the
+level ends waited for their music and before the game's sound calls were checked against the code, the two things the
+DOS check of levels 1..4 had found. Sound device: the Roland MT-32 (Sergio). In the Chimera core the game is the same
+on either device; the MT-32's start-up takes 655 frames more.
+
+- **Level 1's end on the new core:** level 2 starts at tick 538, not 433 (the music, 105 ticks; no random number is
+  drawn in the wait). The old chain's level 1 with Random Seed 25 still gives level 2 its best puzzle (variant 0, right
+  tile 4: 102 ticks); `tools/seedscan.c` finds such seeds for any level 1 solution (37 of the first 400 settings keep
+  level 1; 15 puzzles, 3 variants by 5 tiles).
+- **DOS (the oracle, `prince yippeeyahoo LEVEL1`, the seed poked at tick 1; `tools/orun.sh`, `tools/ocmp.py`):** level 1
+  (433, the restart) on the Sound Blaster disk and on the MT-32 disk: 538 ticks to the story scene on both, every tick's
+  room, x, y, frame, hit points and random seed equal to the core's (537 compared), the seed 901854189 at the end. The
+  MT-32 disk loads level 1 653 frames later.
+- **Chimera:** the core's runner built on the same SDLPoP2 (`run-native-e927`): 105 more ticks after level 1, then the
+  story scene. The project file is written by the core's own `waterbox/tests/make-project.py` from a movie in the
+  runner's letters.
+

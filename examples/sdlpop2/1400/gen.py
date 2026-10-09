@@ -19,8 +19,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from routegen import L, R, U, D, ROW_Y, col_x, room, hp, row, step, dedup, main  # noqa: E402
 
 # --hp N: the maximum hit points level 14 starts with (default 7: levels 11's and 13's potions after 5); the room 3
-# measurements start from 3 (no big potion taken on the way)
-H0 = 7
+# measurements start from 3 (no big potion taken on the way). The final run (--run) comes with the 5 it has (level
+# 7's potion and level 13's), no "Max HP At Level".
+RUN = "--run" in sys.argv
+H0 = 5 if RUN else 7
 # --to N: the farm route's target maximum (room 3's guards: a dead one may leave a big potion)
 HT = None
 if "--to" in sys.argv:
@@ -267,7 +269,7 @@ LEVEL = {
     "fails": FAILS,
     "penalize_ahead": True,
     # (level 11 replays as searched: 5, its potion 6, level 13's 7; level 14 then starts with H0)
-    "emulator": {"Max HP At Level": [11, 5, 14, H0]},
+    "emulator": {} if RUN else {"Max HP At Level": [11, 5, 14, H0]},
     "game": {"Hash Random Seed": not NORNG, "Hash Stood On Rows": [[4, 2]]},
 }
 

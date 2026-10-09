@@ -964,7 +964,7 @@ core's button is "Music On/Off" (the movie letter `m`).
 | 5 | **1375** (was 1436) | 2886 | 2273 | in segments (MT-32 20, Sound Blaster 9): room, x, y, frame, hit points equal on all 2896 ticks; the draws apart by one ambient draw on the ticks that end a segment |
 | 6 | **396** (was 426) | 3282 | 3658 | in segments (MT-32 22, Sound Blaster 11): all 3292 ticks equal in position, level 7 loads on the same tick |
 | 7 | **974** (was 1027) | 4256 | 4054 | in segments (MT-32 29, Sound Blaster 18): all 4266 ticks equal in position, level 8 loads on the same tick |
-| 8 | searching (`0800/script-np-run.jaffar`, `l08`) | | 5028 | |
+| 8 | searching again (`0800/script-np-run.jaffar`, `l08b`; the first search's 885 is not kept, see below) | | 5028 | |
 
 The table further up is the same run with the music left alone (1120 at level 4's start).
 
@@ -1048,6 +1048,35 @@ potion at tick 229 (the old solution: 287). Relaunched as `l07b`, which found th
 233). `watch_level.sh` now also ends on the rules standing still (the best state's rules done the same as 300 steps
 earlier): this one would have been called at step 389, not 1300.
 
+**Level 8's first search at 300 GB came in 68 ticks behind the old solution** (`l08`, 885 for the old 817, 2 h 49;
+no alarm: its rules went on step after step). Room by room against the old solution (the exploration tree's core
+and chain, `~/pop2tools/trl`): the same to tick 244, room 12 at 264 for 251, room 20 at 450 for 363, and from
+there 19 ticks better (room 11's magnet, room 9). Not the chain's random numbers: the old solution's inputs from
+tick 245 on, put after the new one's first 244, play on the run's chain as they did (room 12 at 251, its middle
+row at 297, room 20 at 363). The search had the way and dropped it.
+
+Room 12 is entered out of room 2's wall onto its bottom row's one floor tile (col 8; cols 6..7 are the shaft down
+to room 6, a fail). The way up: a jump under the two tiles over the shaft (row 1 cols 6..7, 0x0F: they break, tick
+269), a second one that hangs on col 8's ledge and climbs: 46 ticks at x 410..414 with the reward standing, since
+the room's step pulled left and nothing else. A state in sword stance at the floor's left end (x 393..405; he
+comes out of the wall with the sword in hand) scores up to 21 more for as long as it likes, and such states are
+as many as the ways to have got there. They filled the database, the jumps were dropped, and the solution found is
+one of them that sheathed late (the jumps from tick 332). `tools/rewardcheck.py` shows nothing here: the way's own
+reward never dips, it is others that stand above it.
+
+Fixed in `0800/gen.py`: the bottom row pulls to the jump's place and up (x 414; the smoothed y scores every frame
+of a jump up), the broken tiles are a step (pull to x 410, up), the middle row another (left). On the old inputs
+the reward now climbs through both jumps (one dip of 14 over the first jump's landing, where every state is in
+the same frames). A 30 GB search to room 20 with it: tick 348 (the old solution 363). Relaunched as `l08b`.
+
+Three checks came of it. `watch_level.sh` ends on **a room entered late**: with a reference (`mkref.sh TAG N
+OLDSOL`: an old solution's rooms and the ticks it enters them on) the best solution so far is replayed every
+minute and its rooms compared in order, 30 ticks late is the alarm (this search: room 20, at step 450 of 885).
+`tools/waitcheck.py SCRIPT TRACE` lists where a known solution stands in one place and where the script's steps
+of that room pull there; it marks the old script's room 12 (34 ticks at x 410..415, pull to -200, no y). Levels 9
+and 10 show nothing of the kind (their jumps up have a pull up, or a wall on the pull's side). And every search's
+solution is compared room by room with the old one before it is kept.
+
 What recurs (for any new script):
 
 - **A hang reads the room below** (its top row, y 56). That room needs the step's magnet too ("keep"), and its y a
@@ -1069,6 +1098,11 @@ What recurs (for any new script):
   another room. The old solution passing the script (rewardcheck) proves nothing about ways it did not take. A
   search that stands at the same rules for hundreds of steps: look at what fails its states (a small search to the
   next step ends "out of states" on the tick of the rule).
+- **Where the way stands still, nothing reachable may score above it.** A jump up, a hang, a climb's start: the
+  reward stands unless the step pulls up (the smoothed y), and under a pull along the row every state further along
+  it outscores the way for those ticks; a wide database fills with them (sword stance at any x) and drops it
+  (level 8's room 12: 88 ticks). The step pulls to the jump's place and up, and what the jump changes (a tile, the
+  row) is the next step. `tools/waitcheck.py` lists the candidates on a known solution.
 - **A dip is no trap when the place above it is on the way too** (level 6's door: the states nearer the door enter as
   soon as it opens), or is the search's own to-and-fro in a wall (levels 6, 7, 8: the head's push, the clips).
 

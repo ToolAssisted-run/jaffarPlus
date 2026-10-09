@@ -37,6 +37,7 @@ EXIT = ("Tile Opening[23][23]", ">", 0)   # room 23's exit door (row 2 col 2)
 PLATE3 = ("Tile Modifier[3][20]", ">", 0x109002B)
 GATE17 = ("Tile Opening[17][24]", ">", 0) # room 17's gate (row 2 col 3): its plates at row 1 col 8 (the ledge above the
                                           # cutter) and row 2 col 2 open it; room 18's closer (row 2 col 7) shuts it
+CEIL12 = ("Tile[12][18]", "!=", 0x0F)     # room 12's tiles over its shaft (row 1 cols 6..7) broken by a jump up under them
 LOOSE17 = ("Tile[17][3]", "!=", 0x0B)     # room 17's loose floor (row 0 col 2) gone: it falls on the plate below (row 2
                                           # col 2), which sticks (tile 0x0E) and opens the gate for good (mobs.c mob_land)
 CLOSER18 = ("Tile Modifier[18][28]", ">", 0x1090030)   # room 18's closer (row 2 col 7) pressed (0x800 while on it)
@@ -56,7 +57,15 @@ def west():
     """2 -> 12 -> 20 -> 22 -> 11 (west), up from 11's top row into room 9 (its floor's gap at col 2)"""
     return [
         step(room(2), (2, L, None, 1.0, 1.0)),
-        step(room(12), (12, L, None, 1.0, 1.0)),
+        # 12: out of room 2's wall onto the bottom row's one floor (col 8, x 414); a jump up there breaks the two tiles
+        # over the shaft (row 1 cols 6..7), a second one (x 410) hangs on col 8's ledge and climbs; then left along
+        # the middle row, over the gap. The bottom row pulls to the jump's place and up (the smoothed y scores a jump's
+        # frames), the broken tiles and the middle row are steps: pulled left as a whole (the final run's first search,
+        # 300 GB), sword stance at the floor's left end (x 393..405) scored up to 21 above the 46 ticks of the two
+        # jumps, the database filled with it and dropped the jumps: 88 ticks lost (ROUTING.md)
+        step(room(12), (12, 414, U, 1.0, 1.0)),
+        step(room(12, CEIL12), (12, 410, U, 1.0, 1.0)),
+        step(room(12, CEIL12, row(1)), (12, L, ROW_Y[1], 1.0, 1.0)),
         step(room(20), (20, L, None, 1.0, 1.0)),
         step(room(22), (22, L, None, 1.0, 1.0)),
         # 11: in on its middle row (from 22's), up to its top row at col 7 (the one gap above it), left, up through
@@ -111,7 +120,7 @@ ROUTES = {
         step(room(17, hp(H0 + 1), row(0)), (17, L, ROW_Y[0], 1.0, 1.0)),
         step(room(6, hp(H0 + 1), row(0)), (6, col_x(8), U, 1.0, 2.0)),   # (its bottom row has no way up)
         step(room(12, hp(H0 + 1)), (12, L, None, 1.0, 1.0)),
-    ] + west()[2:] + sword_and_exit(),
+    ] + west()[4:] + sword_and_exit(),
     # 16 13 4 3 18 (the potion) 17 (its gate; the cutter) 6 (upper row) 12 20 22 11 9 1 24 23
     "pot": start() + [
         step(room(3), (3, col_x(4), D, 1.0, 1.0)),
@@ -125,7 +134,7 @@ ROUTES = {
         step(room(17, hp(H0 + 1), GATE17, row(2), ("Player Current Col", "<=", 2)), (17, L, U, 1.0, 1.0)),
         step(room(6, hp(H0 + 1)), (6, col_x(7), U, 1.0, 2.0)),
         step(room(12, hp(H0 + 1)), (12, L, None, 1.0, 1.0)),
-    ] + west()[2:] + sword_and_exit(),
+    ] + west()[4:] + sword_and_exit(),
 }
 HPM = 50   # a small Player HP Magnet: ties only (level 7: without it the search wore down to 1 hit point and waited)
 ROUTES = {k: [dict(v[0], hpm=HPM)] + v[1:] for k, v in ((k, dedup(v)) for k, v in ROUTES.items())}

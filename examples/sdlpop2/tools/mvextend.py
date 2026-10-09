@@ -18,7 +18,10 @@ after the level).
 A scene inside the level (level 8's sword scene, level 14's Jaffar scene: the search core plays none, in Chimera it
 is skipped by Space and takes rows) shows as the runner's tick count standing still on one of the level's rows:
 Space and empty rows are put in there, and of the few ways to lay them the one is taken that plays the rest of the
-level as the core does (CORE is needed for it).
+level as the core does (CORE is needed for it). The scene's own tick begins on its line's row and ends, with the
+tick after it, on the row the scene's last frame is followed by (the tick count goes up by two there): its state is
+on no row's end, so that one tick is not compared, and the next line goes on that row. Without a key the sword
+scene does not end (3000 rows tried); Space 40 rows later ends it 22 rows later, the same state after it.
 
 The runner's letters: U D L R S C, `_` Show Time / Space, `a` Restart Level, `m` Music On/Off, `.` nothing.
 """
@@ -61,10 +64,10 @@ def core_trace(path):
     return out
 
 
-def differ(tr, core, rowof, lv):
-    """the level's ticks on which the runner is not where the core is"""
+def differ(tr, core, rowof, lv, hidden=()):
+    """the level's ticks on which the runner is not where the core is (hidden: the ticks no row ends on)"""
     def same(r, c): return r is not None and r[:4] == c[:4] and abs(r[6] - c[4]) <= 8
-    return [t for t in sorted(core) if core[t][0] == lv and t - 1 < len(rowof) and not same(tr.get(rowof[t - 1]), core[t])]
+    return [t for t in sorted(core) if core[t][0] == lv and t - 1 < len(rowof) and t not in hidden and not same(tr.get(rowof[t - 1]), core[t])]
 
 
 def main():
@@ -76,7 +79,7 @@ def main():
     lev = [letters(l.strip()) for l in open(level) if l.strip().startswith("|")]
     n = len(lev)
     body = lev[:]; rowof = list(range(start, start + n))   # the level's rows, and each line's row
-    scenes = []
+    scenes = []; hidden = set()   # the scenes' rows; the ticks a scene hides (line numbers)
     while True:
         tr = play(rows + body + after + ["."] * 400)
         lv = tr[start][0]
@@ -86,7 +89,9 @@ def main():
         if len(scenes) > 4: sys.exit("more than 5 scenes inside the level: rows %s" % scenes)
         if core is None: sys.exit("a scene inside the level (line %d, row %d): CORE is needed to lay it" % (i + 1, rowof[i]))
         r = rowof[i]; found = None; tried = []
-        for keep in (1, 0):   # Space on the row after the line's, or on the line's own row (the line after the scene)
+        # Space on the row after the line's (the scene inside the line's tick, which then ends on no row), or on the
+        # line's own row (the line after the scene)
+        for keep in (1, 0):
             head = body[:r - start + keep] + ["_"]
             p = play(rows + head + ["."] * 400)
             q = next((x for x in range(r + keep + 1, r + keep + 400) if p[x][4] > p[r - 1][4]), None)   # the tick count moves again
@@ -96,20 +101,21 @@ def main():
                 if pad < 0: continue
                 b2 = head + ["."] * pad + body[r - start + keep:]
                 ro2 = rowof[:i + keep] + [x + (len(b2) - len(body)) for x in rowof[i + keep:]]
-                bad = differ(play(rows + b2 + after + ["."] * 400), core, ro2, lv)
+                hid = hidden | ({i + 1} if keep else set())
+                bad = differ(play(rows + b2 + after + ["."] * 400), core, ro2, lv, hid)
                 tried.append((len(bad), keep, at, bad[:3]))
-                if not bad: found = (b2, ro2, keep, at); break
+                if not bad: found = (b2, ro2, keep, at, hid); break
             if found: break
         if not found: sys.exit("scene on row %d (line %d): no layout plays as the core: %s" % (r, i + 1, sorted(tried)[:4]))
-        body, rowof = found[0], found[1]
+        body, rowof, hidden = found[0], found[1], found[4]
         scenes.append(r)
         print("a scene inside the level: line %d (row %d), Space on row %d, line %d on row %d (%d rows more)"
               % (i + 1, r, r + found[2], i + 1 + found[2], found[3], found[3] - r - found[2]))
     rows += body + after
     r = first_rows(tr)
     if core is not None:
-        bad = differ(tr, core, rowof, lv)
-        print("the runner against the core: %d ticks of level %d compared, %s" % (sum(1 for t in core if core[t][0] == lv), lv,
+        bad = differ(tr, core, rowof, lv, hidden)
+        print("the runner against the core: %d ticks of level %d compared, %s" % (sum(1 for t in core if core[t][0] == lv and t not in hidden), lv,
               "all equal (room, x, frame, seed)" if not bad else "%d DIFFER, from tick %d (row %d)" % (len(bad), bad[0], rowof[bad[0] - 1])))
         if bad: sys.exit(1)
     if nxt not in r: sys.exit("level %d not reached: %s" % (nxt, r))

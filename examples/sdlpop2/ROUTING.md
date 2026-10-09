@@ -932,6 +932,28 @@ core's button is "Music On/Off" (the movie letter `m`).
   name), and plays it: status OK, 5028 frames (through level 7), and the core's memory domains after the last
   frame (Game State, Kid, Characters, Level, Mobs, Trobs) are byte for byte the native runner's on the same
   movie. Not opened in the frontend's window (no display there).
+- **Level 11** at 300 GB (`l11`, 7 h 50 min): 2256 with its end (`tas/l11.sol`; Up on line 2234, `M` on 2243, level 12
+  loads on 2256), 11 less than the old way stitched for the run (2267: the potion route's rooms less 178, room 3's
+  chunk from the route without the potion; the plan's ~2283 was the potion route less 162). Rooms 5, 1 (tick 23), 2
+  (135), 4 (150), 10 (297), 9 (326), 2 (369), 9 (422), 3 (475), 12 (577), 7 (711), 6 (775), 13 (851), 18 (950), 17
+  (975), 18 (998), 13 (1026), 23 (1077), 25 (1147), 18 (1201), 24 (1297), 26 (1417), 28 (1570), 27 (1652), 22
+  (1820), 21 (1848), 32 (1873), 29 (1886), 20 (1985), 19 (2009), 20 (2032), 27 (2105), 28 (2132), 26 (2157), 24
+  (2205). 2 of 4 hit points at the door: the drop in room 29 (tick 1947) and the fall into room 26 (2160). The old
+  way within a tick through room 17's plate (975 for 974), then:
+  - **Room 18's hole without its hit: 7 ticks** (rooms 18, 13 and 23 in 149 for 157). The old way ran into the hole
+    and landed two rows down on room 13's middle row (col 4): a hit point and 30 ticks crouched, room 23 at 1071,
+    and there 29 ticks to the jump up at col 8 (the sword drawn, three steps back, sheathed). The solution stops at
+    the hole's right edge, has the sword out from tick 1012 to 1021, goes over the edge and catches room 13's top-row
+    floor (col 7) on the way down; a drop to the middle row, a turn, the hole jumped standing: room 23 at 1077, 6
+    later, but the jump up 16 ticks after the entry (two turns), 7 ahead (1093 for 1100); room 25 at 1147 for 1154.
+    The way with the hit was in the database (step 1072's best state is in room 23 with 3 of 4): it was not first
+    in room 25. The 4 GB test of the hit (below: 91 ticks with it, 96 without) stopped at room 23's entry.
+  - **Room 26** (the guard) in 153 for 157; **rooms 19 and 20** (the hang, the wait for the gate) in 96 for 97.
+  - **An entry again, not a way:** step 2096's best state was past room 20's gate already (room 27, x 444,
+    crouched, having gone down to room 19's hang a second time), 9 ticks before the solution runs under it (tick
+    2105). Up from a crouch takes 10 ticks or more: he stands there at 2106 at the earliest, when the runner is past
+    him (x 423) at full speed.
+  Chimera's core against the search core: all 2255 ticks equal. No story scene follows level 11.
 - **Level 10** at 300 GB (`l10`, 52 min): 299 with its end (`tas/l10.sol`; Up on line 277, `M` on 286, level 11 loads
   on 299), one more than the old 298: rooms 22, 11 (tick 22), 8 (47), 14 (117), 12 (164), 19 (167), 12 (185), 19
   (231; 3 of 4 hit points at the door). **The tick is room 11's guard on this chain's draws.** He comes in from
@@ -1007,7 +1029,8 @@ core's button is "Music On/Off" (the movie letter `m`).
 | 8 | **810** (was 817) | 5066 | 5028 | in segments (MT-32 35, Sound Blaster 18): all 5076 ticks equal in position, the sword scene left by Space at the scene probe's sixth hit, level 9 loads on the same tick |
 | 9 | **369** (was 376) | 5435 | 5925 | in segments (MT-32 35, Sound Blaster 18): all 5445 ticks equal in position, the scene after level 9 left by Space at the scene probe's seventh hit (`SCENES="5 6 7"`, the DOS stage's default from level 9 on), level 10 loads on the same tick |
 | 10 | **299** (the old 298 and room 11's guard, see above) | 5734 | 6319 | in segments (MT-32 39, Sound Blaster 22): all 5744 ticks equal in position, level 11 loads on the same tick; on the Sound Blaster disk DOS runs by itself from tick 3800 to 5566, the guard's passage (level 10's ticks 22 to 47) inside it |
-| 11 | searching (`1100/script-np-run.jaffar`, `l11`) | | 6618 | |
+| 11 | **2256** (the old way stitched: 2267) | 7990 | 6618 | in segments (MT-32 66, Sound Blaster 62): all 8000 ticks equal in position, level 12 loads on the same tick; the new segments are nearly all level 11's, where the seeds part by one draw and meet again a tick or two later (once after 17, ticks 7006 to 7023 on the MT-32 disk) |
+| 12 | searching (`1200/script-via22-run.jaffar`, `l12`) | | 8874 | |
 
 The table further up is the same run with the music left alone (1120 at level 4's start).
 
@@ -1170,7 +1193,9 @@ tests (4 GB, the old chain, a fail on any hit):
 - **The fall into room 13** (a medium landing: a hit point and ~28 ticks crouched): room 17's plate to room 23 in 91
   ticks with it, 96 unhurt (down by the hole's edge, a row's drop).
 
-So the run's script (`np --run`) fails any hit up to room 3 and leaves the three falls: 4 -> 1 at the door.
+So the run's script (`np --run`) fails any hit up to room 3 and leaves the three falls: 4 -> 1 at the door. (The run's
+solution takes two of them, 2 of 4 at the door: room 18's hole is gone down without the hit and that is the faster
+way from room 23 on. See the final run's level 11.)
 
 ### The level ends' music (found 2026-10-08)
 

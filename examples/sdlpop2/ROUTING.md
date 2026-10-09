@@ -932,6 +932,22 @@ core's button is "Music On/Off" (the movie letter `m`).
   name), and plays it: status OK, 5028 frames (through level 7), and the core's memory domains after the last
   frame (Game State, Kid, Characters, Level, Mobs, Trobs) are byte for byte the native runner's on the same
   movie. Not opened in the frontend's window (no display there).
+- **Level 10** at 300 GB (`l10`, 52 min): 299 with its end (`tas/l10.sol`; Up on line 277, `M` on 286, level 11 loads
+  on 299), one more than the old 298: rooms 22, 11 (tick 22), 8 (47), 14 (117), 12 (164), 19 (167), 12 (185), 19
+  (231; 3 of 4 hit points at the door). **The tick is room 11's guard on this chain's draws.** He comes in from
+  room 8 (x 482) on an odd tick once the prince is past x 242, and his steps are drawn. The old inputs on the run's
+  chain (`trh`): the guard in at tick 29, advancing from tick 42 (x 431, 429, 427, 413), the prince's third jump
+  bumps into him at tick 45 and he is dead at 57; on the old chain that jump passed. The solution's first line is
+  empty: started a tick later the prince is a tick further when the guard comes in (tick 31), the guard stands at
+  x 445 through the jump and is passed (room 8 at 47 for 46). After that it is the old way (room 8 in 70 for 69,
+  room 14 in 47 for 48). A level 9 ending on another seed might give the tick back (its 17 draws are events, room
+  entries and the loose tiles, not ticks; the scene after it draws nothing): not tried, it would take level 9 found
+  again for that seed and every level from 10 on searched again.
+  Chimera's core against the search core: all 298 ticks equal. No story scene follows level 10.
+  A 30 GB search to room 14 on the run's seed had it at tick 114 for the solution's 117: the run jump on room 8's
+  middle row taken at once (x 247) and a second into room 14, which lands on the last of its three floor tiles (col
+  2), past the take-off of the jump down to the bottom row's col 6 (x 191: from further right the fall goes by
+  col 6 into room 13). An entry again, not a way (level 8's room 20).
 - **Level 9** at 300 GB (`l09`, 1 h 9 min): 369 (`tas/l09.sol`; no stairs, the level ends three ticks into the jump
   off room 8's top row and level 10 loads on tick 369), 7 less than the old solution, whose 373 lines end on that
   jump's first frame in the air (376 by this count): rooms 10, 9 (tick 30), 1 (54), 5 (127), 4 (154), 6 (217), 8
@@ -990,7 +1006,8 @@ core's button is "Music On/Off" (the movie letter `m`).
 | 7 | **974** (was 1027) | 4256 | 4054 | in segments (MT-32 29, Sound Blaster 18): all 4266 ticks equal in position, level 8 loads on the same tick |
 | 8 | **810** (was 817) | 5066 | 5028 | in segments (MT-32 35, Sound Blaster 18): all 5076 ticks equal in position, the sword scene left by Space at the scene probe's sixth hit, level 9 loads on the same tick |
 | 9 | **369** (was 376) | 5435 | 5925 | in segments (MT-32 35, Sound Blaster 18): all 5445 ticks equal in position, the scene after level 9 left by Space at the scene probe's seventh hit (`SCENES="5 6 7"`, the DOS stage's default from level 9 on), level 10 loads on the same tick |
-| 10 | searching (`1000/script-np-run.jaffar`, `l10`) | | 6319 | |
+| 10 | **299** (the old 298 and room 11's guard, see above) | 5734 | 6319 | in segments (MT-32 39, Sound Blaster 22): all 5744 ticks equal in position, level 11 loads on the same tick; on the Sound Blaster disk DOS runs by itself from tick 3800 to 5566, the guard's passage (level 10's ticks 22 to 47) inside it |
+| 11 | searching (`1100/script-np-run.jaffar`, `l11`) | | 6618 | |
 
 The table further up is the same run with the music left alone (1120 at level 4's start).
 

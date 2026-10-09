@@ -8,7 +8,12 @@
 # argument, default 0). A step marks those before it done, so a late step's condition met early by another way puts
 # all their rewards on that way (level 5 at 300 GB: the trap's lift under the shut hatch, 7 -> 30 rules at step 279,
 # a ride to his death that flooded the database). To be looked at; if it is the route's, watch on from that step.
-T=$1; N=40; D=200; JS=0; [ "$T" != "--test" ] && { N=${2:-40}; D=${3:-200}; JS=${4:-0}; }; L=~/pop2run/$T.log
+# And on the rules standing: the best state's rules done the same as RN steps earlier (the fifth argument, default
+# 300; 0: never). Level 7 at 300 GB sat at 4 of 57 for 1200 steps: a fail rule (a small potion's tile, there for
+# "never drunk") was met by a loose floor falling on the potion, 18 ticks after the only way on. A long step looks
+# the same (level 4's slow fall: 225 steps): to be looked at, then watched on with a larger RN.
+T=$1; N=40; D=200; JS=0; RN=300; [ "$T" != "--test" ] && { N=${2:-40}; D=${3:-200}; JS=${4:-0}; RN=${5:-300}; }; L=~/pop2run/$T.log
+rules() { grep -a "Rule Status" $1 | awk -v n=$RN '{x=$NF; c[NR]=gsub(/1/,"1",x)} END{if (n>0 && NR>n && c[NR]==c[NR-n]) print "RULES: step " NR-1 ": " c[NR] " rules done, as " n " steps earlier"}'; }
 jump() { grep -a "Rule Status" $1 | awk -v s=$JS '{x=$NF; c[NR]=gsub(/1/,"1",x)} END{for (i=2;i<=NR;i++) if (i-1>s && c[i]-c[i-1]>=4) {print "JUMP: step " i-1 ": " c[i-1] " -> " c[i] " rules done"; exit}}'; }
 stall() { grep -a "Current Reward (Best" $1 | awk -v n=$N -v d=$D '{b[NR]=$7+0; w[NR]=$9+0} END{if (NR>n) {for (i=NR-n+1;i<=NR;i++) if (b[i]>b[NR-n] || b[i]-w[i]>=d) exit; print "STALL: step " NR-1 ", best reward " b[NR] " (" b[NR-n] " " n " steps earlier), worst " w[NR]}}'; }
 if [ "$T" = "--test" ]; then   # --test LOG: the first step a finished run's log would have been called a stall at
@@ -18,6 +23,7 @@ while :; do
   if grep -q " $T:" ~/pop2run/results.txt 2>/dev/null; then grep " $T:" ~/pop2run/results.txt | tail -1; break; fi
   S=$(stall $L 2>/dev/null); if [ -n "$S" ]; then echo "$S"; break; fi
   S=$(jump $L 2>/dev/null); if [ -n "$S" ]; then echo "$S"; break; fi
+  S=$(rules $L 2>/dev/null); if [ -n "$S" ]; then echo "$S"; break; fi
   sleep 60
 done
 grep -a -E "Current Step #|Rule Status|\[Prince\]" $L | tail -3 | cut -c1-150

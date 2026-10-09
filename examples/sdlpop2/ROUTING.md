@@ -953,7 +953,7 @@ core's button is "Music On/Off" (the movie letter `m`).
 | 4 | **590** | 1511 | 1673 | room, x, y, frame, hit points equal on every tick; the seed a draw ahead for one tick, twice |
 | 5 | **1375** (was 1436) | 2886 | 2273 | in segments (MT-32 20, Sound Blaster 9): room, x, y, frame, hit points equal on all 2896 ticks; the draws apart by one ambient draw on the ticks that end a segment |
 | 6 | **396** (was 426) | 3282 | 3658 | in segments (MT-32 22, Sound Blaster 11): all 3292 ticks equal in position, level 7 loads on the same tick |
-| 7 | searching (`0700/script-r1c-pot-run.jaffar`, `l07`) | | 4054 | |
+| 7 | searching (`0700/script-r1c-pot-run.jaffar`, `l07b`; the first search failed, see below) | | 4054 | |
 
 The table further up is the same run with the music left alone (1120 at level 4's start).
 
@@ -1016,6 +1016,27 @@ million) took the database's top, the worst reward kept jumping from 1500 to 640
 there. Now the lift's step asks for the mouth open, the lift under a shut mouth fails (`0500/gen.py`), and
 `watch_level.sh` also ends on a jump of four or more rules done in one step. Relaunched as `l05b`.
 
+**Level 7's first search at 300 GB sat in room 7's wall** (`l07`, 1300 steps, 4 of 57 rules done from step 89 to
+the end, 4 h 20). Coming out of room 31's wall the way down to room 7's bottom row is its loose floor (row 2 col 1):
+off the wall's right end (x ~197) he lands on it in sword stance (the head has seen him; y 152 to 182 in one tick,
+no hit point lost), or, falling plainly, breaks through it into room 22 (kid.c `check_fall_landing`: a fall breaks
+a loose floor at once). Either way the floor falls, onto room 22's small potion (row 0 col 1) right under it, whose
+tile becomes rubble (0x0A to 0x0E) 19 ticks after he lands. The small potions' tiles are fail rules ("never drunk":
+the tile must stay 0x0A), so every state failed 19 ticks after the bottom row, and the wall's states with a fall begun
+(rule 4, his row 2) held the database's top for 1200 steps. The old solution never shook the floor: the head bit him
+inside the wall as he dropped (tick 182, 5 hit points then), which set him on the bottom row at x 177, in the wall,
+and he crossed the floor in sword stance, whose frames do not press it. That bite hung on the old chain's seed (the
+head's first idle draw kept it on the middle row); the same moves on the run's chain: the head drifts down first,
+comes back to the middle row and settles idle there, no bite.
+Found by replaying the old solution on the 3 October core beside today's (`tools/trh.c`: the room's characters and
+records a tick, every random draw with its caller), then by a 30 GB search to "standing on the bottom row" (116
+ticks) and on to the potion, which ran out of states at step 149, the tick room 22's tile changed. Fixed in
+`0700/gen.py`: the r1c routes do not ask for room 22's potion (the room is off them: he cannot drink it), and the
+bottom row's steps ask for him standing (y 182), so a fall past it is no step. The 30 GB test then drinks room 7's
+potion at tick 229 (the old solution: 287). Relaunched as `l07b`. `watch_level.sh` now also ends on the rules
+standing still (the best state's rules done the same as 300 steps earlier): this one would have been called at
+step 389, not 1300.
+
 What recurs (for any new script):
 
 - **A hang reads the room below** (its top row, y 56). That room needs the step's magnet too ("keep"), and its y a
@@ -1032,6 +1053,11 @@ What recurs (for any new script):
 - **A step marks the steps before it done.** Its condition must not be met early by a way that ends badly: the
   search then pours into that way (level 5's lift; level 6's push step without the sword, met on his first pass
   through room 4). A late step carries what makes it the route's (the mouth open, the sword, a room seen).
+- **A fail rule on a tile says what it reads, not what it means.** "The potion's tile stays" also fails a potion
+  buried by a falling floor (level 7's room 22 under room 7's loose floor), a tick long after the cause and in
+  another room. The old solution passing the script (rewardcheck) proves nothing about ways it did not take. A
+  search that stands at the same rules for hundreds of steps: look at what fails its states (a small search to the
+  next step ends "out of states" on the tick of the rule).
 - **A dip is no trap when the place above it is on the way too** (level 6's door: the states nearer the door enter as
   soon as it opens), or is the search's own to-and-fro in a wall (levels 6, 7, 8: the head's push, the clips).
 

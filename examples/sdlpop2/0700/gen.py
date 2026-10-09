@@ -127,11 +127,17 @@ def potion7clip(n):
     the head's push through the right wall into 17. The room pulls down and right until he is under the potion, then
     up to where he drinks: pulled to the potion on its row from the start, the wall's states stood 135 above the
     bottom row's for 50 ticks, and those at col 8 above the drinking ones."""
+    # The bottom row's step is him standing on it (y 182), not falling past it: off the wall's right end (x ~197) he
+    # lands on the bottom row's loose floor (col 1) in sword stance (the head has seen him), or falls through it into
+    # room 22 (a fall breaks a loose floor at once). Either way the floor goes, down onto room 22's small potion (see
+    # SMALL below: the final run's first search (300 GB, 1300 steps) failed every state 19 ticks after the bottom row
+    # for that tile, and sat in the wall from step 89 on).
+    STAND = ("Player Pos Y", "==", ROW_Y[2])
     return [
         # (room 31 at its right end scores what room 7's wall does: no way back further)
-        step(room(7, hp(n)), (7, 395, D, 1.0, 1.0), (31, 896, U, 1.0, 0.0, "keep")),
-        step(room(7, hp(n), row(2)), (7, 395, D, 1.0, 1.0)),
-        step(room(7, hp(n), row(2), ("Player Pos X", ">=", 380)), (7, 395, U, 1.0, 1.0)),
+        step(room(7, hp(n)), (7, 395, None, 1.0, 0.0), (31, 896, U, 1.0, 0.0, "keep")),
+        step(room(7, hp(n), row(2), STAND), (7, 395, D, 1.0, 1.0)),
+        step(room(7, hp(n), row(2), STAND, ("Player Pos X", ">=", 380)), (7, 395, U, 1.0, 1.0)),
         step(room(7, hp(n), row(1), ("Player Pos X", ">=", 395)), (7, 429, ROW_Y[1], 1.0, 1.0)),
         step(room(7, hp(n + 1)), (7, R, ROW_Y[1], 1.0, 1.0)),
     ]
@@ -222,7 +228,12 @@ FAILS["probe-10to5"].append([("Player Current HP", "<", 4)])
 SMALL = [(2, 28), (6, 16), (11, 13), (19, 13), (22, 2), (29, 28), (30, 20)]
 for k in ROUTES:
     # (in level 7 only: on the tick level 8 loads its tiles replace these, and the fail beat the win)
-    if not k.startswith("probe"): FAILS[k] += [[("Tile[%d][%d]" % rt, "!=", 0x0A), ("Current Level", "==", 7)] for rt in SMALL]
+    # (the r1c routes: not room 22's (row 0 col 1). Room 7's loose floor (row 2 col 1) is above it, and coming down
+    # the wall he lands on that floor or falls through it: it drops onto the potion, whose tile goes. Room 22 is off
+    # those routes, so he cannot drink it. The old r1c solutions crossed the floor in sword stance from a head's bite
+    # inside the wall, which does not shake it.)
+    if not k.startswith("probe"):
+        FAILS[k] += [[("Tile[%d][%d]" % rt, "!=", 0x0A), ("Current Level", "==", 7)] for rt in SMALL if not (k.startswith("r1c") and rt == (22, 2))]
 # route 2 + both: room 10's head knocked into room 11's bottom-row walls (cols 0..7) freezes there for good
 FAILS["probe-10to22"].append([("Opponent Room", "==", 11), ("Opponent Pos Y", ">=", 150), ("Opponent Pos X", "<=", 400)])
 MAXHP = {"r1c": H0, "r1c-pot": H0 + 1, "r1c-pot2": H0 + 2, "r1": H0, "r1-via7": H0, "r1-pot": H0 + 1, "r1-pot2": H0 + 2,

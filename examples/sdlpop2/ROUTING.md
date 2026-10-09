@@ -1072,10 +1072,18 @@ the same frames). A 30 GB search to room 20 with it: tick 348 (the old solution 
 Three checks came of it. `watch_level.sh` ends on **a room entered late**: with a reference (`mkref.sh TAG N
 OLDSOL`: an old solution's rooms and the ticks it enters them on) the best solution so far is replayed every
 minute and its rooms compared in order, 30 ticks late is the alarm (this search: room 20, at step 450 of 885).
-`tools/waitcheck.py SCRIPT TRACE` lists where a known solution stands in one place and where the script's steps
-of that room pull there; it marks the old script's room 12 (34 ticks at x 410..415, pull to -200, no y). Levels 9
-and 10 show nothing of the kind (their jumps up have a pull up, or a wall on the pull's side). And every search's
-solution is compared room by room with the old one before it is kept.
+`tools/waitcheck.py SCRIPT TRACE [MIN [MAP]]` lists where a known solution stands in one place, the step in force
+there (as far as the trace tells) and where it pulls, with the room's tiles; `!` is a jump up or a hang under a
+pull along the row and none up. It marks the old script's room 12 (34 ticks at x 410..415, pull to -200, no y) and
+not the new one's. On the old solutions of levels 9 to 13 with the run's scripts: no `!` in force but two with
+nothing to stand on beyond them (level 8's room 22 and level 13's room 19: a wall); the jumps under a pull up and
+one along the row (level 11 has some twenty) have a wall or a hole on the pull's side, or the pull is a tile off
+(15 px, made up by the jump's own 2 a tick). And every search's solution is compared room by room with the old one
+before it is kept (`tools/roomcmp.py REF TRACE`: this search's rooms 2 and 12, 13 and 74 ticks longer).
+
+The sword scene in DOS, tried on this search's solution: Space at the scene probe's sixth hit (`SCENES="5 6"`, the
+DOS stage's default from level 8 on; without a key the scene does not end), level 8 reloaded 119 frames later, all
+5151 ticks equal in position on both disks, level 9 loading on the same tick, no scene after level 8.
 
 What recurs (for any new script):
 

@@ -309,8 +309,8 @@
           {
             "Type": "Set Player Pos Y Magnet",
             "Room": 7,
-            "Intensity": 1.0,
-            "Position": 300
+            "Intensity": 0.0,
+            "Position": 0
           },
           {
             "Type": "Set Player Pos X Magnet",
@@ -421,6 +421,11 @@
             "Property": "Player Current Row",
             "Op": "==",
             "Value": 2
+          },
+          {
+            "Property": "Player Pos Y",
+            "Op": "==",
+            "Value": 182
           }
         ],
         "Satisfies": [
@@ -546,6 +551,11 @@
             "Property": "Player Current Row",
             "Op": "==",
             "Value": 2
+          },
+          {
+            "Property": "Player Pos Y",
+            "Op": "==",
+            "Value": 182
           },
           {
             "Property": "Player Pos X",
@@ -3373,27 +3383,6 @@
         "Label": 3912,
         "Conditions": [
           {
-            "Property": "Tile[22][2]",
-            "Op": "!=",
-            "Value": 10
-          },
-          {
-            "Property": "Current Level",
-            "Op": "==",
-            "Value": 7
-          }
-        ],
-        "Satisfies": [],
-        "Actions": [
-          {
-            "Type": "Trigger Fail"
-          }
-        ]
-      },
-      {
-        "Label": 3913,
-        "Conditions": [
-          {
             "Property": "Tile[29][28]",
             "Op": "!=",
             "Value": 10
@@ -3412,7 +3401,7 @@
         ]
       },
       {
-        "Label": 3914,
+        "Label": 3913,
         "Conditions": [
           {
             "Property": "Tile[30][20]",

@@ -924,14 +924,24 @@ core's button is "Music On/Off" (the movie letter `m`).
   in `~/pop2tas/core-src`), because no release has the fix yet; once one has, the same command with that package
   gives the final file. Before it is written the packaged core, sandboxed (`run-wbx` with `core.wbx`, what Chimera
   loads), plays the movie against the native runner: every row's level, room, x, frame, seed, tick count and IGT
-  equal (3658 rows through level 5, 4054 through level 6).
+  equal (3658 rows through level 5, 4054 through level 6, 5028 through level 7).
 - **The project in Chimera** (`chimera_check.sh PROJECT PACKAGE MOVIE`, part of the `project` stage): Chimera's own
   headless runner, `chimera-run --project`, built from upstream's main of 2026-10-08 (e5fbb9c; a worktree
   `~/chimera-new` on jaffanator2: the month-old build there refused the project's "id" key), takes the project and
   the local package, the game's files and the MT-32's ROMs given as firmware (`--firmware ID=PATH`, an id a file
-  name), and plays it: status OK, 4054 frames (through level 6), and the core's memory domains after the last
+  name), and plays it: status OK, 5028 frames (through level 7), and the core's memory domains after the last
   frame (Game State, Kid, Characters, Level, Mobs, Trobs) are byte for byte the native runner's on the same
   movie. Not opened in the frontend's window (no display there).
+- **Level 7** at 300 GB (`l07b`, 3 h 17 min; the first search failed, see below): 974 with its end (`tas/l07.sol`; Up
+  on line 952, `M` on 961, level 8 loads on 974), 53 less than the old 1027, all of it before the potion: rooms 32,
+  31 (tick 23), 7 (100), **the big potion at tick 233** (the old solution: 287, after the head's bite in the wall),
+  17 (262), 12, 10, 12, 6 (431), 3, 29, 2 (572), 16 (714), 28, 20, 21 (817; a hit point lost on the way down, 3 of 4
+  at the door), 8 (888: the door's plate), 21 (949). Chimera's core against the search core: all 973 ticks equal.
+  **No story scene follows level 7** either. In DOS the scene probe fires once more after the script's end (scene 7,
+  the intro): left standing at level 8's start he is dead by its tick 36 (the core too), and the game goes back to
+  its title. Level 8's loose floors (rooms 4, 8, 10, 17: row 1 col 5, row 1 col 2, row 0 col 9, row 0 col 2), looked
+  at before its launch: none in a small potion's column (room 8 col 0, rooms 20 and 24 col 3), so its potion-tile
+  fail rules cannot fire by a falling floor.
 - **Level 6** at 300 GB (`l06`, 57 min): 396 with its end (`tas/l06.sol`; Up on line 374, `M` on 383, level 7 loads
   on 396), 30 less than the old 426: the same rooms (27 3 6 18 6 4 17 4 7 16), room 7 at tick 285 for 297 and room
   16 at 329 for 355. The old solution does not replay on this chain (the guard at the door kills it: other random
@@ -953,7 +963,8 @@ core's button is "Music On/Off" (the movie letter `m`).
 | 4 | **590** | 1511 | 1673 | room, x, y, frame, hit points equal on every tick; the seed a draw ahead for one tick, twice |
 | 5 | **1375** (was 1436) | 2886 | 2273 | in segments (MT-32 20, Sound Blaster 9): room, x, y, frame, hit points equal on all 2896 ticks; the draws apart by one ambient draw on the ticks that end a segment |
 | 6 | **396** (was 426) | 3282 | 3658 | in segments (MT-32 22, Sound Blaster 11): all 3292 ticks equal in position, level 7 loads on the same tick |
-| 7 | searching (`0700/script-r1c-pot-run.jaffar`, `l07b`; the first search failed, see below) | | 4054 | |
+| 7 | **974** (was 1027) | 4256 | 4054 | in segments (MT-32 29, Sound Blaster 18): all 4266 ticks equal in position, level 8 loads on the same tick |
+| 8 | searching (`0800/script-np-run.jaffar`, `l08`) | | 5028 | |
 
 The table further up is the same run with the music left alone (1120 at level 4's start).
 
@@ -1033,9 +1044,9 @@ records a tick, every random draw with its caller), then by a 30 GB search to "s
 ticks) and on to the potion, which ran out of states at step 149, the tick room 22's tile changed. Fixed in
 `0700/gen.py`: the r1c routes do not ask for room 22's potion (the room is off them: he cannot drink it), and the
 bottom row's steps ask for him standing (y 182), so a fall past it is no step. The 30 GB test then drinks room 7's
-potion at tick 229 (the old solution: 287). Relaunched as `l07b`. `watch_level.sh` now also ends on the rules
-standing still (the best state's rules done the same as 300 steps earlier): this one would have been called at
-step 389, not 1300.
+potion at tick 229 (the old solution: 287). Relaunched as `l07b`, which found the level in 974 (the potion at tick
+233). `watch_level.sh` now also ends on the rules standing still (the best state's rules done the same as 300 steps
+earlier): this one would have been called at step 389, not 1300.
 
 What recurs (for any new script):
 

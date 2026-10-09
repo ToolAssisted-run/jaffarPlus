@@ -932,6 +932,13 @@ core's button is "Music On/Off" (the movie letter `m`).
   name), and plays it: status OK, 5028 frames (through level 7), and the core's memory domains after the last
   frame (Game State, Kid, Characters, Level, Mobs, Trobs) are byte for byte the native runner's on the same
   movie. Not opened in the frontend's window (no display there).
+- **Level 9** at 300 GB (`l09`, 1 h 9 min): 369 (`tas/l09.sol`; no stairs, the level ends three ticks into the jump
+  off room 8's top row and level 10 loads on tick 369), 7 less than the old solution, whose 373 lines end on that
+  jump's first frame in the air (376 by this count): rooms 10, 9 (tick 30), 1 (54), 5 (127), 4 (154), 6 (217), 8
+  (269), every room the old one's ticks but room 4 (63 for 70): up on its top row (x 327, tick 191) the old way
+  jumped the two loose tiles (cols 4 and 3) from a stand and started its run after them, this one starts the run
+  over them and jumps from x 211. Chimera's core against the search core: all 368 ticks equal. **A story scene
+  follows level 9**: Space on the row after its last line, level 10's first tick 25 rows after that line.
 - **Level 8** at 300 GB (`l08b`, 2 h 35 min; the first search's 885 was not kept, see below): 810 with its end
   (`tas/l08.sol`; Up on line 788, `M` on 797, level 9 loads on 810), 7 less than the old 817: rooms 16, 13 (tick
   22), 4 (45), 3 (78), 2 (179), 12 (247; the old solution 251), 20 (359), 22 (402), 11 (473), 9 (589 for 596: room 11
@@ -982,7 +989,8 @@ core's button is "Music On/Off" (the movie letter `m`).
 | 6 | **396** (was 426) | 3282 | 3658 | in segments (MT-32 22, Sound Blaster 11): all 3292 ticks equal in position, level 7 loads on the same tick |
 | 7 | **974** (was 1027) | 4256 | 4054 | in segments (MT-32 29, Sound Blaster 18): all 4266 ticks equal in position, level 8 loads on the same tick |
 | 8 | **810** (was 817) | 5066 | 5028 | in segments (MT-32 35, Sound Blaster 18): all 5076 ticks equal in position, the sword scene left by Space at the scene probe's sixth hit, level 9 loads on the same tick |
-| 9 | searching (`0900/script-np-run.jaffar`, `l09`) | | 5925 | |
+| 9 | **369** (was 376) | 5435 | 5925 | in segments (MT-32 35, Sound Blaster 18): all 5445 ticks equal in position, the scene after level 9 left by Space at the scene probe's seventh hit (`SCENES="5 6 7"`, the DOS stage's default from level 9 on), level 10 loads on the same tick |
+| 10 | searching (`1000/script-np-run.jaffar`, `l10`) | | 6319 | |
 
 The table further up is the same run with the music left alone (1120 at level 4's start).
 

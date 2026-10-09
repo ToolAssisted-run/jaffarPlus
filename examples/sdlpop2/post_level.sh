@@ -9,7 +9,7 @@
 #   dos    the chain in DOS in segments, both disks at once (sol2script.py with SYNC, orun.sh, tools/ocmp3.py); env
 #          SCENES: the hits of the scene probe that get Space, as the run presses it (default "5": the scene after
 #          level 5, whose skipping costs a draw; from level 8 on "5 6": the sword scene inside level 8, which does
-#          not end without a key), env END: the oracle's last frame
+#          not end without a key; from level 9 on "5 6 7": the scene after level 9), env END: the oracle's last frame
 #   project  the run so far as a Chimera project, ~/pop2tas/pop2-tas.chimeraProject (tools/mkproject.py, a marker a
 #          level), after the packaged core (sandboxed: run-wbx with core.wbx, what Chimera loads) has played the
 #          movie as the runner does. The package is a local build (~/pop2tas/sdlpop2-a5ee-local.chimeraCore, from
@@ -52,7 +52,7 @@ for STAGE in "$@"; do
     cd $HOME/pop2dec/oracle
     E=${END:-$((13000 + T * 63 / 10 + 2500 * (N - 4)))}
     NOALT=1 SYNC=$CORE python3 sol2script.py $NAME $E $SOL
-    DEFSC=5; [ $N -ge 8 ] && DEFSC="5 6"
+    DEFSC=5; [ $N -ge 8 ] && DEFSC="5 6"; [ $N -ge 9 ] && DEFSC="5 6 7"
     for k in ${SCENES:-$DEFSC}; do sed -i "s|^end $E|probepoke scene $k 41A 1E0020002039\nend $E|" $NAME.script; done
     for d in popmt32 pop; do ./orun.sh $NAME $d "prince yippeeyahoo LEVEL1" & done
     wait

@@ -23,6 +23,10 @@ tick after it, on the row the scene's last frame is followed by (the tick count 
 on no row's end, so that one tick is not compared, and the next line goes on that row. Without a key the sword
 scene does not end (3000 rows tried); Space 40 rows later ends it 22 rows later, the same state after it.
 
+env PARTIAL: LEVEL.sol is a level not ended yet (a running search's best solution so far, for a progress video):
+nothing is pressed after it and no next level is looked for; OUT.mov is the rows, a scene inside laid out as above,
+and 20 empty ones.
+
 The runner's letters: U D L R S C, `_` Show Time / Space, `a` Restart Level, `m` Music On/Off, `.` nothing.
 """
 import os, subprocess, sys, tempfile
@@ -73,6 +77,8 @@ def differ(tr, core, rowof, lv, hidden=()):
 def main():
     prev, level, nxt, out = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
     after = sys.argv[5:] or ["_"]; given = len(sys.argv) > 5
+    partial = bool(os.environ.get("PARTIAL"))
+    if partial: after = []
     core = core_trace(os.environ["CORE"]) if os.environ.get("CORE") else None
     rows = [l.strip() for l in open(prev) if l.strip()]
     start = len(rows)
@@ -118,6 +124,9 @@ def main():
         print("the runner against the core: %d ticks of level %d compared, %s" % (sum(1 for t in core if core[t][0] == lv and t not in hidden), lv,
               "all equal (room, x, frame, seed)" if not bad else "%d DIFFER, from tick %d (row %d)" % (len(bad), bad[0], rowof[bad[0] - 1])))
         if bad: sys.exit(1)
+    if partial:
+        open(out, "w").write("\n".join(rows + ["."] * 20) + "\n")
+        print("level %d so far: rows %d..%d; %s: %d rows" % (lv, start, len(rows) - 1, out, len(rows) + 20)); return
     if nxt not in r: sys.exit("level %d not reached: %s" % (nxt, r))
     row, igt = r[nxt]
     if row < len(rows) and not given and after:

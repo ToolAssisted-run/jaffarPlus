@@ -5,6 +5,8 @@ The run's Chimera movie plus an unfinished level: PARTIAL.sol is a running searc
 /tmp/jaffar.*.best.sol, copied: the search rewrites it), a row a line after PREV.mov's rows (which end on the row
 before the level's first tick), and TAIL empty rows after (default 30). For a video of a search's progress
 (render-run.sh NAME OUT.mov FIRSTROW); the level's own movie comes from mvextend.py once it is solved.
+Once the path is past a scene inside the level (level 8's sword, level 14's Jaffar), the scene has to be laid
+out: mvextend.py with env PARTIAL does that for an unfinished level.
 """
 import os, sys
 

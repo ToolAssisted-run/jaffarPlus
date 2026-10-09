@@ -932,6 +932,23 @@ core's button is "Music On/Off" (the movie letter `m`).
   name), and plays it: status OK, 5028 frames (through level 7), and the core's memory domains after the last
   frame (Game State, Kid, Characters, Level, Mobs, Trobs) are byte for byte the native runner's on the same
   movie. Not opened in the frontend's window (no display there).
+- **Level 8** at 300 GB (`l08b`, 2 h 35 min; the first search's 885 was not kept, see below): 810 with its end
+  (`tas/l08.sol`; Up on line 788, `M` on 797, level 9 loads on 810), 7 less than the old 817: rooms 16, 13 (tick
+  22), 4 (45), 3 (78), 2 (179), 12 (247; the old solution 251), 20 (359), 22 (402), 11 (473), 9 (589 for 596: room 11
+  in 116 for 119), 1 (693), 24 (719), 23 (744; two hit points lost on the way down, 2 of 4 at the stairs). From room
+  12 on it is the old way tick for tick but for room 11's three. Room 2 is entered 25 ticks before the old
+  solution's 204 and left 4 before: the jump down room 3's left end starts two ticks earlier and lands across the
+  border, so the landing's 20 ticks are room 2's (`tools/roomcmp.py`: room 2 "21 longer", room 3 25 shorter). **The
+  sword scene** (line 622) is laid out by `tools/mvextend.py` as in the dry run: Space on the row after the line's,
+  line 623 87 rows later; Chimera's core against the search core: the 808 other ticks equal. No story scene follows
+  level 8.
+  A room entered early is not a way that is faster: a 30 GB search to room 20 had it at tick 348, this one's best at
+  step 381 at 351, the solution at 359. The early ones take the run jump on room 12's middle row at once, land in
+  room 12 and run into room 20, whose floor ends three tiles in (cols 9..7); run off its end he lands on the bottom
+  row at tick 366, x 339, the solution (the run first, the jump from room 12's last tile over that floor) at tick
+  372, x 287: six ticks later and 52 px further on, the same within a tick. For a progress video of a running
+  search `mvextend.py` takes an unfinished level (env `PARTIAL`: nothing pressed after it, no next level looked
+  for, a scene inside laid out all the same).
 - **Level 7** at 300 GB (`l07b`, 3 h 17 min; the first search failed, see below): 974 with its end (`tas/l07.sol`; Up
   on line 952, `M` on 961, level 8 loads on 974), 53 less than the old 1027, all of it before the potion: rooms 32,
   31 (tick 23), 7 (100), **the big potion at tick 233** (the old solution: 287, after the head's bite in the wall),
@@ -964,7 +981,8 @@ core's button is "Music On/Off" (the movie letter `m`).
 | 5 | **1375** (was 1436) | 2886 | 2273 | in segments (MT-32 20, Sound Blaster 9): room, x, y, frame, hit points equal on all 2896 ticks; the draws apart by one ambient draw on the ticks that end a segment |
 | 6 | **396** (was 426) | 3282 | 3658 | in segments (MT-32 22, Sound Blaster 11): all 3292 ticks equal in position, level 7 loads on the same tick |
 | 7 | **974** (was 1027) | 4256 | 4054 | in segments (MT-32 29, Sound Blaster 18): all 4266 ticks equal in position, level 8 loads on the same tick |
-| 8 | searching again (`0800/script-np-run.jaffar`, `l08b`; the first search's 885 is not kept, see below) | | 5028 | |
+| 8 | **810** (was 817) | 5066 | 5028 | in segments (MT-32 35, Sound Blaster 18): all 5076 ticks equal in position, the sword scene left by Space at the scene probe's sixth hit, level 9 loads on the same tick |
+| 9 | searching (`0900/script-np-run.jaffar`, `l09`) | | 5925 | |
 
 The table further up is the same run with the music left alone (1120 at level 4's start).
 
@@ -1067,7 +1085,8 @@ reward never dips, it is others that stand above it.
 Fixed in `0800/gen.py`: the bottom row pulls to the jump's place and up (x 414; the smoothed y scores every frame
 of a jump up), the broken tiles are a step (pull to x 410, up), the middle row another (left). On the old inputs
 the reward now climbs through both jumps (one dip of 14 over the first jump's landing, where every state is in
-the same frames). A 30 GB search to room 20 with it: tick 348 (the old solution 363). Relaunched as `l08b`.
+the same frames). A 30 GB search to room 20 with it: tick 348 (the old solution 363). Relaunched as `l08b`: 810
+ticks, room 12 at 247 and its middle row at 293 (the old solution 251 and 297); the level's entry is above.
 
 Three checks came of it. `watch_level.sh` ends on **a room entered late**: with a reference (`mkref.sh TAG N
 OLDSOL`: an old solution's rooms and the ticks it enters them on) the best solution so far is replayed every

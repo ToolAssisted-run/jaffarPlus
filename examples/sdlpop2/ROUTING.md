@@ -932,6 +932,31 @@ core's button is "Music On/Off" (the movie letter `m`).
   name), and plays it: status OK, 5028 frames (through level 7), and the core's memory domains after the last
   frame (Game State, Kid, Characters, Level, Mobs, Trobs) are byte for byte the native runner's on the same
   movie. Not opened in the frontend's window (no display there).
+- **Level 14** is searched in segments (`1400/run14.sh`): the scene, room 3's six potions as one search, the eight
+  turns, room 6 up into room 7, the fight; each starts on the chain and the segments found before it.
+  - **The scene: 51 ticks** (`1400/l14scene.sol`): the exploration's inputs with the music key on tick 2. Level 14 is
+    the one level that starts standing (frame 15) with the music off (level 13's end switched it off), so the
+    script's rule, the key alone on the first tick, costs a tick there: 52 found (`l14scene52.sol`), tick 1's step
+    right being what counts. Tick 2 is inside that step (frames 121 to 132), where no key is read: the key there
+    changes no position, nor does it on 44 of the 51 lines (`trs`, each tried). The other levels with the key on
+    their first line (4, 5, 7 to 9, 11 to 13) start in a turn (frame 45), where it is free; levels 6 and 10 start
+    with the music on.
+- **Level 13** at 300 GB (`l13`, 2 h 21 min): 743 with its end (`tas/l13.sol`; Up on line 721, `M` on 730, level 14
+  loads on 743), 32 less than the old 775, no hit taken; room 29's big potion drunk at tick 456 (5 of 5). Rooms 3,
+  20 (tick 83), 9 (110), 10 (136), 11 (191), 19 (255), 32 (326), 2 (353), 28 (380), 13 (405), 29 (430), 4 (502),
+  29 (611), 13 (636), 28 (700).
+  - **Room 20's gate taken in a running jump: 15 ticks.** Both ways are on room 3's loose floor by tick 29. The old
+    way left it with the sword out, put the sword away (ticks 33 to 58), came back in a running jump, stood before
+    the gate from 82 to 89 and went through in a standing jump: room 20 at 98. The solution turns on the floor at a
+    run (ticks 24 to 36), runs back, waits farther right (crouched from the run, ticks 48 to 63, standing to 67) and
+    runs at the gate: a running jump from x 233 at tick 75 passes it in flight, room 20 at 83.
+  - **Room 20 in 27 for 41:** he lands running (tick 85) and takes the room in two more running jumps (91 to 101,
+    103 to 113, the second into room 9 at 110); the old way stood up from its standing jump (108), ran, jumped once
+    and ran on.
+  - The rest within five ticks a room (rooms 32 and 13 take 4 and 5 less, room 10 4 more, room 13 on the way back
+    3 more, room 28 with the door 3 less): 32 at the door.
+  Chimera's core against the search core: all 742 ticks equal. A story scene follows level 13: Space on the row
+  after the level's last (10331), level 14's first row 22 rows later.
 - **Level 12** at 300 GB (`l12`, 2 h 19 min): 714 with its end (`tas/l12.sol`; Up on line 692, `M` on 701, level 13
   loads on 714), 21 less than the old 735, no hit point lost. Rooms 19, 7 (tick 36), 14 (90), 22 (116), 14 (164),
   15 (189), 16 (216), 6 (243), 17 (301), 10 (439), 9 (464), 8 (567), 19 (631), 7 (681). The old way to the tick
@@ -1043,7 +1068,8 @@ core's button is "Music On/Off" (the movie letter `m`).
 | 10 | **299** (the old 298 and room 11's guard, see above) | 5734 | 6319 | in segments (MT-32 39, Sound Blaster 22): all 5744 ticks equal in position, level 11 loads on the same tick; on the Sound Blaster disk DOS runs by itself from tick 3800 to 5566, the guard's passage (level 10's ticks 22 to 47) inside it |
 | 11 | **2256** (the old way stitched: 2267) | 7990 | 6618 | in segments (MT-32 66, Sound Blaster 62): all 8000 ticks equal in position, level 12 loads on the same tick; the new segments are nearly all level 11's, where the seeds part by one draw and meet again a tick or two later (once after 17, ticks 7006 to 7023 on the MT-32 disk) |
 | 12 | **714** (was 735) | 8704 | 8874 | in segments (MT-32 72, Sound Blaster 68): all 8714 ticks equal in position, level 13 loads on the same tick |
-| 13 | searching (`1300/script-pot-run.jaffar`, `l13`) | | 9588 | |
+| 13 | **743** (was 775) | 9447 | 9588 | in segments (MT-32 72, Sound Blaster 70): all 9457 ticks equal in position, no draw of level 13 off on either disk; the scene after it is the probe's eighth hit (ax=3; Space, as the run presses it), level 14 loads |
+| 14 | in segments (`1400/run14.sh`): the scene **51**; room 3's potions searching (`1400/script-farm-run.jaffar`, `l14farm`) | | 10353 | |
 
 The table further up is the same run with the music left alone (1120 at level 4's start).
 

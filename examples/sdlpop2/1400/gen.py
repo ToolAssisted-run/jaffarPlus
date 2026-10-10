@@ -261,6 +261,9 @@ if "farm" in ROUTES:   # (potions are drunk there)
     # last potion's carrier; nor one more than needed (a big potion appearing at the target maximum)
     FAILS["farm"] = [[("Wasted Kills", ">", 0), ("Current Level", "==", 14)],
                      [hp(HT), BIG, ("Current Level", "==", 14)]]
+    # the final run: the flame needs all of them (11 of 11 when the turns start: with 10 the spirit cannot cast), so a
+    # hit taken after the last potion fails (a big potion fills him up in its own tick: items.c, apply_hp_deltas)
+    if RUN: FAILS["farm"].append([hp(HT), ("Player Current HP", "<", HT), ("Current Level", "==", 14)])
 FAILS["ledge"].append([("Player Room", "==", 3), ("Player Pos Y", ">", 70)])   # (room 3 only hanging under room 4's tile)
 
 LEVEL = {

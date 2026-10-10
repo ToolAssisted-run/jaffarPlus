@@ -4,8 +4,8 @@
 	"description": "JaffarPlus / QuickerSDLPoP2 searches, level by level (examples/sdlpop2/ROUTING.md). In-game time counted from level 1. 11756 frames, from the boot to the final scene: The end (IGT 10819).",
 	"core": {
 		"name": "SDLPoP2",
-		"version": "bf617e900301bf83c468890d45600b98a226bae2",
-		"sha1": "39EA822F9858EE1F0FEED1A75888A4B5C8949BC8"
+		"version": "0153ff151b54d29e0c5bb87fd660aabcd2ce4e08",
+		"sha1": "362A2B45B9E4E15E5FAF28C876032952A419B98E"
 	},
 	"rerecords": 0,
 	"files": [],

@@ -947,6 +947,28 @@ core's button is "Music On/Off" (the movie letter `m`).
   that changed (the input, the settings and the firmware pins are the local build's project's), and Chimera's
   runner plays it with that package: status OK, every memory domain equal. Chimera downloads no core: the file
   goes into its Cores folder.
+- **The run's pictures against DOS's (2026-10-10, Sergio: the flame of level 13 flickering, the backgrounds of
+  level 14's rooms 5 and 6 and of level 8's sword room wrong).** All of it SDLPoP2's drawing, in the core's native
+  runner too; none of it the game's state. The oracle played the run once more dumping every VGA frame (`oracle-run
+  --dump-video`: 106222 frames of 640x400, 77 GB in /dev/shm), the core's runner every row (`GATE_RAWVIDEO`, a
+  local patch of its harness), and `tools/framecmp.py` / `framecmp2.py` put a tick's picture beside DOS's frames
+  around the next tick's start (`framesum.py` room by room, `frametrip.py` / `framezoom.py` the pictures side by
+  side, `odomcmp.py` the level and the characters as DOS has them against the core's domains).
+  - **Before: 9466 of 10817 ticks equal to the pixel.** Two lists of the drawing filled up in a game played from
+    the start (a description's images, 128 entries kept from room to room: full by level 8; the guard palette's
+    files, three places for five: the fourth, level 13's FLAME.DAT, not looked in). SDLPoP2 ab6eaba: 9936.
+  - The game's own redraw requests in place of "a changed tile is drawn again whole": the final level's animated
+    tiles (the spider's eye of room 3 was drawn in the wrong tile cell at the wrong ticks: 523 of that room's 698
+    ticks), the slicer blades; the hit points of a head that went; a biting head a frame behind the prince.
+    SDLPoP2 989c907: **10635**. Level 13's flame room all 109 ticks, the final level's rooms 3, 5 and 6 all but
+    one tick.
+  - Left: the first tick of a room in 79 of 185 rooms (a room change is on DOS's screen for less than a frame
+    before the next tick draws), a loose floor fallen in the last ruins' horse room (18 ticks, 169 px), fore
+    pieces over the prince on the final level (14 ticks, up to 66 px), 2 px in level 8's sword room.
+  - The core: chimera-core-sdlpop2 0153ff1 (gate 73 of 73; the run equal on it natively and sandboxed). CI's
+    package, `sdlpop2-0153ff1...chimeraCore` (SHA-1 362A2B45...), is the `dev` release's asset; the project names
+    it now (Chimera's runner: status OK, every memory domain equal). A nightly is never published twice for a day
+    and 2026-10-10's is bf617e9's: this commit's dated release is the next scheduled one.
 - **Level 14** is searched in segments (`1400/run14.sh`): the scene, room 3's six potions as one search, the eight
   turns, room 6 up into room 7, the fight; each starts on the chain and the segments found before it.
   - **The scene: 51 ticks** (`1400/l14scene.sol`): the exploration's inputs with the music key on tick 2. Level 14 is

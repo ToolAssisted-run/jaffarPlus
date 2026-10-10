@@ -13,11 +13,21 @@
 # The level as the run plays it: l14scene + l14farm + l14e1 + l14r7 less its last 10 lines + l14fight, and the
 # ticks to the win after the hit. One search at a time: it refuses while a jaffar runs. env WAIT: seconds before
 # the first steps are printed (45); the watcher is watch_level.sh l14SEGMENT.
+#   cut    the level from the segments: l14cut.sol (env TAIL: the empty lines after the fight's last, the ticks from
+#          the fireball's hit to the level won; 4) and the whole run's chain, ../1500/l0102..14cut.sol
 set -e
 SEG=$1; DB=${2:-300000}
 S=$HOME/jaffarPlus-run/examples/sdlpop2; cd $S/1400
 CH=l01020304050607080910111213cut.sol
 [ -f $CH ] || { echo "no chain $CH"; exit 1; }
+if [ "$SEG" = cut ]; then
+  for f in l14scene.sol l14farm.sol l14e1.sol l14r7.sol l14fight.sol; do [ -s $f ] || { echo "missing $f"; exit 1; }; done
+  { cat l14scene.sol l14farm.sol l14e1.sol; head -n -10 l14r7.sol; cat l14fight.sol; for i in $(seq ${TAIL:-4}); do echo "|.|......|"; done; } > l14cut.sol
+  mkdir -p ../1500; [ -e ../1500/prince2 ] || ln -s $(readlink -f prince2) ../1500/prince2
+  cat $CH l14cut.sol > ../1500/${CH%13cut.sol}1314cut.sol
+  echo "l14cut.sol: $(grep -c '^|' l14cut.sol) lines (scene $(grep -c '^|' l14scene.sol), potions $(grep -c '^|' l14farm.sol), turns $(grep -c '^|' l14e1.sol), to room 7 $(($(grep -c '^|' l14r7.sol) - 10)), fight $(grep -c '^|' l14fight.sol), ${TAIL:-4} to the win); the run: $(grep -c '^|' ../1500/${CH%13cut.sol}1314cut.sol)"
+  exit 0
+fi
 if pidof jaffar > /dev/null; then echo "a jaffar is running: $(pidof jaffar)"; exit 1; fi
 # (a search just stopped frees its database over a minute: the next one would die at once for want of memory)
 F=$(free -m | awk '/^Mem:/ {print $7}'); [ $F -ge $((DB + 60000)) ] || { echo "only $F MB of memory available for a $DB MB database"; exit 1; }

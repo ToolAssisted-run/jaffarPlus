@@ -976,6 +976,9 @@ core's button is "Music On/Off" (the movie letter `m`).
     exploration's estimate for six potions and back was 847.
   - **The eight turns: 43 ticks** (`l14e1.sol`, under a minute's search; the exploration's 43): the spirit out of
     the body at 6 of 6.
+  - **Room 6 up into room 7: 276 ticks** (`l14r7.sol`, 46 minutes; the exploration's 277): room 6 at 49, its Jaffars
+    cut down at 92, 153 and 208 (the exploration's third at 221), the fourth gone at 249, room 7 at 265, standing on
+    its bottom row's col 7 at 276 (stray keys on the last ticks, as there: the fight starts 10 ticks before).
 - **Level 13** at 300 GB (`l13`, 2 h 21 min): 743 with its end (`tas/l13.sol`; Up on line 721, `M` on 730, level 14
   loads on 743), 32 less than the old 775, no hit taken; room 29's big potion drunk at tick 456 (5 of 5). Rooms 3,
   20 (tick 83), 9 (110), 10 (136), 11 (191), 19 (255), 32 (326), 2 (353), 28 (380), 13 (405), 29 (430), 4 (502),
@@ -1139,6 +1142,23 @@ draws apart, room 16's head kills him at tick 396.
   single ambient draw each (11 where the core drew a piece and DOS did not: all of them the core's ambient draws;
   12 where DOS drew one more; 36 of the core's 47 ambient draws fall on the same tick in DOS). The Sound Blaster
   disk: 18 segments, all equal.
+- **The lateness meter, and level 14's room 3 (2026-10-10).** DS:2BA4 (169B:05A1) goes up on a pass that took a
+  timer tick more and down on one in time; the core's is always 0 (every pass on time: `glue.c` frame_on_time). On
+  the oracle's 486, 2 to 13 ticks in 500 start with it at 1: the passes that draw a new room. Torches and the
+  ambient effects only draw less often then, but level 14's tiles 0x28 (room 3), 0x29 and 0x2A (rooms 6 to 8)
+  animate another way while the game is late, with other draws (`final.c` anim_tile28: a delay of 30..90 for a
+  showing after 1..3), and in room 3 those come ahead of the guards' draws in the tick. Found on the run's level
+  14 through the eight turns: the pass that draws room 3 is late (the run's tick 9527), the tile takes the late
+  branch at 9528 and its draws fall on other ticks than the core's from then on; at 9907 one of the core's comes
+  before the guard's strike draw, so DOS's guard strikes and the core's does not; his body ends at x 289 for 291,
+  across a tile's edge, the potion lies on col 3 for col 4, and at 9925 Shift picks nothing up in DOS (he turns
+  round, the opponent behind him). Both disks alike, the prince's position equal to tick 9924. With the meter
+  cleared at every tick's start (`sol2script.py` with `LATE0=1`: a machine that is never late, as the core is)
+  **DOS plays the six potions and the eight turns as the core does: 10341 ticks, no position mismatch on either
+  disk**, and the ticks whose draws differ fall from 218 to 75 (MT-32) and from 216 to 86 (Sound Blaster), none
+  of them in level 14. The run is that of a machine on which no pass is late; on the oracle's 486 as it stands
+  room 3 goes another way. (Tools: the oracle's snapshot holds DS:2900..6BFF after every tick, the level's rooms,
+  records and tiles among it; `tools/trh.c` built with `-DDRAWS` names each draw's caller, but for `guard.c`'s own.)
 
 ### The later levels' scripts, checked before their searches (2026-10-08)
 

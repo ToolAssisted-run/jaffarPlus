@@ -31,6 +31,9 @@ NORNG = "--norng" in sys.argv   # (the random seed not hashed: geometry tests)
 if NORNG: sys.argv.remove("--norng")
 if "--hp" in sys.argv:
     i = sys.argv.index("--hp"); H0 = int(sys.argv[i + 1]); del sys.argv[i:i + 2]
+# --in3: the farm route from a state already in room 3 (the run's potions search taken up again at its --hp)
+IN3 = "--in3" in sys.argv
+if IN3: sys.argv.remove("--in3")
 
 ROUTES = {
     # 1 (down off the ledge's right end, col 5) 2 (its floor, leftwards: the scene) -> 4
@@ -79,7 +82,7 @@ def farm(h0, ht):
     (a kill that leaves none fails: the random seed is hashed, the search times the kill), the potion drunk; then back up
     onto room 4's middle row. Sergio: a strong magnet on the guards' hit points (both, when two stand), a small one
     towards the nearest."""
-    st = [step(room(4, hp(h0)), (4, None, D, 1.0, 2.0))]
+    st = [] if IN3 else [step(room(4, hp(h0)), (4, None, D, 1.0, 2.0))]
     # The sword put away while the potion lies there is a step of its own. Without it the run's search drank five and
     # stood 300 ticks on the sixth's tile, sword in hand: the kill left him there, the potion's pull is to its tile's
     # middle, and putting the sword away steps him back 10 px (then the drink: 38 ticks by hand). Those states ranked
@@ -93,8 +96,14 @@ def farm(h0, ht):
     # leaving, and the climbers are pruned): 60 a pixel of height; a guard in the way may be fought off, not killed
     # (FAILS). (The first return search sat under room 4's ledge for 400 ticks: its x magnet was a
     # tile off, and the states walking to the right spot ranked below the ones jumping in place.)
-    st += [step(room(3, hp(ht)), (3, 258, U, 1.0, 60.0), acts=[gm(400.0, 3000.0, 0.0), pm(0.0)]),
-           step(room(4, hp(ht)), (4, 250, ROW_Y[1], 1.0, 60.0)),
+    # The last potion's step pays for the pull up it starts: 60 a pixel from above the room is ~10000 below on the
+    # middle row (14000 on the bottom one). With the plain 1000 the run's second search drank the sixth later every
+    # step (the best state crouched 27 ticks by the potion at step 704, and on): a state at 11 ranked 9200 under the
+    # ones yet to drink, last in a full database. (The table's returns were searches of their own, from the first
+    # state at the target: all their states past this step.) Room 4's likewise: its row is 20 px further from its
+    # target than room 3's pull was at the change of rooms (1200).
+    st += [step(room(3, hp(ht)), (3, 258, U, 1.0, 60.0), acts=[gm(400.0, 3000.0, 0.0), pm(0.0)], reward=16000.0),
+           step(room(4, hp(ht)), (4, 250, ROW_Y[1], 1.0, 60.0), reward=3000.0),
            step(room(4, hp(ht), ("Player Pos Y", "<", 125)), (4, 250, ROW_Y[1], 1.0, 60.0))]
     return st
 

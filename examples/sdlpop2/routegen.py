@@ -38,12 +38,14 @@ def row(r):
     return ("Player Current Row", "==", r)
 
 
-def step(cond, *mags, opp=None, hpm=None, oppx=None, oppy=None, acts=None):
+def step(cond, *mags, opp=None, hpm=None, oppx=None, oppy=None, acts=None, reward=None):
     """mags: (room, x or None, y or None[, x intensity, y intensity[, "keep"]]); opp: the Opponent HP Magnet's intensity
     (per hit point the opponent lost); hpm: the Player HP Magnet's (per hit point the prince has). Both hold for the
     later steps until one sets them again. oppx / oppy: (intensity, x / y), the Opponent Pos X / Y Magnets (the opponent
-    slot's position). acts: further actions as they go into the script (e.g. a "Set Room Heads Magnet")."""
-    return {"cond": cond, "mags": mags, "opp": opp, "hpm": hpm, "oppx": oppx, "oppy": oppy, "acts": acts}
+    slot's position). acts: further actions as they go into the script (e.g. a "Set Room Heads Magnet"). reward: the
+    step's own (default 1000): more where its magnets start further below than that (a step that costs reward to
+    reach is not reached by a full database: the states short of it rank above the ones past it)."""
+    return {"cond": cond, "mags": mags, "opp": opp, "hpm": hpm, "oppx": oppx, "oppy": oppy, "acts": acts, "reward": reward}
 
 
 # the prince steps into an open exit door (Up, standing by it: control.c control_standing_up, sequence 0x46); the
@@ -96,7 +98,7 @@ def build(lv, route, upto, db, init, tag, maxsteps, anyframe=False, run=False):
         hps = [c for c in s["cond"] if c[0] == "Player Max HP"]
         if hps: need = hps[0]
         elif need is not None: s = dict(s, cond=s["cond"] + [need])
-        acts = [{"Type": "Add Reward", "Value": 1000.0}]
+        acts = [{"Type": "Add Reward", "Value": s.get("reward") or 1000.0}]
         own = s["cond"][0][2] if s["cond"] and s["cond"][0][0] == "Player Room" else prev
         mags = list(s["mags"])
         # the door's stairs take the prince 45 px right and 25 up over the level's last ~20 ticks: the room pulls that

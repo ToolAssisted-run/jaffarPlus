@@ -4,6 +4,8 @@
 # one before ended: the chain is 1400/l0102..13cut.sol (post_level.sh 13 TAG cut) and the segments found so far.
 #   scene  room 1 to the scene with Jaffar at the window (the level loaded again: room 4)          l14scene.sol
 #   farm   room 3's six big potions (5 -> 11) and back onto room 4's middle row, standing, 11/11  l14farm.sol
+#          (as searched: l14farmA.sol, the first search's way to the fifth potion's tick, 10/10; farmB from there
+#          to the end, the last potion's step paid as its pull up costs; l14farm.sol is the two)
 #   e1     the eight turns: the spirit out of the body                                            l14e1.sol
 #   r7     the spirit through room 6's Jaffars up into room 7 by the right platform               l14r7.sol
 #   fight  Jaffar's round and the fireball's hit, from 10 ticks before r7's end (fightk.sh: the   l14fight.sol
@@ -24,6 +26,7 @@ I=init_run_$SEG.sol
 case $SEG in
   scene) cp $CH $I; A="scene --upto 3 --anyframe --maxsteps 200";;
   farm)  need l14scene.sol; cat $CH l14scene.sol > $I; A="farm --to 11 --upto 22 --maxsteps 1400";;
+  farmB) need l14scene.sol l14farmA.sol; cat $CH l14scene.sol l14farmA.sol > $I; A="farm --hp 10 --in3 --to 11 --upto 6 --maxsteps 500";;
   e1)    need l14scene.sol l14farm.sol; cat $CH l14scene.sol l14farm.sol > $I; A="end --upto 9 --anyframe --maxsteps 200";;
   r7)    need l14scene.sol l14farm.sol l14e1.sol; cat $CH l14scene.sol l14farm.sol l14e1.sol > $I; A="r7R --upto 8 --maxsteps 420";;
   fight) need l14scene.sol l14farm.sol l14e1.sol l14r7.sol
@@ -33,6 +36,7 @@ esac
 python3 gen.py $A --run --init $I --db $DB --out script-$SEG-run.jaffar --tag l14$SEG
 echo "init $I: $(grep -c '^|' $I) lines; script script-$SEG-run.jaffar: $(grep -c '"Label"' script-$SEG-run.jaffar) rules"
 grep -o -E '"Music On At Start": *[a-z]+|"Max Steps": *[0-9]+|"Hash Random Seed": *[a-z]+|"Max HP At Level"[^]]*\]' script-$SEG-run.jaffar | tr "\n" ";"; echo
+[ -n "$GENONLY" ] && exit 0   # (the script only: tools/rewardcheck.py on it before a search)
 nohup ../run_level.sh 1400 script-$SEG-run.jaffar l14$SEG $DB > /dev/null 2>&1 &
 sleep ${WAIT:-45}
 L=$HOME/pop2run/l14$SEG.log

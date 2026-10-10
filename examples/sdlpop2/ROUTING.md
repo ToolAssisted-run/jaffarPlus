@@ -952,6 +952,21 @@ core's button is "Music On/Off" (the movie letter `m`).
     16. Searched again from the scene; the first run's log is `~/pop2run/l14farm_stall.log`, its script
     `1400/script-farm-run-stall.jaffar`. (A search launched while the one just stopped still frees its database
     dies at once for want of memory: `run14.sh` now looks at the memory available.)
+  - **The second search (stopped at step 726): the sixth potion drunk later every step.** First states: 102 / 127,
+    216 / 241, 314 / 336, 428 / 452, 522 / 545, the sixth on the floor with the sword away at 647. The best state at
+    step 704 had crouched by it 27 ticks before the drink (11 of 11 at 706, replayed), the one at 709 longer. The
+    cause is the step after the last potion: its pull up, 60 a pixel from above the room, starts ~10000 below on
+    the middle row, for a step's 1000. A state at 11 ranked 9200 under the ones yet to drink, the last of a full
+    database (best 37500, worst 28314). The same drop stood behind the first search's sixth potion (-9146 on its
+    hand-finished path), so the sword's 20 was not all of that stall. The exploration's returns never met it: each
+    was a search of its own from the first state at the target, all its states past the step. The fix: a step
+    carries its own reward (`routegen.py` `step(reward=)`), the last potion's 16000 and room 4's 3000 (its row is 20
+    px further from its target than room 3's pull was at the change of rooms: 1200 for 1000);
+    `tools/rewardcheck.py` on the hand-finished path through the new script: no dip over 44. Log
+    `~/pop2run/l14farm_trap2.log`, script `1400/script-farm-run-trap2.jaffar`.
+  - **Taken up from the fifth potion** (`run14.sh farmB`, `gen.py farm --hp 10 --in3`): `l14farmA.sol` is the first
+    search's way to 10 of 10 at tick 544 (its two kept solutions: 544 and 546; the second search's: 550), `farmB`
+    the sixth potion and the way back from there; `l14farm.sol` is the two.
 - **Level 13** at 300 GB (`l13`, 2 h 21 min): 743 with its end (`tas/l13.sol`; Up on line 721, `M` on 730, level 14
   loads on 743), 32 less than the old 775, no hit taken; room 29's big potion drunk at tick 456 (5 of 5). Rooms 3,
   20 (tick 83), 9 (110), 10 (136), 11 (191), 19 (255), 32 (326), 2 (353), 28 (380), 13 (405), 29 (430), 4 (502),

@@ -995,6 +995,17 @@ core's button is "Music On/Off" (the movie letter `m`).
     last moves on row 11735, its IGT stands at 10819 from row 11736 on (9447 on level 14's first row, 10353). The
     exploration's "4 ticks to the win" was the frame's flag, not the scene's start. Chimera's core against the
     search core: all 1371 ticks compared equal (the Jaffar scene inside takes Space and 11 rows, 10404 to 10414).
+  - **A variation tried and left (Sergio, 2026-10-10): the body dropped out of room 4.** The eight turns on room
+    4's lower tile (the bottom row's one floor tile, col 3, a gap on either side), right out of room 3.
+    `spirit.c` leave_body moves the prince 16 px on when the tile behind him is a gap ("placed off a gap": the one
+    in front is not looked at then), and the body's record is written from his after the move: near the tile's
+    front edge both are over it, and body and spirit fall into room 3 (`gen.py` route `drop`: 56 ticks from the
+    room's entry, `1400/l14drop.sol`; Chimera's core the same on all its ticks; video `level14-body-drop.mp4`). The
+    body stays on room 3's top row in its falling frame (106) and never settles, so the spirit keeps 6 of 6. The
+    spirit does not stay behind (`drop2`: none found in 160 steps); it turns as it goes and can catch the tile's
+    ledge (`dc`, stopped at step 105: hanging under the tile 3 ticks after the eighth turn), so the way back up
+    would have cost ~25 ticks, not the ~58 of landing in room 3. Not worth it (Sergio): the searches were stopped,
+    the run is version 1 (`tas/v1`, tag `pop2-tas-v1`; `tas/` holds the same files). Not tried in DOS.
 - **Level 13** at 300 GB (`l13`, 2 h 21 min): 743 with its end (`tas/l13.sol`; Up on line 721, `M` on 730, level 14
   loads on 743), 32 less than the old 775, no hit taken; room 29's big potion drunk at tick 456 (5 of 5). Rooms 3,
   20 (tick 83), 9 (110), 10 (136), 11 (191), 19 (255), 32 (326), 2 (353), 28 (380), 13 (405), 29 (430), 4 (502),
@@ -1181,7 +1192,8 @@ draws apart, room 16's head kills him at tick 396.
   eight turns, MT-32 disk, all 10336 ticks its script holds equal in position, and only 5 ticks' draws off in all
   (levels 5 and 7: 1748 / 1749, 3696 / 3697, 3800), so DOS runs by itself from tick 3801 to the end, 6500 ticks
   with no seed written that was not its own; 4 ticks of the run still start late (one each in four of its 500-tick
-  stretches), none where it matters. (Tools: the oracle's snapshot holds DS:2900..6BFF after every tick, the level's rooms,
+  stretches), none where it matters. (The whole run at that speed, both disks, was started and stopped with the
+  project's close: not measured past the eight turns.) (Tools: the oracle's snapshot holds DS:2900..6BFF after every tick, the level's rooms,
   records and tiles among it; `tools/trh.c` built with `-DDRAWS` names each draw's caller, but for `guard.c`'s own.)
 
 ### The later levels' scripts, checked before their searches (2026-10-08)

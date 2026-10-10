@@ -233,6 +233,40 @@ def to7(side, no_row2=False, no_right=False):
 
 
 ROUTES["end"] = end()
+
+
+def drop(stay=False):
+    """(Sergio, 2026-10-10) the eight turns on room 4's lower tile, right out of room 3: the bottom row's one floor tile
+    (col 3), a gap on either side. The body left there is moved 16 px on when the tile behind him is a gap
+    (spirit.c leave_body: "placed off a gap", the front one not looked at then): near the tile's front edge that is
+    over it, and the body falls out of the room."""
+    st = [step(room(4))]
+    st += [step(room(4, ("Turn Count", ">=", k))) for k in range(1, 8)]
+    st += [step([SPIRIT, ("Player Room", "==", 4)]),
+           # (the room's first character: the body, charid 0; below its row: falling)
+           step([SPIRIT, ("Character[0] Char Id", "==", 0), ("Character[0] Room", "==", 4), ("Character[0] Pos Y", ">", 195)]
+                # (stay: the spirit not falling with it: on the tile's row, on its feet)
+                + ([("Player Room", "==", 4), ("Player Pos Y", "<", 185), ("Player Action", "<", 2)] if stay else []))]
+    return st
+
+
+ROUTES["drop"] = drop()
+ROUTES["drop2"] = drop(stay=True)
+
+
+def dropclimb():
+    """(the run's version 2, Sergio) the drop, then the spirit back up: it falls with the body (both are moved the 16
+    px: the body's record is written from the prince's after the move) onto room 3's top row, a row down, and
+    climbs to room 4's lower tile and its middle row again (the way of the potions' return). The body in room 3
+    is what tells the room 4 of before from the one of after: its list is empty again. The step into room 3 pays
+    for the pull up it starts (60 a pixel from above the room: ~6000 on the top row), room 4's for its own."""
+    back = ("Room Chars[4]", "==", 0)
+    return drop() + [step(room(3, SPIRIT), (3, 258, U, 1.0, 60.0), reward=8000.0),
+                     step(room(4, SPIRIT, back), (4, 250, ROW_Y[1], 1.0, 60.0), reward=3000.0),
+                     step(room(4, SPIRIT, back, ("Player Pos Y", "<", 125)), (4, 250, ROW_Y[1], 1.0, 60.0))]
+
+
+ROUTES["dc"] = dropclimb()
 ROUTES["fight"] = fight()
 ROUTES["fb"] = fight_b()
 ROUTES["fb8"] = fight_b()
@@ -243,7 +277,7 @@ ROUTES["r7C"] = to7("C")                         # (out by the left platform ont
 if HT is not None: ROUTES["farm"] = farm(H0, HT)
 HPM = 50   # a small Player HP Magnet: ties only
 ROUTES = {k: [dict(v[0], hpm=HPM)] + v[1:] for k, v in ((k, dedup(v)) for k, v in ROUTES.items())}
-MAXHP = {k: (HT if k == "farm" else 11 if k in ("end", "fight", "fb", "fb8", "r7R", "r7L", "r7L2", "r7C") else H0) for k in ROUTES}
+MAXHP = {k: (HT if k == "farm" else 11 if k in ("end", "drop", "drop2", "dc", "fight", "fb", "fb8", "r7R", "r7L", "r7L2", "r7C") else H0) for k in ROUTES}
 
 # no potion is drunk (sequence 0x4E)
 FAILS = {k: [[("Player Current Sequence", "==", 0x4E), ("Current Level", "==", 14)]] for k in ROUTES}

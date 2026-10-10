@@ -1176,7 +1176,12 @@ draws apart, room 16's head kills him at tick 396.
   room 3 goes another way. **The whole run that way (`./post_level.sh 14 l14 dos`, `LATE0` its default for level
   14): 10820 ticks, no position mismatch on either disk, the final scene's probe hit on the next tick.** At 60000
   cycles a ms (`oracle-run --setting cpuCycles=60000`, the meter left alone) fewer passes are late (0 to 4 in 500)
-  but room 3's still is, and the same tick 9925 parts. (Tools: the oracle's snapshot holds DS:2900..6BFF after every tick, the level's rooms,
+  but room 3's still is, and the same tick 9925 parts. **At 220000 cycles a ms, ten times the preset, the meter
+  left alone, the pass that draws room 3 is in time and DOS plays room 3 as the core does**: the run through the
+  eight turns, MT-32 disk, all 10336 ticks its script holds equal in position, and only 5 ticks' draws off in all
+  (levels 5 and 7: 1748 / 1749, 3696 / 3697, 3800), so DOS runs by itself from tick 3801 to the end, 6500 ticks
+  with no seed written that was not its own; 4 ticks of the run still start late (one each in four of its 500-tick
+  stretches), none where it matters. (Tools: the oracle's snapshot holds DS:2900..6BFF after every tick, the level's rooms,
   records and tiles among it; `tools/trh.c` built with `-DDRAWS` names each draw's caller, but for `guard.c`'s own.)
 
 ### The later levels' scripts, checked before their searches (2026-10-08)

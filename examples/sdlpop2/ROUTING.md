@@ -676,7 +676,7 @@ From room 4's middle row at 11/11, in segments (Sergio), ticks from there:
 |---|---|
 | The eight turns on the spot: the spirit leaves the body (3/3) | 43 |
 | 4 5 6: three of the four Jaffars cut down, the fourth leaves; up into room 7 | see below |
-| 7 \| 8: Jaffar struck by the fireball; the level is won 4 ticks later | see below |
+| 7 \| 8: Jaffar struck by the fireball; the level is won 4 ticks later (the final scene starts 7 after the hit: the run counts those) | see below |
 
 By where the spirit comes up into room 7 (its bottom row; room 6's top row has a left platform, cols 1..3, under room
 7's gap at col 3, and a right one, cols 6..7, under the gap at col 8):
@@ -711,7 +711,8 @@ platform's 10 more (the spirit comes onto room 6's left platform facing left: a 
   can be walked out of, the points gone); the fireball appears 11 ticks later, flies 10, 12, 14, then 16 px a tick
   along the spirit's row, over gaps, to the first wall. Its box starts 35 px ahead of where the spirit stood: Jaffar
   is hit only from 35 px or more on his left (27 or more on his right); from nearer it appears beyond him. The level
-  is won 4 ticks after the hit (his death's frame 0x15F).
+  is won 4 ticks after the hit (his death's frame 0x15F); the game ticks 3 more before the final scene (the run's
+  count: 7 after the hit).
 - **Why not at waypoint 1:** the top row sends him down (off it 6 ticks later: no shot there); he stands at waypoint 1
   49 ticks after, and the spirit coming onto his row sends him back up within 30 (a turn 8, a jump 15, a climb 6). The
   only way down there is the hole over him: a landing (13 ticks to stand; a wall bump makes it 9, there is none), then
@@ -932,6 +933,11 @@ core's button is "Music On/Off" (the movie letter `m`).
   name), and plays it: status OK, 5028 frames (through level 7), and the core's memory domains after the last
   frame (Game State, Kid, Characters, Level, Mobs, Trobs) are byte for byte the native runner's on the same
   movie. Not opened in the frontend's window (no display there).
+- **The whole run's project (2026-10-10):** 11756 frames, from the boot to Jaffar's death and the final scene's
+  first 20 rows (`tas/run_cut.mov`); 15 markers: a level each, and "The end (IGT 10819)" on row 11736, where the
+  count stands. It still pins the local package. The packaged core, sandboxed, against the runner: all 11756 rows
+  equal; Chimera's runner: status OK, game time 15:01.583, every memory domain equal after the last frame.
+  (`MARK="11736:The end (IGT 10819)" ./post_level.sh 14 l14 project`.)
 - **Level 14** is searched in segments (`1400/run14.sh`): the scene, room 3's six potions as one search, the eight
   turns, room 6 up into room 7, the fight; each starts on the chain and the segments found before it.
   - **The scene: 51 ticks** (`1400/l14scene.sol`): the exploration's inputs with the music key on tick 2. Level 14 is
@@ -979,6 +985,16 @@ core's button is "Music On/Off" (the movie letter `m`).
   - **Room 6 up into room 7: 276 ticks** (`l14r7.sol`, 46 minutes; the exploration's 277): room 6 at 49, its Jaffars
     cut down at 92, 153 and 208 (the exploration's third at 221), the fourth gone at 249, room 7 at 265, standing on
     its bottom row's col 7 at 276 (stray keys on the last ticks, as there: the fight starts 10 ticks before).
+  - **The fight: 215 ticks** (`l14fight.sol`, 30 minutes, the seed not hashed; the exploration's 215 with the same 10
+    ticks of the climb): room 8 at 76, Jaffar sent down at 115, the middle row right of the hole at 138, down the
+    hole behind him at 174, the cast at 191 (1 of 3), the fireball out at 202, Jaffar struck at 215.
+  - **Level 14: 1372 ticks, the run 10819.** `1400/run14.sh cut`: 51 + 790 + 43 + 266 (276 less the 10 the fight
+    takes up) + 215 + 7 = 1372 lines (`1400/l14cut.sol`, `tas/l14.sol`; the whole run `1500/l0102..14cut.sol`, 10819).
+    The 7: the game ticks on for 7 ticks after the hit (his death counts to 6: `final.c`; frame 0x15F, where the
+    level counts as won, is the third), then the final scene starts and the tick count stands: the runner's Tick
+    last moves on row 11735, its IGT stands at 10819 from row 11736 on (9447 on level 14's first row, 10353). The
+    exploration's "4 ticks to the win" was the frame's flag, not the scene's start. Chimera's core against the
+    search core: all 1371 ticks compared equal (the Jaffar scene inside takes Space and 11 rows, 10404 to 10414).
 - **Level 13** at 300 GB (`l13`, 2 h 21 min): 743 with its end (`tas/l13.sol`; Up on line 721, `M` on 730, level 14
   loads on 743), 32 less than the old 775, no hit taken; room 29's big potion drunk at tick 456 (5 of 5). Rooms 3,
   20 (tick 83), 9 (110), 10 (136), 11 (191), 19 (255), 32 (326), 2 (353), 28 (380), 13 (405), 29 (430), 4 (502),
@@ -1107,7 +1123,7 @@ core's button is "Music On/Off" (the movie letter `m`).
 | 11 | **2256** (the old way stitched: 2267) | 7990 | 6618 | in segments (MT-32 66, Sound Blaster 62): all 8000 ticks equal in position, level 12 loads on the same tick; the new segments are nearly all level 11's, where the seeds part by one draw and meet again a tick or two later (once after 17, ticks 7006 to 7023 on the MT-32 disk) |
 | 12 | **714** (was 735) | 8704 | 8874 | in segments (MT-32 72, Sound Blaster 68): all 8714 ticks equal in position, level 13 loads on the same tick |
 | 13 | **743** (was 775) | 9447 | 9588 | in segments (MT-32 72, Sound Blaster 70): all 9457 ticks equal in position, no draw of level 13 off on either disk; the scene after it is the probe's eighth hit (ax=3; Space, as the run presses it), level 14 loads |
-| 14 | in segments (`1400/run14.sh`): the scene **51**; room 3's potions searching (`1400/script-farm-run.jaffar`, `l14farm`) | | 10353 | |
+| 14 | **1372** in segments (`1400/run14.sh`): the scene 51, room 3's six potions 790, the eight turns 43, room 6 up into room 7 266, the fight 215, 7 to the final scene | **10819** (the final scene's start) | 10353 | in segments, the lateness meter cleared at every tick (see below; MT-32 76, Sound Blaster 87): all 10820 ticks DOS plays equal in position, none of level 14's draws off; the scene with Jaffar at the window is the probe's ninth hit (ax=5; Space), the final scene its tenth (ax=B), on the tick after the last: the game is won in DOS on both disks |
 
 The table further up is the same run with the music left alone (1120 at level 4's start).
 
@@ -1157,7 +1173,10 @@ draws apart, room 16's head kills him at tick 396.
   **DOS plays the six potions and the eight turns as the core does: 10341 ticks, no position mismatch on either
   disk**, and the ticks whose draws differ fall from 218 to 75 (MT-32) and from 216 to 86 (Sound Blaster), none
   of them in level 14. The run is that of a machine on which no pass is late; on the oracle's 486 as it stands
-  room 3 goes another way. (Tools: the oracle's snapshot holds DS:2900..6BFF after every tick, the level's rooms,
+  room 3 goes another way. **The whole run that way (`./post_level.sh 14 l14 dos`, `LATE0` its default for level
+  14): 10820 ticks, no position mismatch on either disk, the final scene's probe hit on the next tick.** At 60000
+  cycles a ms (`oracle-run --setting cpuCycles=60000`, the meter left alone) fewer passes are late (0 to 4 in 500)
+  but room 3's still is, and the same tick 9925 parts. (Tools: the oracle's snapshot holds DS:2900..6BFF after every tick, the level's rooms,
   records and tiles among it; `tools/trh.c` built with `-DDRAWS` names each draw's caller, but for `guard.c`'s own.)
 
 ### The later levels' scripts, checked before their searches (2026-10-08)

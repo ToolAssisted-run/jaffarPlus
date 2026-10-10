@@ -212,69 +212,21 @@
           {
             "Property": "Player Max HP",
             "Op": "==",
-            "Value": 6
-          }
-        ],
-        "Satisfies": [
-          3002
-        ],
-        "Actions": [
-          {
-            "Type": "Add Reward",
-            "Value": 1000.0
-          },
-          {
-            "Type": "Set Player Pos X Magnet",
-            "Room": 3,
-            "Intensity": 0.0,
-            "Position": 0
-          },
-          {
-            "Type": "Set Player Pos Y Magnet",
-            "Room": 3,
-            "Intensity": 0.0,
-            "Position": 0
-          },
-          {
-            "Type": "Set Player Pos X Magnet",
-            "Room": 4,
-            "Intensity": 1.0,
-            "Position": -5000
-          },
-          {
-            "Type": "Set Guard Magnet",
-            "Damage Intensity": 400.0,
-            "Kill Intensity": 3000.0,
-            "Distance Intensity": 1.0,
-            "Row Intensity": 0.0
-          },
-          {
-            "Type": "Set Big Potion Magnet",
-            "Intensity": 0.0
-          }
-        ]
-      },
-      {
-        "Label": 3004,
-        "Conditions": [
-          {
-            "Property": "Player Room",
-            "Op": "==",
-            "Value": 3
-          },
-          {
-            "Property": "Player Max HP",
-            "Op": "==",
-            "Value": 6
+            "Value": 5
           },
           {
             "Property": "Room Big Potions",
             "Op": ">",
             "Value": 0
+          },
+          {
+            "Property": "Player Sword Drawn",
+            "Op": "==",
+            "Value": 0
           }
         ],
         "Satisfies": [
-          3003
+          3002
         ],
         "Actions": [
           {
@@ -313,7 +265,7 @@
         ]
       },
       {
-        "Label": 3005,
+        "Label": 3004,
         "Conditions": [
           {
             "Property": "Player Room",
@@ -323,11 +275,11 @@
           {
             "Property": "Player Max HP",
             "Op": "==",
-            "Value": 7
+            "Value": 6
           }
         ],
         "Satisfies": [
-          3004
+          3003
         ],
         "Actions": [
           {
@@ -366,6 +318,64 @@
         ]
       },
       {
+        "Label": 3005,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 3
+          },
+          {
+            "Property": "Player Max HP",
+            "Op": "==",
+            "Value": 6
+          },
+          {
+            "Property": "Room Big Potions",
+            "Op": ">",
+            "Value": 0
+          }
+        ],
+        "Satisfies": [
+          3004
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 0.0,
+            "Position": 0
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 3,
+            "Intensity": 0.0,
+            "Position": 0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Guard Magnet",
+            "Damage Intensity": 400.0,
+            "Kill Intensity": 3000.0,
+            "Distance Intensity": 0.0,
+            "Row Intensity": 0.0
+          },
+          {
+            "Type": "Set Big Potion Magnet",
+            "Intensity": 2.0
+          }
+        ]
+      },
+      {
         "Label": 3006,
         "Conditions": [
           {
@@ -376,11 +386,16 @@
           {
             "Property": "Player Max HP",
             "Op": "==",
-            "Value": 7
+            "Value": 6
           },
           {
             "Property": "Room Big Potions",
             "Op": ">",
+            "Value": 0
+          },
+          {
+            "Property": "Player Sword Drawn",
+            "Op": "==",
             "Value": 0
           }
         ],
@@ -434,7 +449,7 @@
           {
             "Property": "Player Max HP",
             "Op": "==",
-            "Value": 8
+            "Value": 7
           }
         ],
         "Satisfies": [
@@ -487,7 +502,7 @@
           {
             "Property": "Player Max HP",
             "Op": "==",
-            "Value": 8
+            "Value": 7
           },
           {
             "Property": "Room Big Potions",
@@ -545,69 +560,21 @@
           {
             "Property": "Player Max HP",
             "Op": "==",
-            "Value": 9
-          }
-        ],
-        "Satisfies": [
-          3008
-        ],
-        "Actions": [
-          {
-            "Type": "Add Reward",
-            "Value": 1000.0
-          },
-          {
-            "Type": "Set Player Pos X Magnet",
-            "Room": 3,
-            "Intensity": 0.0,
-            "Position": 0
-          },
-          {
-            "Type": "Set Player Pos Y Magnet",
-            "Room": 3,
-            "Intensity": 0.0,
-            "Position": 0
-          },
-          {
-            "Type": "Set Player Pos X Magnet",
-            "Room": 4,
-            "Intensity": 1.0,
-            "Position": -5000
-          },
-          {
-            "Type": "Set Guard Magnet",
-            "Damage Intensity": 400.0,
-            "Kill Intensity": 3000.0,
-            "Distance Intensity": 1.0,
-            "Row Intensity": 0.0
-          },
-          {
-            "Type": "Set Big Potion Magnet",
-            "Intensity": 0.0
-          }
-        ]
-      },
-      {
-        "Label": 3010,
-        "Conditions": [
-          {
-            "Property": "Player Room",
-            "Op": "==",
-            "Value": 3
-          },
-          {
-            "Property": "Player Max HP",
-            "Op": "==",
-            "Value": 9
+            "Value": 7
           },
           {
             "Property": "Room Big Potions",
             "Op": ">",
             "Value": 0
+          },
+          {
+            "Property": "Player Sword Drawn",
+            "Op": "==",
+            "Value": 0
           }
         ],
         "Satisfies": [
-          3009
+          3008
         ],
         "Actions": [
           {
@@ -646,7 +613,7 @@
         ]
       },
       {
-        "Label": 3011,
+        "Label": 3010,
         "Conditions": [
           {
             "Property": "Player Room",
@@ -656,11 +623,11 @@
           {
             "Property": "Player Max HP",
             "Op": "==",
-            "Value": 10
+            "Value": 8
           }
         ],
         "Satisfies": [
-          3010
+          3009
         ],
         "Actions": [
           {
@@ -699,6 +666,64 @@
         ]
       },
       {
+        "Label": 3011,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 3
+          },
+          {
+            "Property": "Player Max HP",
+            "Op": "==",
+            "Value": 8
+          },
+          {
+            "Property": "Room Big Potions",
+            "Op": ">",
+            "Value": 0
+          }
+        ],
+        "Satisfies": [
+          3010
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 0.0,
+            "Position": 0
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 3,
+            "Intensity": 0.0,
+            "Position": 0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Guard Magnet",
+            "Damage Intensity": 400.0,
+            "Kill Intensity": 3000.0,
+            "Distance Intensity": 0.0,
+            "Row Intensity": 0.0
+          },
+          {
+            "Type": "Set Big Potion Magnet",
+            "Intensity": 2.0
+          }
+        ]
+      },
+      {
         "Label": 3012,
         "Conditions": [
           {
@@ -709,11 +734,16 @@
           {
             "Property": "Player Max HP",
             "Op": "==",
-            "Value": 10
+            "Value": 8
           },
           {
             "Property": "Room Big Potions",
             "Op": ">",
+            "Value": 0
+          },
+          {
+            "Property": "Player Sword Drawn",
+            "Op": "==",
             "Value": 0
           }
         ],
@@ -767,11 +797,359 @@
           {
             "Property": "Player Max HP",
             "Op": "==",
-            "Value": 11
+            "Value": 9
           }
         ],
         "Satisfies": [
           3012
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 0.0,
+            "Position": 0
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 3,
+            "Intensity": 0.0,
+            "Position": 0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Guard Magnet",
+            "Damage Intensity": 400.0,
+            "Kill Intensity": 3000.0,
+            "Distance Intensity": 1.0,
+            "Row Intensity": 0.0
+          },
+          {
+            "Type": "Set Big Potion Magnet",
+            "Intensity": 0.0
+          }
+        ]
+      },
+      {
+        "Label": 3014,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 3
+          },
+          {
+            "Property": "Player Max HP",
+            "Op": "==",
+            "Value": 9
+          },
+          {
+            "Property": "Room Big Potions",
+            "Op": ">",
+            "Value": 0
+          }
+        ],
+        "Satisfies": [
+          3013
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 0.0,
+            "Position": 0
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 3,
+            "Intensity": 0.0,
+            "Position": 0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Guard Magnet",
+            "Damage Intensity": 400.0,
+            "Kill Intensity": 3000.0,
+            "Distance Intensity": 0.0,
+            "Row Intensity": 0.0
+          },
+          {
+            "Type": "Set Big Potion Magnet",
+            "Intensity": 2.0
+          }
+        ]
+      },
+      {
+        "Label": 3015,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 3
+          },
+          {
+            "Property": "Player Max HP",
+            "Op": "==",
+            "Value": 9
+          },
+          {
+            "Property": "Room Big Potions",
+            "Op": ">",
+            "Value": 0
+          },
+          {
+            "Property": "Player Sword Drawn",
+            "Op": "==",
+            "Value": 0
+          }
+        ],
+        "Satisfies": [
+          3014
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 0.0,
+            "Position": 0
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 3,
+            "Intensity": 0.0,
+            "Position": 0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Guard Magnet",
+            "Damage Intensity": 400.0,
+            "Kill Intensity": 3000.0,
+            "Distance Intensity": 0.0,
+            "Row Intensity": 0.0
+          },
+          {
+            "Type": "Set Big Potion Magnet",
+            "Intensity": 2.0
+          }
+        ]
+      },
+      {
+        "Label": 3016,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 3
+          },
+          {
+            "Property": "Player Max HP",
+            "Op": "==",
+            "Value": 10
+          }
+        ],
+        "Satisfies": [
+          3015
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 0.0,
+            "Position": 0
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 3,
+            "Intensity": 0.0,
+            "Position": 0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Guard Magnet",
+            "Damage Intensity": 400.0,
+            "Kill Intensity": 3000.0,
+            "Distance Intensity": 1.0,
+            "Row Intensity": 0.0
+          },
+          {
+            "Type": "Set Big Potion Magnet",
+            "Intensity": 0.0
+          }
+        ]
+      },
+      {
+        "Label": 3017,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 3
+          },
+          {
+            "Property": "Player Max HP",
+            "Op": "==",
+            "Value": 10
+          },
+          {
+            "Property": "Room Big Potions",
+            "Op": ">",
+            "Value": 0
+          }
+        ],
+        "Satisfies": [
+          3016
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 0.0,
+            "Position": 0
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 3,
+            "Intensity": 0.0,
+            "Position": 0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Guard Magnet",
+            "Damage Intensity": 400.0,
+            "Kill Intensity": 3000.0,
+            "Distance Intensity": 0.0,
+            "Row Intensity": 0.0
+          },
+          {
+            "Type": "Set Big Potion Magnet",
+            "Intensity": 2.0
+          }
+        ]
+      },
+      {
+        "Label": 3018,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 3
+          },
+          {
+            "Property": "Player Max HP",
+            "Op": "==",
+            "Value": 10
+          },
+          {
+            "Property": "Room Big Potions",
+            "Op": ">",
+            "Value": 0
+          },
+          {
+            "Property": "Player Sword Drawn",
+            "Op": "==",
+            "Value": 0
+          }
+        ],
+        "Satisfies": [
+          3017
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 0.0,
+            "Position": 0
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 3,
+            "Intensity": 0.0,
+            "Position": 0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Guard Magnet",
+            "Damage Intensity": 400.0,
+            "Kill Intensity": 3000.0,
+            "Distance Intensity": 0.0,
+            "Row Intensity": 0.0
+          },
+          {
+            "Type": "Set Big Potion Magnet",
+            "Intensity": 2.0
+          }
+        ]
+      },
+      {
+        "Label": 3019,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 3
+          },
+          {
+            "Property": "Player Max HP",
+            "Op": "==",
+            "Value": 11
+          }
+        ],
+        "Satisfies": [
+          3018
         ],
         "Actions": [
           {
@@ -810,7 +1188,7 @@
         ]
       },
       {
-        "Label": 3014,
+        "Label": 3020,
         "Conditions": [
           {
             "Property": "Player Room",
@@ -824,7 +1202,7 @@
           }
         ],
         "Satisfies": [
-          3013
+          3019
         ],
         "Actions": [
           {
@@ -852,7 +1230,7 @@
         ]
       },
       {
-        "Label": 3015,
+        "Label": 3021,
         "Conditions": [
           {
             "Property": "Player Room",
@@ -871,7 +1249,7 @@
           }
         ],
         "Satisfies": [
-          3014
+          3020
         ],
         "Actions": [
           {

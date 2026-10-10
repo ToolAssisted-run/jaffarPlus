@@ -17,11 +17,13 @@ S=$HOME/jaffarPlus-run/examples/sdlpop2; cd $S/1400
 CH=l01020304050607080910111213cut.sol
 [ -f $CH ] || { echo "no chain $CH"; exit 1; }
 if pidof jaffar > /dev/null; then echo "a jaffar is running: $(pidof jaffar)"; exit 1; fi
+# (a search just stopped frees its database over a minute: the next one would die at once for want of memory)
+F=$(free -m | awk '/^Mem:/ {print $7}'); [ $F -ge $((DB + 60000)) ] || { echo "only $F MB of memory available for a $DB MB database"; exit 1; }
 need() { for f in "$@"; do [ -s $f ] || { echo "missing $f"; exit 1; }; done; }
 I=init_run_$SEG.sol
 case $SEG in
   scene) cp $CH $I; A="scene --upto 3 --anyframe --maxsteps 200";;
-  farm)  need l14scene.sol; cat $CH l14scene.sol > $I; A="farm --to 11 --upto 16 --maxsteps 1400";;
+  farm)  need l14scene.sol; cat $CH l14scene.sol > $I; A="farm --to 11 --upto 22 --maxsteps 1400";;
   e1)    need l14scene.sol l14farm.sol; cat $CH l14scene.sol l14farm.sol > $I; A="end --upto 9 --anyframe --maxsteps 200";;
   r7)    need l14scene.sol l14farm.sol l14e1.sol; cat $CH l14scene.sol l14farm.sol l14e1.sol > $I; A="r7R --upto 8 --maxsteps 420";;
   fight) need l14scene.sol l14farm.sol l14e1.sol l14r7.sol

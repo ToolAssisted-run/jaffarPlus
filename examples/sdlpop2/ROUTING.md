@@ -941,6 +941,17 @@ core's button is "Music On/Off" (the movie letter `m`).
     changes no position, nor does it on 44 of the 51 lines (`trs`, each tried). The other levels with the key on
     their first line (4, 5, 7 to 9, 11 to 13) start in a turn (frame 45), where it is free; levels 6 and 10 start
     with the music on.
+  - **Room 3's potions, the first search (stopped at step 973): five drunk by tick 539, the sixth never.** The
+    first state with each potion on the floor / drunk: 102 / 127, 215 / 241, 310 / 335, 418 / 442, 517 / 539; the
+    sixth on the floor at 637. Its kill left him sword in hand on the potion's own tile (the middle row's col 5, x
+    317 to 322; the tile's middle, where the potion's pull ends, is 322). Putting the sword away steps him back 10
+    px: those states ranked 20 under the ones fencing on the tile, and the full database dropped them for 300
+    steps (the watcher's rules alarm). By hand from there (Down, 14 empty lines, Shift): 11 of 11 38 ticks later,
+    so nothing in the game is in the way. The fix (`1400/gen.py` `farm`): the sword away while the potion lies
+    there is a step of its own (the game clears the flag on the key: `control.c` `sword_sheathe`), 22 steps for
+    16. Searched again from the scene; the first run's log is `~/pop2run/l14farm_stall.log`, its script
+    `1400/script-farm-run-stall.jaffar`. (A search launched while the one just stopped still frees its database
+    dies at once for want of memory: `run14.sh` now looks at the memory available.)
 - **Level 13** at 300 GB (`l13`, 2 h 21 min): 743 with its end (`tas/l13.sol`; Up on line 721, `M` on 730, level 14
   loads on 743), 32 less than the old 775, no hit taken; room 29's big potion drunk at tick 456 (5 of 5). Rooms 3,
   20 (tick 83), 9 (110), 10 (136), 11 (191), 19 (255), 32 (326), 2 (353), 28 (380), 13 (405), 29 (430), 4 (502),

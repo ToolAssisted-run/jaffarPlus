@@ -71,6 +71,7 @@ def pm(i):
 
 
 BIG = ("Room Big Potions", ">", 0)
+AWAY = ("Player Sword Drawn", "==", 0)
 
 
 def farm(h0, ht):
@@ -79,9 +80,14 @@ def farm(h0, ht):
     onto room 4's middle row. Sergio: a strong magnet on the guards' hit points (both, when two stand), a small one
     towards the nearest."""
     st = [step(room(4, hp(h0)), (4, None, D, 1.0, 2.0))]
+    # The sword put away while the potion lies there is a step of its own. Without it the run's search drank five and
+    # stood 300 ticks on the sixth's tile, sword in hand: the kill left him there, the potion's pull is to its tile's
+    # middle, and putting the sword away steps him back 10 px (then the drink: 38 ticks by hand). Those states ranked
+    # under the ones fencing on the tile, and the full database dropped them. (control.c: the flag falls on the key.)
     for h in range(h0, ht):
         st += [step(room(3, hp(h)), (3, None, None), acts=[gm(400.0, 3000.0, 1.0), pm(0.0)]),
-               step(room(3, hp(h), BIG), (3, None, None), acts=[gm(400.0, 3000.0, 0.0), pm(2.0)])]
+               step(room(3, hp(h), BIG), (3, None, None), acts=[gm(400.0, 3000.0, 0.0), pm(2.0)]),
+               step(room(3, hp(h), BIG, AWAY), (3, None, None), acts=[gm(400.0, 3000.0, 0.0), pm(2.0)])]
     # back up the shaft at col 3 (four climbs: each from under its ledge, x ~250, facing right; room 3's top row from col
     # 3, room 4's lower tile from room 3's top row). A row climbed must outweigh a kill (else killing on ranks above
     # leaving, and the climbers are pruned): 60 a pixel of height; a guard in the way may be fought off, not killed

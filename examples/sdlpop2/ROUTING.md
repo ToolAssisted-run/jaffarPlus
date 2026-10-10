@@ -967,6 +967,15 @@ core's button is "Music On/Off" (the movie letter `m`).
   - **Taken up from the fifth potion** (`run14.sh farmB`, `gen.py farm --hp 10 --in3`): `l14farmA.sol` is the first
     search's way to 10 of 10 at tick 544 (its two kept solutions: 544 and 546; the second search's: 550), `farmB`
     the sixth potion and the way back from there; `l14farm.sol` is the two.
+  - **Room 3's potions: 790 ticks** (`l14farm.sol`; `farmB` 246, 41 minutes). The maximum goes up at ticks 133, 246,
+    335, 447, 544 and 662 (5 to 11; hits taken at 51, 268 and 468, each filled by the next potion, none after the
+    last). The sixth: the guard killed at 632, the sword put away at once, the potion on the floor at 637, drunk on
+    the middle row (the first search's kept way: the kill at 635, by hand ~675). Back: straight from the drink into
+    the first jump up (tick 667), room 4 at 727 (the step's 3000 less the 1077 the change of rooms costs), its middle
+    row at 779, standing at 790: 128 ticks from 11 of 11 (the table's way back from the middle row: 151). The
+    exploration's estimate for six potions and back was 847.
+  - **The eight turns: 43 ticks** (`l14e1.sol`, under a minute's search; the exploration's 43): the spirit out of
+    the body at 6 of 6.
 - **Level 13** at 300 GB (`l13`, 2 h 21 min): 743 with its end (`tas/l13.sol`; Up on line 721, `M` on 730, level 14
   loads on 743), 32 less than the old 775, no hit taken; room 29's big potion drunk at tick 456 (5 of 5). Rooms 3,
   20 (tick 83), 9 (110), 10 (136), 11 (191), 19 (255), 32 (326), 2 (353), 28 (380), 13 (405), 29 (430), 4 (502),

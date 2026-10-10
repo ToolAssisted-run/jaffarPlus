@@ -73,7 +73,10 @@ for STAGE in "$@"; do
     done
     ;;
   project)
-    P=$HOME/pop2render/core-pkg; PKG=$HOME/pop2tas/sdlpop2-a5ee-local.chimeraCore; MOV=$HOME/pop2tas/run_cut_l$NN.mov
+    # (env COREPKG: the core's tree and package; default the local build of 2026-10-08. With a released package:
+    # COREPKG="TREE PACKAGE", the tree built from the release's commit for its sandboxed core and tests/make-project.py)
+    read -r P PKG <<< "${COREPKG:-$HOME/pop2render/core-pkg $HOME/pop2tas/sdlpop2-a5ee-local.chimeraCore}"
+    MOV=$HOME/pop2tas/run_cut_l$NN.mov
     R=$(wc -l < $MOV); PR="Level,Kid.Room,Kid.X,Kid.Frame,Random Seed,Tick,IGT Ticks"
     cd $HOME/pop2render/l8
     $P/build/native/run-wbx $P/build/guest/core.wbx . --movie $MOV --frames $R --trace /dev/shm/tr_wbx.txt --trace-props "$PR" > /dev/null 2>&1

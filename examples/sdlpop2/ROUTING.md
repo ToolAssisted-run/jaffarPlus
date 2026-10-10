@@ -919,7 +919,7 @@ core's button is "Music On/Off" (the movie letter `m`).
   `dos` runs both disks at once. A search's progress as a video: `tools/mvpartial.py PREV.mov BEST.sol OUT.mov`
   (a copy of the running search's `/tmp/jaffar.run.TAG.best.sol`), then `render-run.sh`.
 - **The project** (`tas/pop2-tas.chimeraProject`, from level 5 on the run itself, with the music cut): written by
-  `post_level.sh N TAG project` from the run's movie, a marker a level. It pins a **locally built core package**
+  `post_level.sh N TAG project` from the run's movie, a marker a level. Until the run's end it pinned a **locally built core package**
   (`~/pop2tas/sdlpop2-a5ee-local.chimeraCore`, SHA-1 804B3038...; the core repository's main 4d44f96 with SDLPoP2
   e927d0f + the Music On/Off fix, built with Chimera's miniBox on jaffanator2: `~/pop2render/core-pkg`, its diffs
   in `~/pop2tas/core-src`), because no release has the fix yet; once one has, the same command with that package
@@ -935,9 +935,18 @@ core's button is "Music On/Off" (the movie letter `m`).
   movie. Not opened in the frontend's window (no display there).
 - **The whole run's project (2026-10-10):** 11756 frames, from the boot to Jaffar's death and the final scene's
   first 20 rows (`tas/run_cut.mov`); 15 markers: a level each, and "The end (IGT 10819)" on row 11736, where the
-  count stands. It still pins the local package. The packaged core, sandboxed, against the runner: all 11756 rows
-  equal; Chimera's runner: status OK, game time 15:01.583, every memory domain equal after the last frame.
+  count stands. The packaged core, sandboxed, against the runner: all 11756 rows equal; Chimera's runner: status
+  OK, game time 15:01.583, every memory domain equal after the last frame.
   (`MARK="11736:The end (IGT 10819)" ./post_level.sh 14 l14 project`.)
+- **The project on a released core (2026-10-10, Sergio: pushed).** SDLPoP2 3f323c6 (the Music On/Off fix and the
+  sound cache's) is upstream, and the core's repository pins it from bf617e9 (its three patches unchanged, its gate
+  73 of 73 with the three releases' files and the MT-32's, the run equal on the new build natively and sandboxed).
+  CI's package, `sdlpop2-bf617e9...chimeraCore` (SHA-1 39EA822F...), is the asset of the core's `dev` release and
+  of `nightly-2026-10-10`, the same file in both. The project is made with it (`COREPKG="TREE PACKAGE"` for the
+  `project` stage: the core's tree at that commit and the downloaded package): its core pin and its title are all
+  that changed (the input, the settings and the firmware pins are the local build's project's), and Chimera's
+  runner plays it with that package: status OK, every memory domain equal. Chimera downloads no core: the file
+  goes into its Cores folder.
 - **Level 14** is searched in segments (`1400/run14.sh`): the scene, room 3's six potions as one search, the eight
   turns, room 6 up into room 7, the fight; each starts on the chain and the segments found before it.
   - **The scene: 51 ticks** (`1400/l14scene.sol`): the exploration's inputs with the music key on tick 2. Level 14 is

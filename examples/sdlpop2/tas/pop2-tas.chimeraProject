@@ -1,11 +1,11 @@
 {
 	"id": "pop2-tas",
-	"title": "Prince of Persia 2: The Shadow and the Flame (DOS 1.1) - TAS in progress",
-	"description": "JaffarPlus / QuickerSDLPoP2 searches, level by level (examples/sdlpop2/ROUTING.md). In-game time counted from level 1. 11756 frames so far: The end (IGT 10819).",
+	"title": "Prince of Persia 2: The Shadow and the Flame (DOS 1.1) - TAS",
+	"description": "JaffarPlus / QuickerSDLPoP2 searches, level by level (examples/sdlpop2/ROUTING.md). In-game time counted from level 1. 11756 frames, from the boot to the final scene: The end (IGT 10819).",
 	"core": {
 		"name": "SDLPoP2",
-		"version": "4d44f96ccc3d-dirty+local",
-		"sha1": "804B30382B0728A6F00F3224E7EAF118FC2C09B3"
+		"version": "bf617e900301bf83c468890d45600b98a226bae2",
+		"sha1": "39EA822F9858EE1F0FEED1A75888A4B5C8949BC8"
 	},
 	"rerecords": 0,
 	"files": [],

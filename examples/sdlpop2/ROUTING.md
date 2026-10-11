@@ -1526,3 +1526,22 @@ middle row: the flame stands at x 252 for the old one's run from x 271, with 4 f
 standing on row 11268): the packaged core equal on every row, Chimera's runner OK, game time 14:22.583, every
 memory domain equal. DOS, the whole run: the MT-32 disk equal on all 10352 ticks, the Sound Blaster disk but tick
 5128 (level 9's end, as version 2).
+
+## Version 4 (2026-10-11): Jaffar drawn to the shadow: IGT 10302
+
+Sergio: a fireball cast as soon as the flame is up in room 7 leaves it too few hit points to be the flame; Jaffar
+comes for a shadow instead of fleeing (`final.c`: he patrols while the spirit has more than 2 or casts, else he
+chases), and a potion makes it the flame again for a cast at him as he comes. With version 3's flame of 4: the cast
+leaves 2, a potion 3, the second cast 1.
+
+`gen.py` route `fbp` (`run14.sh fightp`, from 10 ticks before `r7d`'s end as the fight before; 200 GB). The first
+try drank at once (room 7's bottom-row potion, col 4, left of the entry): the flame was back and Jaffar on his
+round again. The route now asks for him on the spirit's row before the potion (a flame of 3 with no Jaffar on its
+row fails). **166 ticks for the fight's 215**: the cast in room 7 on level tick 999 (2 of 4), into room 8 along
+the bottom row, Jaffar down from his top row; room 8's bottom-row potion (col 8) drunk on tick 1115 with him on the
+row, the second cast on 1120, the fireball's hit on 1154.
+
+**Level 14: 1161 (1210); the run 10302** (`tas/v4`). Chimera's core against the search core: 1160 ticks equal; the
+project (11239 frames, the count standing on row 11219): the packaged core equal on every row, Chimera's runner OK,
+game time 14:18.500, every memory domain equal. DOS, the whole run: the MT-32 disk equal on all 10303 ticks, the
+Sound Blaster disk but tick 5128 (level 9's end).

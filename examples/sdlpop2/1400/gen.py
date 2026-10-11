@@ -214,6 +214,27 @@ def fight_b():
             step([JAFFAR, ("Opponent Current Sequence", "==", 0xF3), L14], (8, None, None), acts=[{"Type": "Set Fireball Magnet", "Intensity": 0.0}])]
 
 
+def fight_p():
+    """(Sergio, 2026-10-11) 7 | 8 from the spirit's entry with 4 hit points: a fireball cast at once leaves 2, the
+    shadow, and Jaffar comes for a shadow instead of walking his round away (final.c: he patrols while the spirit has
+    more than 2 or casts, else chases). Room 7's bottom-row potion (col 4, left of the entry) makes it 3, the flame
+    again, with one more cast: at him as he comes."""
+    L14 = ("Current Level", "==", 14)
+    H = ("Player Current HP", "==", 3)
+    return [step([SPIRIT, ("Player Current HP", "==", SH - 2), L14], (7, col_x(4), ROW_Y[2], 1.0, 1.0, "keep"), (8, None, None, 1.0, 1.0, "keep")),
+            # (the potion only with Jaffar on the row, coming: drunk at once (the first try) the flame is back and he
+            # walks his round again, as far off as before)
+            step([SPIRIT, ("Player Current HP", "==", SH - 2), ("Room Live Guards On Row", ">=", 1), L14],
+                 (7, col_x(4), ROW_Y[2], 1.0, 1.0, "keep"), (8, None, None, 1.0, 1.0, "keep")),
+            step([SPIRIT, H, ("Room Live Guards On Row", ">=", 1), L14], (7, None, None, 1.0, 1.0, "keep"), (8, None, None, 1.0, 1.0, "keep")),
+            step([SPIRIT, ("Player Current HP", "==", 1), ("Room Live Guards On Row", ">=", 1), ("Player Current Sequence", "==", 0xF2), L14],
+                 (7, None, None, 1.0, 1.0, "keep"), (8, None, None, 1.0, 1.0, "keep")),
+            step([SPIRIT, ("Player Current HP", "==", 1), ("Moving Object Count", ">=", 1), ("Room Live Guards On Row", ">=", 1), L14],
+                 (7, None, None, 1.0, 1.0, "keep"), (8, None, None, 1.0, 1.0, "keep"), acts=[{"Type": "Set Fireball Magnet", "Intensity": 2.0}]),
+            step([JAFFAR, ("Opponent Current Sequence", "==", 0xF3), L14], (7, None, None, 1.0, 1.0, "keep"), (8, None, None, 1.0, 1.0, "keep"),
+                 acts=[{"Type": "Set Fireball Magnet", "Intensity": 0.0}])]
+
+
 def to7(side, no_row2=False, no_right=False):
     """(Sergio: the ending in segments) the spirit from room 4 through room 6's Jaffars up into room 7, by room 6's left
     top-row platform (cols 1..3: up through room 7's bottom-row gap at col 3) or its right one (cols 6..7: room 7's
@@ -283,6 +304,7 @@ ROUTES["dc"] = dropclimb()
 ROUTES["fight"] = fight()
 ROUTES["fb"] = fight_b()
 ROUTES["fb8"] = fight_b()
+ROUTES["fbp"] = fight_p()
 ROUTES["r7R"] = to7("R", no_row2=True)          # (middle row's, the two of the top row; out by the right platform)
 ROUTES["r7L"] = to7("L", no_row2=True)          # (the same three; back to the left platform)
 ROUTES["r7L2"] = to7("L", no_right=True)        # (bottom, middle, top left: upwards; out by the left platform)
@@ -290,7 +312,7 @@ ROUTES["r7C"] = to7("C")                         # (out by the left platform ont
 if HT is not None: ROUTES["farm"] = farm(H0, HT)
 HPM = 50   # a small Player HP Magnet: ties only
 ROUTES = {k: [dict(v[0], hpm=HPM)] + v[1:] for k, v in ((k, dedup(v)) for k, v in ROUTES.items())}
-MAXHP = {k: (HT if k == "farm" else 11 if k in ("end", "drop", "drop2", "dc", "fight", "fb", "fb8", "r7R", "r7L", "r7L2", "r7C") else H0) for k in ROUTES}
+MAXHP = {k: (HT if k == "farm" else 11 if k in ("end", "drop", "drop2", "dc", "fight", "fb", "fb8", "fbp", "r7R", "r7L", "r7L2", "r7C") else H0) for k in ROUTES}
 
 # no potion is drunk (sequence 0x4E)
 FAILS = {k: [[("Player Current Sequence", "==", 0x4E), ("Current Level", "==", 14)]] for k in ROUTES}
@@ -312,6 +334,12 @@ FAILS["fb"] = FAILS["end"] + [[SPIRIT, ("Opponent Current Row", "==", 2), ("Oppo
 # (fb8: not by room 7's top row)
 FAILS["fb8"] = FAILS["fb"] + [[SPIRIT, ("Player Room", "==", 7), TOP0, ("Current Level", "==", 14)]]
 if SH != 3: FAILS["dc"] = FAILS["dc"] + [[SPIRIT, ("Player Current HP", "<", SH), ("Current Level", "==", 14)]]
+# (fbp drinks: no potion rule; the spirit dead, or at 1 with no cast, no fireball and Jaffar alive, or Jaffar dead of
+# anything but the fireball)
+FAILS["fbp"] = [[SPIRIT, ("Player Current HP", "==", 3), ("Room Live Guards On Row", "==", 0), ("Current Level", "==", 14)],
+                [SPIRIT, ("Player Current HP", "==", 1), ("Player Current Sequence", "!=", 0xF2), ("Moving Object Count", "==", 0),
+                 ("Room Live Guards", ">=", 1), ("Current Level", "==", 14)],
+                [("Opponent Char Id", "==", 6), ("Opponent Is Alive", ">=", 0), ("Opponent Current Sequence", "!=", 0xF3), ("Current Level", "==", 14)]]
 NO_ROW2 = [SPIRIT, ("Player Room", "==", 6), ("Player Pos Y", ">", 150), ("Current Level", "==", 14)]
 NO_RIGHT = [SPIRIT, ("Player Room", "==", 6), TOP0, ("Player Pos X", ">", col_x(5)), ("Current Level", "==", 14)]
 FAILS["r7R"] = [NO_ROW2]

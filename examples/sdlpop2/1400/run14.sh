@@ -68,6 +68,8 @@ case $SEG in
   r7d)   need l14scene.sol $FARM l14dc$SUF.sol; cat $CH l14scene.sol <(head -n ${FARMCUT:-727} $FARM) l14dc$SUF.sol > $I; A="r7R --upto 8 --maxsteps 420";;
   fightd) need l14scene.sol $FARM l14dc$SUF.sol l14r7d$SUF.sol
          cat $CH l14scene.sol <(head -n ${FARMCUT:-727} $FARM) l14dc$SUF.sol <(head -n -10 l14r7d$SUF.sol) > $I; A="fb8 --norng ${SH:+--sh $SH} --upto 7 --anyframe --maxsteps 320";;
+  fightp) need l14scene.sol $FARM l14dc$SUF.sol l14r7d$SUF.sol   # (Sergio: a cast at once, the shadow draws Jaffar, room 7's potion, the second cast)
+         cat $CH l14scene.sol <(head -n ${FARMCUT:-727} $FARM) l14dc$SUF.sol <(head -n -10 l14r7d$SUF.sol) > $I; A="fbp ${SH:+--sh $SH} --upto 6 --anyframe --maxsteps 320";;
   e1)    need l14scene.sol l14farm.sol; cat $CH l14scene.sol l14farm.sol > $I; A="end --upto 9 --anyframe --maxsteps 200";;
   r7)    need l14scene.sol l14farm.sol l14e1.sol; cat $CH l14scene.sol l14farm.sol l14e1.sol > $I; A="r7R --upto 8 --maxsteps 420";;
   fight) need l14scene.sol l14farm.sol l14e1.sol l14r7.sol

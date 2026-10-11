@@ -32,6 +32,11 @@ if NORNG: sys.argv.remove("--norng")
 if "--hp" in sys.argv:
     i = sys.argv.index("--hp"); H0 = int(sys.argv[i + 1]); del sys.argv[i:i + 2]
 # --in3: the farm route from a state already in room 3 (the run's potions search taken up again at its --hp)
+# (--sh N: the spirit's hit points after the turns: 3 in the run, 11 at the turns; 4 with 9 at the turns and the body
+# dropped out of room 4, which keeps the 3 its lying down costs)
+SH = 3
+if "--sh" in sys.argv:
+    i = sys.argv.index("--sh"); SH = int(sys.argv[i + 1]); del sys.argv[i:i + 2]
 IN3 = "--in3" in sys.argv
 if IN3: sys.argv.remove("--in3")
 
@@ -261,6 +266,14 @@ def dropclimb():
     is what tells the room 4 of before from the one of after: its list is empty again. The step into room 3 pays
     for the pull up it starts (60 a pixel from above the room: ~6000 on the top row), room 4's for its own."""
     back = ("Room Chars[4]", "==", 0)
+    # (--sh: room 4's list keeps the body's place after its fall (the search with it sat under the tile, the climb's
+    # last frame never counted); the spirit's hit points tell the drop instead: without it they are 3 fewer)
+    # (that holds from the turn on, before the fall: so no step of its own for room 4's entry, room 3's step pulls
+    # in both rooms, and a spirit with fewer fails: the body left lying)
+    if SH != 3:
+        back = ("Player Current HP", ">=", SH)
+        return drop() + [step(room(3, SPIRIT), (3, 258, U, 1.0, 60.0), (4, 250, ROW_Y[1], 1.0, 60.0, "keep"), reward=8000.0),
+                         step(room(4, SPIRIT, back, ("Player Pos Y", "<", 125)), (4, 250, ROW_Y[1], 1.0, 60.0))]
     return drop() + [step(room(3, SPIRIT), (3, 258, U, 1.0, 60.0), reward=8000.0),
                      step(room(4, SPIRIT, back), (4, 250, ROW_Y[1], 1.0, 60.0), reward=3000.0),
                      step(room(4, SPIRIT, back, ("Player Pos Y", "<", 125)), (4, 250, ROW_Y[1], 1.0, 60.0))]
@@ -282,9 +295,11 @@ MAXHP = {k: (HT if k == "farm" else 11 if k in ("end", "drop", "drop2", "dc", "f
 # no potion is drunk (sequence 0x4E)
 FAILS = {k: [[("Player Current Sequence", "==", 0x4E), ("Current Level", "==", 14)]] for k in ROUTES}
 # (the spirit has 3 hit points left and a cast takes 2 of them and needs 3: one lost any other way ends it)
-FAILS["end"] = [[SPIRIT, ("Player Current HP", "==", 2), ("Current Level", "==", 14)],
+# (with more, --sh: too few left to cast, out of a cast, is the end; the one cast leaves SH - 2)
+FAILS["end"] = [[SPIRIT, ("Player Current HP", "==", 2), ("Current Level", "==", 14)] if SH == 3 else
+                [SPIRIT, ("Player Current HP", "<", 3), ("Player Current HP", "!=", SH - 2), ("Current Level", "==", 14)],
                 # the cast spent for nothing: no fireball in the air, Jaffar alive
-                [SPIRIT, ("Player Current HP", "==", 1), ("Player Current Sequence", "!=", 0xF2), ("Moving Object Count", "==", 0),
+                [SPIRIT, ("Player Current HP", "==", SH - 2), ("Player Current Sequence", "!=", 0xF2), ("Moving Object Count", "==", 0),
                  ("Room Live Guards", ">=", 1), ("Current Level", "==", 14)],
                 # Jaffar dead of anything but the fireball (a fall, held up by a change of rooms, killed him once: the
                 # level is not won then)
@@ -296,6 +311,7 @@ FAILS["fb"] = FAILS["end"] + [[SPIRIT, ("Opponent Current Row", "==", 2), ("Oppo
                               [SPIRIT, ("Opponent Current Row", "==", 1), ("Player Current Row", "==", 2), ("Current Level", "==", 14)]]
 # (fb8: not by room 7's top row)
 FAILS["fb8"] = FAILS["fb"] + [[SPIRIT, ("Player Room", "==", 7), TOP0, ("Current Level", "==", 14)]]
+if SH != 3: FAILS["dc"] = FAILS["dc"] + [[SPIRIT, ("Player Current HP", "<", SH), ("Current Level", "==", 14)]]
 NO_ROW2 = [SPIRIT, ("Player Room", "==", 6), ("Player Pos Y", ">", 150), ("Current Level", "==", 14)]
 NO_RIGHT = [SPIRIT, ("Player Room", "==", 6), TOP0, ("Player Pos X", ">", col_x(5)), ("Current Level", "==", 14)]
 FAILS["r7R"] = [NO_ROW2]

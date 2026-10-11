@@ -1493,3 +1493,36 @@ stands on row 11430).
   for version 1; `1500/l0102..14cut.sol` is not made by any stage here, it is the level 13 chain and `l14cut.sol`
   put together, and the first try replayed version 1's left there): 10514 ticks compared. The MT-32 disk: no position
   differs. The Sound Blaster disk: one, tick 5128, level 9's end a tick early as above; every other tick equal.
+
+## Version 3 (2026-10-11): the body dropped out of room 4, two potions fewer: IGT 10351
+
+Sergio: the eight turns right after the climb out of room 3, on room 4's lower tile at its edge: body and flame
+fall back into room 3, and the transformation costs fewer hit points. Measured (version 2's run before it, the old
+drop test's lines): 6 of 6 kept for the run's 3 of 3. The 3 are the body's lying down (`spirit.c`
+control_dead_0307a2: on each of its frames 0xB4..0xB6 the spirit loses a point, or a point of the maximum, and the
+body one); a body that falls stays in its falling frame (106, on room 3's top row) and never plays them. **In DOS**
+(`RUND14`, both disks): 10015 ticks through the drop and 40 after, room, x, y, frame and hit points equal. The eighth
+turn leaves the body only with more than 4 before its own loss, so 9 at the turns is the least: the flame at 4 of
+4, a fireball (3 needed, 2 spent) left.
+
+`1400/run14.sh` (env `FARM=l14farm9.sol FARMCUT=531 SUF=9 SH=4`; `gen.py --sh 4`: the cast's fail rules for a flame
+of 4, and the climb back told by its hit points: room 4's list keeps the body's place after the fall), 200 GB beside
+another project's search (`JAFFAR_NUMA_WEIGHTS=1,250,375,375`, a local switch in jaffanator2's `stateDb.hpp`: the
+database split by weights, NUMA node 0 being full):
+
+| Segment | Lines | |
+|---|---|---|
+| scene | 51 | version 2's |
+| farm, four potions | 447 | version 2's first 447 (9 of 9 drunk on room 3's middle row, level tick 498) |
+| `x9`: up the shaft | 84 | room 4 entered on tick 582 (778) |
+| `dc`: the turns, the fall, back up | 145 | the flame standing on room 4's middle row on tick 727, 4 of 4 (the run's sets off on ~890) |
+| `r7d`: rooms 5, 6, up into 7 | 261 (271 less the fight's 10) | 276 before |
+| `fightd`: Jaffar | 215 | 215 before |
+| to the final scene | 7 | |
+
+**Level 14: 1210 for 1372; the run 10351** (`tas/v3`). The old lines could not simply be taken up again on the
+middle row: the flame stands at x 252 for the old one's run from x 271, with 4 for 3, on another tick for rooms 6 to
+8's random numbers. Chimera's core against the search core: 1209 ticks equal; the project (11288 frames, the count
+standing on row 11268): the packaged core equal on every row, Chimera's runner OK, game time 14:22.583, every
+memory domain equal. DOS, the whole run: the MT-32 disk equal on all 10352 ticks, the Sound Blaster disk but tick
+5128 (level 9's end, as version 2).

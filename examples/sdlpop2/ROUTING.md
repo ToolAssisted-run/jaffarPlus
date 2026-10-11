@@ -393,6 +393,20 @@ scene's aside); `0800/level0102030405060708.sol` chains it after levels 1..7 for
   matters), left along the top row into room 6, up into room 12 (its col 8 floor, from room 6's pillar). In the 1344:
   room 17 at tick 280, the potion at 538, room 12 again at 780, then the common way (564 ticks to level 9).
 
+- **The direct way, through room 9's gate (Sergio, 2026-10-10: 16 13 4 5 10 19 21 9):** the bottom row from room 4
+  to room 9 is open but for a gate at room 9's col 8, shut (modifier 0) and linked to no plate of the level (the door
+  links: room 2's and room 17's gates and the exit door only). Room 4's row 2 (down from row 1 col 4) ends in a
+  tunnel (col 0, room 5's col 9: crawled), room 5's cutter (cols 6..7) is crawled under, then floor through rooms 10,
+  19 and 21. The gate is passed with the sword drawn: at the gate, facing away from it (right), Left with Shift
+  (`control.c` sword_kid_engage: the turn to face an opponent behind, sequence 0x7F) carries him 50 px in a tick (x
+  405 to 355), over the gate's 6 px of bars (wall type 8 in this room: tile left + 10..16), and no bump follows. The
+  game has this room's gate out of its own push-outs (`collision.c` check_gate_push and check_gate_guard,
+  `control.c` under_gate and the standing turn's step back, all "not level 8's room 9"). The exploration
+  (`0800/gen.py direct`, 100 GB, then `gate` from room 21 with the pass asked by x: a column test is fooled, the
+  column follows the frame): room 4 at tick 36, 5 at 111, 10 at 196, 19 at 222, 21 at 247, 9 at 271, through the
+  gate on tick 290, on the heirloom sword's tile sheathing on tick 297 (`0800/l08gate.sol`; the run's way crouches
+  for it on tick 608, its sword scene from 611). **Checked in DOS** (both disks, `RUNG8`,
+  levels 1..7 of the run before it): 4564 ticks, all equal in position, the last 763 without a seed written.
 - **The sword scene:** skipped by a key in Chimera (Space on the scene's first frame, the frame after the 0xED
   sequence's last), it takes 88 movie frames for the one headless tick, so the movie runs 87 frames longer than the
   tick count (watched, it runs past 2090 frames). The same on every route: the tables count ticks. Skipped, the scene
@@ -1395,3 +1409,87 @@ states do not fill the database (`0300/script-left-cut.jaffar`: from level 3's t
 |---|---|---|
 | 1 | 105 | nothing queues music there |
 | 3 | 94 | none found (the skeleton is on the row below the door: its death's music comes 41 ticks before the stairs) |
+
+## Version 2 (from 2026-10-10): level 8 by the direct way, the later levels kept where they still play
+
+Version 1 (`tas/v1`, IGT 10819, tag `pop2-tas-v1`) stays as it is. Version 2 takes level 8's direct way through
+room 9's gate (Sergio's, above) and rebuilds from level 8 on. A new level 8 ends on another random seed and another
+tick, so each later level starts differently; what a level's old solution does with that is found by replaying it.
+
+**The method (Sergio, 2026-10-10):** the old solutions are kept until one no longer plays the same, which only a
+fight's random numbers should cause. Then, and only then, the stretch where the fight is set up and fought is searched
+anew, and the old solution is taken up again right after the next state that does not depend on the fight (a climb's
+end, a hang after a jump, a descent, the level's end).
+
+- `tools/reuse.py` (with `tools/trj.c`, a line a tick: the prince's fields a rule can ask, a hash of every room's
+  tiles and modifiers, the drawn room's characters): the old level after the old chain against the same lines after
+  the new chain: the first tick the prince differs on, the first the tiles do, the first a character does. The tiles
+  differ from the first room with a torch or an animated tile (their random phases: drawn, not played); a head or a
+  guard differs when its room is entered; the prince when one of them reaches him.
+- `segment.sh N ROUTE TAG CUR.sol S ROLD MAXSTEPS [DB]`: the search starts after the level's first S lines and wins on
+  the prince's state after the old solution's line ROLD (`routegen.py --winstate`: room, x, y, frame, direction,
+  action, fall speeds, hit points, maximum, sequence and the place in it, the sword drawn; "Player Sequence Pos" is
+  new in `princeOfPersia2.hpp` for this), with `WINCOND` for what else the old lines need there (a guard gone:
+  `Room Chars[26],==,0`).
+- `join.sh N TAG OUT.sol`: the kept lines, the searched ones and the old lines after ROLD, then `reuse.py` from the
+  join on: the next difference, or the level good.
+- A level kept whole goes through `post_level.sh N TAG cut` as a search's solution would (the cut of a cut level is
+  the same file, and it checks the level's end on the new chain).
+- `start_level.sh` with `PREFIX`: a search of a level's rest from its first lines kept (a level that ends in the
+  room of the difference has no state to join on).
+
+What version 1's levels draw random numbers for (`trhd`, the callers named): level 8 the ambient sound's choice and
+the heads; level 9 the same; levels 10 to 13 the torches' flames, a room's animations starting and the ambient
+sound, and each guard met; level 14 its guards' arrivals, hit points and moves and its tiles.
+
+### Version 2's levels (2026-10-10/11): IGT 10513, 306 less
+
+| Level | Version 1 | Version 2 | What was done |
+|---|---|---|---|
+| 8 | 810 | **495** | the direct way searched whole (`l08d`, 300 GB, 2 h 44 min: route `directsw`) |
+| 9 | 369 | **378** | the old lines play the same for 324 ticks; room 8, the level's last, searched again |
+| 10 | 299 | 299 | the same file |
+| 11 | 2256 | 2256 | the same but for the guard of room 26: lines 1413..1517 searched again, 105 for 105 |
+| 12 | 714 | 714 | the same file |
+| 13 | 743 | 743 | the same file |
+| 14 | 1372 | 1372 | the same file |
+
+The run: 10513 ticks (levels 1 to 7 as they were, 4256); the movie 11450 rows (`tas/v2/run_cut.mov`; the count
+stands on row 11430).
+
+- **Level 8** (`l08d`): rooms 16, 13 (tick 22), 4 (36), 5 (111), 10 (196), 19 (222), 21 (247), 9 (271), 1 (366; version
+  1: 693), 24 (397), 23 (421), level 9 on tick 495: Up on line 473, `M` on 482. The sword scene on line 313 (611).
+  The end after the sword is 13 ticks longer than version 1's (129 for 116): room 23's four heads on other random
+  numbers. Chimera's core against the search core: 493 ticks equal. DOS (`RUN08`): 4761 ticks, both disks equal in
+  position.
+- **Level 9**: the old lines after the new level 8 keep the prince where he was until tick 325, in room 8 (entered
+  on 269), where the level ends in the jump off its top row: its two heads move another way (a head of room 4 already
+  differs on tick 194, without reaching him). No state to join on after it, so the level's rest was searched
+  (`start_level.sh` with `PREFIX`): from line 259, in room 6, at 100 GB: 397 (a climb down and up again in room
+  8); from line 150, before room 4, at 160 GB: 386, which waits 17 ticks in room 6 and then plays room 8 as version
+  1 did; the whole level at 240 GB (`l09full`, 2 h 30 min beside another project's searches on the machine): **378**,
+  kept. Version 1's 369 was its own seed's. DOS (`RUN09`): the MT-32 disk equal on all 5139 ticks; the Sound Blaster
+  disk loads level 10 a tick earlier than the core (tick 5128 for 5129) and is equal elsewhere. The level's end
+  (room.c: frame 0x28 of the jump on room 8's top row) waits for the effect playing (169B:0541), and that wait is a
+  tick shorter there; version 1's end had both disks equal.
+- **Level 10**: `reuse.py`: the prince never differs, 299 lines, level 11 on the same line.
+- **Level 11**: the same until tick 1427, in room 26 (entered on 1417, the sword drawn in room 24 on 1413): its
+  guard's moves. Version 1 wounds him (5 to 2), sheathes, runs past him, and he follows and falls off the ledge
+  (ticks 1496..1504: the room's list empty from 1505). `segment.sh 11 np l11s1 l11cut.sol 1412 1517 200` with
+  `WINCOND="Room Chars[26],==,0"`: from the stand after the climb in room 24 (line 1412) to the stand on room 26's
+  top row (the old line 1517: x 231, y 56, frame 15), the guard gone: **won in 105 steps, the old 105** (240 GB, 28
+  min beside the other searches). `join.sh`: 1412 lines kept, 105 searched, 739 old lines after; from the join on
+  the prince never differs and level 12 loads on line 2256.
+- **Levels 12, 13, 14**: nothing differs, not the prince, the tiles or the characters, and the draws are the same in
+  number (496, 606, 489). By level 12's first tick the new run has drawn as many random numbers since the game's
+  start as version 1 had (`ndraws.py`: 4826 both; at level 9's start 3153 for 3168, level 10's 3186 for 3193, level
+  11's 3387 for 3393), so the seed is the same from there on (level 12 starts on 28703370 in both), and the levels
+  are 306 ticks apart, an even number, which keeps the every-other-tick draws on the same ticks. Level 14's farm and
+  fight are version 1's lines.
+- **The project** (`MARK="11430:The end (IGT 10513)" COREPKG=... ./post_level.sh 14 l14 project`, the core's package
+  of 0153ff1 as version 1's): the packaged core, sandboxed, against the runner: all 11450 rows equal, IGT 10513 on
+  the last; Chimera's runner: status OK, game time 14:36.083, every memory domain equal after the last frame.
+- **The whole run in DOS** (`./post_level.sh 14 l14 dos` on the new chain, the lateness meter cleared on level 14 as
+  for version 1; `1500/l0102..14cut.sol` is not made by any stage here, it is the level 13 chain and `l14cut.sol`
+  put together, and the first try replayed version 1's left there): 10514 ticks compared. The MT-32 disk: no position
+  differs. The Sound Blaster disk: one, tick 5128, level 9's end a tick early as above; every other tick equal.

@@ -64,7 +64,14 @@ def dedup(steps):
     return out
 
 
-def build(lv, route, upto, db, init, tag, maxsteps, anyframe=False, run=False):
+# the prince's state a stretch searched anew must end on to take an old solution up again (--winstate, tools/trj's
+# fields in its order; "Player Sequence Pos" is read only when the value is given)
+WINSTATE = ["Player Room", "Player Pos X", "Player Pos Y", "Player Frame", "Player Direction", "Player Action", "Player Fall Speed X",
+            "Player Fall Speed Y", "Player Current HP", "Player Max HP", "Player Sequence", "Player Current Sequence", "Player Sword Drawn",
+            "Player Sequence Pos"]
+
+
+def build(lv, route, upto, db, init, tag, maxsteps, anyframe=False, run=False, winstate=None, wincond=None):
     here = os.path.dirname(os.path.abspath(__file__))
     j = copy.deepcopy(json.load(open(os.path.join(here, "0100/script.jaffar"))))
     j["Driver Configuration"]["Save Intermediate Results"]["Best Solution Path"] = f"/tmp/jaffar.pop2{lv['name']}.{tag}.best.sol"
@@ -127,6 +134,11 @@ def build(lv, route, upto, db, init, tag, maxsteps, anyframe=False, run=False):
         if upto is not None and i == n - 1:   # a chunk ends with the prince standing still (frame 15), not in a fall he may not survive
             stand = [] if anyframe else [{"Property": "Player Frame", "Op": "==", "Value": 15}]   # (--anyframe: as soon as the step holds)
             rules.append({"Label": 3899, "Conditions": conds + stand, "Satisfies": [], "Actions": [{"Type": "Trigger Win"}]})
+    if winstate:   # (version 2: the win is the old solution's state at the join, wherever the route's steps stand)
+        vals = [int(v) for v in winstate.split(",")]
+        # (--wincond "Property,op,value", repeated: what else the old solution needs at the join, e.g. a guard gone)
+        more = [{"Property": c.split(",")[0], "Op": c.split(",")[1], "Value": int(c.split(",")[2])} for c in (wincond or [])]
+        rules.append({"Label": 3898, "Conditions": [{"Property": p, "Op": "==", "Value": v} for p, v in zip(WINSTATE, vals)] + more, "Satisfies": [], "Actions": [{"Type": "Trigger Win"}]})
     if upto is None:
         rules.append({"Label": 3900, "Conditions": [{"Property": "Current Level" if run else "Next Level", "Op": "==", "Value": lv["next"]}], "Satisfies": [], "Actions": [{"Type": "Trigger Win"}]})
     rules.append({"Label": 3901, "Conditions": [{"Property": "Player Is Alive", "Op": ">=", "Value": 0}], "Satisfies": [], "Actions": [{"Type": "Trigger Fail"}]})
@@ -155,6 +167,8 @@ def main(lv):
     a.add_argument("--maxsteps", type=int, default=3000)
     a.add_argument("--anyframe", action="store_true")   # a chunk's last step wins in any frame (not only standing)
     a.add_argument("--run", action="store_true")        # the final run's search: the music key, the win is the next level loaded
+    a.add_argument("--winstate")                        # the prince's state that wins (WINSTATE's values, comma separated)
+    a.add_argument("--wincond", action="append")        # with --winstate: one more condition of the win, "Property,op,value"
     o = a.parse_args()
     tag = o.tag or o.route
-    json.dump(build(lv, o.route, o.upto, o.db, o.init, tag, o.maxsteps, o.anyframe, o.run), open(o.out or f"script-{o.route}.jaffar", "w"), indent=2)
+    json.dump(build(lv, o.route, o.upto, o.db, o.init, tag, o.maxsteps, o.anyframe, o.run, o.winstate, o.wincond), open(o.out or f"script-{o.route}.jaffar", "w"), indent=2)

@@ -95,6 +95,7 @@ private:
     registerGameProperty(name + " Current HP", &c->f12, dt::dt_uint8, le);
     registerGameProperty(name + " Max HP", &c->f13, dt::dt_uint8, le);
     registerGameProperty(name + " Sequence", &c->seq_id, dt::dt_uint16, le);
+    registerGameProperty(name + " Sequence Pos", &c->seq_pos, dt::dt_uint16, le); // the place in it (a state to take an old solution up again: routegen.py --winstate)
     registerGameProperty(name + " Current Sequence", &c->f19, dt::dt_uint16, le); // the sequence started last (27: sinking in level 2's sand)
     registerGameProperty(name + " Sword Drawn", &c->f10, dt::dt_uint8, le);       // 1: sword drawn (0xFF: none to draw)
   }

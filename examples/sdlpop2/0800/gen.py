@@ -94,7 +94,37 @@ def sword_and_exit():
     ]
 
 
+def direct():
+    """(Sergio, 2026-10-10) 16 13 4, then west along the row: room 4's tunnel (row 2 col 0, into room 5's col 9), room
+    5 (its cutter at cols 6..7), 10, 19, 21 (the bottom row is floor all the way), into room 9 from the east. Its
+    gate (row 2 col 8) is shut and no plate of the level is linked to it: the last step is to stand left of it"""
+    return [
+        step(room(16), (16, L, ROW_Y[1], 1.0, 1.0)),
+        step(room(13), (13, col_x(4), D, 1.0, 1.0)),
+        step(room(4), (4, L, ROW_Y[2], 1.0, 2.0)),
+        step(room(5), (5, L, ROW_Y[2], 1.0, 1.0)),
+        step(room(10), (10, L, ROW_Y[2], 1.0, 1.0)),
+        step(room(19), (19, L, ROW_Y[2], 1.0, 1.0)),
+        step(room(21), (21, L, ROW_Y[2], 1.0, 1.0)),
+        step(room(9), (9, col_x(5), ROW_Y[2], 1.0, 1.0)),
+        step(room(9, ("Player Pos X", "<", 392)), (9, col_x(5), ROW_Y[2], 1.0, 1.0)),
+    ]
+
+
+def gate():
+    """the direct way's last part by itself, from room 21 (the search's start is a direct-way solution cut there):
+    into room 9 and past its gate (x below 392: the gate's bars are at about 406..412; a column test is not enough,
+    the column follows the frame)"""
+    return [step(room(19), (19, L, ROW_Y[2], 1.0, 1.0)),
+            step(room(21), (21, L, ROW_Y[2], 1.0, 1.0)),
+            step(room(9), (9, col_x(5), ROW_Y[2], 1.0, 1.0)),
+            step(room(9, ("Player Pos X", "<", 392)), (9, col_x(5), ROW_Y[2], 1.0, 1.0))]
+
+
 ROUTES = {
+    "direct": direct(),
+    "gate": gate(),
+    "directsw": direct() + sword_and_exit(),
     # 16 13 4 3 2 12 20 22 11 9 (the sword) 1 24 23
     "np": start() + [
         step(room(3), (3, col_x(9), ROW_Y[1], 1.0, 1.0)),           # the plate (past the cutter)
@@ -138,7 +168,7 @@ ROUTES = {
 }
 HPM = 50   # a small Player HP Magnet: ties only (level 7: without it the search wore down to 1 hit point and waited)
 ROUTES = {k: [dict(v[0], hpm=HPM)] + v[1:] for k, v in ((k, dedup(v)) for k, v in ROUTES.items())}
-MAXHP = {"np": H0, "pot": H0 + 1, "pot2": H0 + 1}
+MAXHP = {"np": H0, "pot": H0 + 1, "pot2": H0 + 1, "direct": H0, "directsw": H0, "gate": H0}
 
 # the small potions (+1 hit point) are never drunk (rooms 8, 20, 24); in level 8 only (the next level's tiles)
 SMALL = [(8, 21), (20, 24), (24, 24)]

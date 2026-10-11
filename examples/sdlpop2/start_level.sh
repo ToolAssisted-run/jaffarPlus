@@ -13,8 +13,13 @@ CHAIN=l$(nums $((N - 1)))cut.sol; SCRIPT=script-$ROUTE-run.jaffar
 cd $D
 [ -f $CHAIN ] || { echo "no chain $D/$CHAIN"; exit 1; }
 if pidof jaffar > /dev/null; then echo "a jaffar is running: $(pidof jaffar)"; exit 1; fi
-python3 gen.py $ROUTE --run --init $CHAIN --db $DB --maxsteps $MAX --out $SCRIPT
-echo "chain $CHAIN: $(grep -c '^|' $CHAIN) lines; script $SCRIPT: $(grep -c '"Label"' $SCRIPT) rules"
+# (env PREFIX: the level's first lines kept from an earlier solution (tools/reuse.py, version 2: a level replayed on
+# another run before it, up to where it differs): the search starts after them, its solution TAG.sol is the rest,
+# and the level's is TAG.prefix.sol + TAG.sol)
+INIT=$CHAIN
+if [ -n "$PREFIX" ]; then cat $CHAIN $PREFIX > init_$TAG.sol; cp $PREFIX $TAG.prefix.sol; INIT=init_$TAG.sol; fi
+python3 gen.py $ROUTE --run --init $INIT --db $DB --maxsteps $MAX --out $SCRIPT
+echo "chain $INIT: $(grep -c '^|' $INIT) lines; script $SCRIPT: $(grep -c '"Label"' $SCRIPT) rules"
 grep -o -E '"Music On At Start": *[a-z]+|"Max Step Count": *[0-9]+|"Initial Sequence File Path": *"[^"]*"|"Max HP At Level"[^]]*\]' $SCRIPT | tr "\n" ";"; echo
 nohup ../run_level.sh ${NN}00 $SCRIPT $TAG $DB > /dev/null 2>&1 &
 sleep ${WAIT:-75}

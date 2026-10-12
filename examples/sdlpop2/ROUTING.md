@@ -1545,3 +1545,54 @@ row, the second cast on 1120, the fireball's hit on 1154.
 project (11239 frames, the count standing on row 11219): the packaged core equal on every row, Chimera's runner OK,
 game time 14:18.500, every memory domain equal. DOS, the whole run: the MT-32 disk equal on all 10303 ticks, the
 Sound Blaster disk but tick 5128 (level 9's end).
+
+## Closing notes (2026-10-12)
+
+The project ends on version 4: **IGT 10302**, game time 14:18.500, 11239 frames from the boot to Jaffar's death
+(`tas/`, `tas/v4`; the versions' table in `tas/README.md`). The three improvements after the first finished run
+were Sergio's, each a thing the game does that its makers did not plan for: a shut gate with no opener passed by the
+sword's turn-about (level 8, 315 ticks), a body that falls instead of lying down and so takes nothing from the flame
+(level 14, two potions: 162 ticks), and Jaffar, who flees a flame, walking up to a shadow (level 14, 49 ticks).
+
+**How far each version is checked.**
+- The search core against Chimera's core: every tick of every level, in every version.
+- The project in Chimera's own headless runner: status OK and every memory domain equal after the last frame, in
+  every version. It has never been opened in the frontend's window.
+- DOS (the oracle, both disks, in segments: the core's seed written at each tick's start, which changes nothing
+  where DOS's own is the same): the MT-32 disk equal in room, x, y, frame and hit points on every tick of every
+  version. The Sound Blaster disk the same but for one tick from version 2 on: level 10 loads a tick early (level
+  9's end waits for an effect still playing). Level 14 is checked with the lateness meter cleared at each tick, as
+  for version 1 (a machine never late, as the core is).
+- The pictures against DOS's, pixel by pixel: the whole of version 1 (10635 of 10817 ticks equal) and version 2
+  through level 8 (the sword room entered from the east: equal). The later versions' new stretches were not
+  compared.
+
+**Left untried.**
+- A farm searched from the start for four potions. Versions 3 and 4 keep the six-potion farm's first four and leave
+  from the fourth; a search that knows it stops at four may place them better.
+- Room 7's nearer potion for the last fight (the one tried was drunk at once, with Jaffar far off; the search
+  then chose room 8's).
+- Level 9 on another seed. Its last room costs 9 ticks more than version 1's on the random numbers level 8 now
+  leaves; a level 8 of the same length ending on other draws (its last room's four heads draw many) might give them
+  back.
+- The Sound Blaster disk's tick at level 9's end.
+
+**What the work taught, for a next one.**
+- An earlier level changed does not undo the later ones. Replay them and compare tick by tick; only where a
+  fight's random numbers differ, search that stretch again up to the old solution's exact state past it, and put the
+  old lines back (`tools/reuse.py`, `segment.sh`, `join.sh`). Of six later levels, two needed a search, one of them
+  105 ticks.
+- The seed is a count of draws since the game's start. Two runs that have drawn equally often are in the same
+  state again, whatever happened between: versions 1 and 2 meet at level 12's first tick, which is why level 14's
+  farm never had to be searched twice.
+- A step whose magnets start far below what came before must carry a reward that covers the drop, or a full
+  database ranks the states past it last and drops them. A win or a step tested by column is fooled by the frame;
+  test x. A later step's rule marks the earlier ones done, so a condition must not hold before its time (the climb
+  back after the drop; the potion before Jaffar came).
+- What a search finds first is not always the game: a "passed gate" by its column, a body "kept" by a room's count.
+  Each of the three improvements was replayed in DOS before the run was built on it.
+
+Kept out of the repository: the oracle's scripts and the game's files; the videos; the searches' scripts, logs and
+intermediate solutions (jaffanator2, `~/jaffarPlus-run` and `~/pop2run`); and a switch in that tree's
+`source/stateDb.hpp` (`JAFFAR_NUMA_WEIGHTS`) that splits the state database unevenly across NUMA nodes, written to
+run beside another job and not proposed for the engine as it is.

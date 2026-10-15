@@ -38,6 +38,20 @@ __INLINE__ std::shared_ptr<void> createSharedBacking(const nlohmann::json& confi
   return nullptr;
 }
 
+/// @brief The configured cap on the trie's node storage ("Max Memory (Mb)", Trie only), in bytes; 0 if not set.
+__INLINE__ size_t getConfiguredMaxMemoryBytes(const nlohmann::json& config)
+{
+  if (getType(config) != "Trie" || config.contains("Max Memory (Mb)") == false) return 0;
+  return jaffarCommon::json::getNumber<size_t>(config, "Max Memory (Mb)") * 1024ul * 1024ul;
+}
+
+/// @brief Sets the cap on the shared backing's memory (the trie's node storage); no-op for None/Raw.
+/// Call before the search starts.
+__INLINE__ void setSharedBackingMaxMemoryBytes(const std::shared_ptr<void>& backing, const size_t bytes)
+{
+  if (backing != nullptr) static_cast<SequenceInputTrie*>(backing.get())->setMaxMemoryBytes(bytes);
+}
+
 /// @brief Hard upper bound (bytes) on the shared backing's memory: the trie's node-storage ceiling for the
 /// "Trie" strategy, 0 for None/Raw (their per-state history lives in the StateDb slot, already budgeted).
 /// Used by the engine's RAM guard to account for this otherwise-uncounted, unbounded-growth structure.
@@ -84,8 +98,11 @@ __INLINE__ std::unique_ptr<InputHistory> create(const nlohmann::json& config, co
   else if (type == "Raw")
     result = std::make_unique<InputHistoryRaw>(maxInputIndex, jaffarCommon::json::popNumber<uint32_t>(cfg, "Max Size"));
   else if (type == "Trie")
+  {
     result = std::make_unique<InputHistoryTrie>(static_cast<SequenceInputTrie*>(backing.get()), shardId, numShards - 1, maxInputIndex,
                                                 jaffarCommon::json::popNumber<uint32_t>(cfg, "Max Size"));
+    if (cfg.contains("Max Memory (Mb)")) jaffarCommon::json::popNumber<size_t>(cfg, "Max Memory (Mb)"); // read by the engine (getConfiguredMaxMemoryBytes)
+  }
   else
     JAFFAR_THROW_LOGIC("Unrecognized 'Store Input History' Type: '%s' (expected None, Raw or Trie)", type.c_str());
   jaffarCommon::json::checkEmpty(cfg, "Runner Configuration > Store Input History");

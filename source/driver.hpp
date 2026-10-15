@@ -572,10 +572,10 @@ public:
           if (exhausted || ihNow >= (size_t)((double)ihCeiling * _inputHistoryCapacityWatermark))
           {
             const double GB = 1024.0 * 1024.0 * 1024.0;
-            jaffarCommon::logger::log("[J+] Input-history trie at %.1f / %.1f GB (%.0f%% of its hard ceiling)%s at step %lu -- stopping "
-                                      "gracefully. The Trie node pool grows ~ live-states x depth and cannot be enlarged past RAM; switch "
-                                      "Store Input History Type to \"Raw\" (bounded by 'State Database/Max Size (Mb)'), or lower the State "
-                                      "DB size so fewer live states slow the trie's growth.\n",
+            jaffarCommon::logger::log("[J+] Input-history trie at %.1f / %.1f GB (%.0f%% of its cap)%s at step %lu -- stopping "
+                                      "gracefully. The Trie node pool grows ~ live-states x depth; raise 'Store Input History/Max Memory (Mb)' "
+                                      "if RAM allows, switch Store Input History Type to \"Raw\" (bounded by 'State Database/Max Size (Mb)'), "
+                                      "or lower the State DB size so fewer live states slow the trie's growth.\n",
                                       (double)ihNow / GB, (double)ihCeiling / GB, 100.0 * (double)ihNow / (double)ihCeiling, exhausted ? " (pool exhausted)" : "", _currentStep);
             exitReason = exitReason_t::inputHistoryNearCapacity;
             break;
@@ -609,8 +609,10 @@ public:
     // If using ncurses, terminate terminal now
     jaffarCommon::logger::finalizeTerminal();
 
-    // Updating and storing best states
-    updateBestState();
+    // Updating and storing best states. Not after the input-history trie ran out of nodes: states stored
+    // in that last step may have lost their path (it would render as a made-up solution), so the best
+    // solution of the previous step, whose paths were intact, is kept.
+    if (_engine->isInputHistoryExhausted() == false) updateBestState();
     saveBestStateInformation();
 
     // Also flush any pending "Trigger Save Solution" request: with End-On-First-Win the loop breaks at

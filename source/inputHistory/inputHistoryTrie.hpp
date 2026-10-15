@@ -4,17 +4,19 @@
  * @file inputHistoryTrie.hpp
  * @brief Input-history strategy that stores each state's path as a single node id into a shared,
  *        reference-counted prefix trie (jaffarCommon::sequenceTrie). Sibling states share their common
- *        prefix, so per-state cold storage is just 4 bytes and total path memory is far smaller than the
- *        raw bit-packed history. Selected with `{"Type": "Trie", "Max Size": N}` ("Max Size" bounds only
- *        the reconstructed snapshot/solution buffer; the live search path is unbounded).
+ *        prefix, so per-state cold storage is just an 8-byte node id and total path memory is far smaller
+ *        than the raw bit-packed history. Selected with `{"Type": "Trie", "Max Size": N}` ("Max Size"
+ *        bounds only the reconstructed snapshot/solution buffer; the live search path is unbounded), plus
+ *        the optional "Max Memory (Mb)" cap on the trie's node storage.
  *
  * Cold form (StateDb slot): [node id]. Full form (self-contained snapshot): the path reconstructed into a
  * bit-packed buffer, so snapshots need no reference back into the trie. The runner's step counter is stored
  * separately (prefixed by the runner), not by this strategy.
  *
- * UNBOUNDED GROWTH + HARD CEILING (watch this): unlike Raw, the trie is a SEPARATE shared pool NOT counted
- * in the State DB budget; it grows ~ live-states x depth and is capped at the trie's hard node ceiling
- * (SequenceTrie::getMaxMemoryBytes, reserved by the engine RAM guard). When that ceiling is reached the
+ * UNBOUNDED GROWTH + CEILING (watch this): unlike Raw, the trie is a SEPARATE shared pool NOT counted
+ * in the State DB budget; it grows ~ live-states x depth (16 bytes per node) and is capped at its node
+ * ceiling ("Max Memory (Mb)", or by default the RAM the engine's guard finds left after the databases;
+ * SequenceTrie::getMaxMemoryBytes). When that ceiling is reached the
  * trie soft-fails (extend() returns NONE, isExhausted() latches) rather than throwing inside the parallel
  * region, and the driver stops the run gracefully (exit reason inputHistoryNearCapacity). Because prefix
  * sharing fades with depth, Raw (per-state cost fixed by Max Size, bounded by the State DB) can beat Trie
@@ -22,6 +24,7 @@
  */
 
 #include "inputHistory.hpp"
+#include <atomic>
 #include <cstring>
 #include <jaffarCommon/bitwise.hpp>
 #include <jaffarCommon/exceptions.hpp>
@@ -32,14 +35,13 @@ namespace jaffarPlus
 {
 
 /// @brief The shared trie type backing every InputHistoryTrie instance of one search.
-/// The trie stores each path element as a 16-bit input index (not the full size_t inputIndex_t): this
-/// halves the node and, with the 16-bit refCount, makes the node 8 bytes -> the trie's hard memory ceiling
-/// drops from ~96 GiB to ~32 GiB. Valid because a search registers far fewer than 65536 distinct inputs
-/// (the constructor enforces this).
+/// The trie stores each path element as a 16-bit input index (not the full size_t inputIndex_t), which with
+/// the 16-bit refCount and the 8-byte parent id makes a node 16 bytes. Valid because a search registers far
+/// fewer than 65536 distinct inputs (the constructor enforces this).
 using SequenceInputTrie = jaffarCommon::sequenceTrie::SequenceTrie<uint16_t>;
 
 /// @brief Stores each state's path as one node id into a shared, reference-counted prefix trie; sibling
-/// states share their common prefix, so per-state cold storage is just a node id + count. `{"Type":"Trie"}`.
+/// states share their common prefix, so per-state cold storage is just an 8-byte node id. `{"Type":"Trie"}`.
 class InputHistoryTrie final : public InputHistory
 {
 public:
@@ -110,6 +112,7 @@ public:
   {
     std::vector<InputSet::inputIndex_t> seq;
     _trie->reconstruct(_node, seq); // the node fully encodes its path, so seq.size() is the true step count
+    warnIfTruncated(seq.size());
     std::string out;
     for (size_t i = 0; i < seq.size() && i < _maxSize; i++)
     {
@@ -158,7 +161,16 @@ private:
     std::vector<InputSet::inputIndex_t> seq; // reconstruct widens the trie's 16-bit elements into these
     _trie->reconstruct(node, seq);
     if (pin) _trie->release(node, _managerShard);
+    warnIfTruncated(seq.size());
     for (size_t i = 0; i < seq.size() && i < _maxSize; i++) jaffarCommon::bitwise::bitcopy(buffer, _bitpackBytes, i, &seq[i], sizeof(InputSet::inputIndex_t), 0, 1, _bits);
+  }
+
+  /// @brief Warns (once per run) when a path is longer than the snapshot/solution form holds ("Max Size").
+  void warnIfTruncated(const size_t length) const
+  {
+    static std::atomic<bool> warned{false};
+    if (length > _maxSize && warned.exchange(true) == false)
+      jaffarCommon::logger::log("[J+] Warning: input history exceeded its maximum size (%u). Longer solutions are truncated; raise 'Store Input History / Max Size'.\n", _maxSize);
   }
 
   /// @brief Rebuilds the cursor's owned trie node by re-extending the @p stepCount path elements stored in a

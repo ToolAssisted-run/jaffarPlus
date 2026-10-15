@@ -323,7 +323,8 @@ the winning `.sol` (and the intermediate best/worst solutions). One strategy is 
 | Key | Type | Required | Description |
 |-----|------|----------|-------------|
 | `Type` | string | yes | One of `None`, `Raw`, or `Trie`. No default — it must be set explicitly. |
-| `Max Size` | number | for `Raw` and `Trie` | Maximum number of inputs recorded. For `Raw` it sizes the per-state buffer (longer solutions are truncated). For `Trie` it bounds only the reconstructed solution/snapshot buffer; the live search path is unbounded. Omit for `None`. |
+| `Max Size` | number | for `Raw` and `Trie` | Maximum number of inputs recorded. For `Raw` it sizes the per-state buffer (longer solutions are truncated). For `Trie` it bounds only the reconstructed solution/snapshot buffer; the live search path is unbounded. Omit for `None`. Both warn once when a solution is truncated. |
+| `Max Memory (Mb)` | number | no (`Trie` only) | Cap on the trie's shared node storage (16 bytes per node). Default: the RAM the engine's guard finds left after the state and hash databases (90% of free RAM minus both). The search stops gracefully near the cap. |
 
 ```jsonc
 "Store Input History": { "Type": "Trie", "Max Size": 5000 }   // recommended default
@@ -351,8 +352,8 @@ holding three states reached by these input paths (`R`=Right, `L`=Left, `A`/`B`=
         └──┴──┘  the shared "R R (A)" prefix is duplicated in every state
 ```
 
-**`Trie`** — the paths live *once* in a shared tree of moves; each state stores only a 4-byte id of its
-leaf node (plus a 4-byte step count):
+**`Trie`** — the paths live *once* in a shared tree of moves; each state stores only the 8-byte id of
+its leaf node (every state of a step has the same depth, so the step count is not stored per state):
 
 ```
   shared trie:                 states (8 bytes each):
@@ -372,7 +373,7 @@ leaf node (plus a 4-byte step count):
 
 |                         | `None`            | `Raw`                                   | `Trie`                                       |
 |-------------------------|-------------------|-----------------------------------------|----------------------------------------------|
-| Per-state footprint     | 4 B (count)       | fixed `Max Size × bits/input` (e.g. ~4 KB at 8000 steps) | 8 B (node id + count)            |
+| Per-state footprint     | 0 B               | fixed `Max Size × bits/input` (e.g. ~4 KB at 8000 steps) | 8 B (node id), plus 16 B per node of the shared tree |
 | Total path memory       | ~none             | grows as *states × depth* (prefixes duplicated) | *shared prefixes* → size of the path tree (far smaller) |
 | Reconstruct a `.sol`?   | no                | yes                                     | yes                                          |
 | Shared structure        | none              | none (each state self-contained)        | one reference-counted trie (sharded → contention-free) |
@@ -402,11 +403,13 @@ leaf node (plus a 4-byte step count):
 > `Trie` is a **separate shared structure** that grows roughly as **live-states × path-depth** (minus shared
 > prefixes) and is **not counted in the State DB budget**. Two things to watch:
 >
-> - **It has a hard node-storage ceiling.** The node pool is capped at a fixed maximum. The engine's startup
->   RAM guard reserves that ceiling, and the search now **stops *gracefully*** when the pool nears it — exit
->   reason *"Input-history trie neared its hard memory ceiling"*, with the best result saved — instead of a
->   worker hitting the wall mid-step and terminating the whole run. If you hit this, switch to `Raw` or
->   **reduce the State DB size** (fewer live states ⇒ the trie grows more slowly and reaches deeper first).
+> - **It has a node-storage cap.** The node pool is capped at `Max Memory (Mb)`, or by default at the RAM
+>   the state and hash databases leave free (the startup log prints the cap). The engine's startup RAM guard
+>   counts that cap, and the search **stops *gracefully*** when the pool nears it — exit reason
+>   *"Input-history trie neared its hard memory ceiling"*, with the best result of the previous step saved —
+>   instead of a worker hitting the wall mid-step and terminating the whole run. If you hit this, switch to
+>   `Raw` or **reduce the State DB size** (fewer live states ⇒ the trie grows more slowly and reaches deeper
+>   first).
 > - **Prefix-sharing fades with depth, so `Trie` can lose to `Raw` on very deep searches.** `Raw`'s per-state
 >   cost is *fixed* (`Max Size`-wide); the trie's grows ~linearly with depth as deep frontier states stop
 >   sharing tails. Past a crossover depth the trie can use **more** total memory than `Raw` would — while

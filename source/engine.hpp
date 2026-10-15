@@ -305,18 +305,14 @@ public:
     {
       const size_t stateBudget = _stateDb->getMaxBudgetBytes();
       const size_t hashBudget  = (_hashDbEnabled == true) ? _hashDb->getMaxBudgetBytes() : 0;
-      // Shared input-history trie: an uncounted structure that grows ~ live-states x depth up to its hard
-      // node cap (~384 GiB for the Trie strategy on this build). Reserve its ceiling. (0 for None/Raw.)
-      const size_t historyBound = inputHistory::getSharedBackingMaxMemoryBytes(_inputHistoryBacking);
       // The state DB is a fixed pool (1x; full slots are scavenged from the current step, never doubled).
       // Each hash DB generation is reserved within its budget (see HashDb::getRungSlots), but malloc may
       // keep a discarded generation's tables resident for the next one, and a step inserting more hashes
       // than a generation holds grows it past the budget (HashDb warns): reserve 2x the hash budget.
       // (Before generations were reserved, a 270 GB state+hash config peaked at ~520 GB RSS = state +
       // ~2*hash + trie and was OOM-killed mid-run.)
-      const size_t hashPeak    = hashBudget * 2;
-      const size_t totalBudget = stateBudget + hashPeak + historyBound;
-      size_t       freeRam     = 0;
+      const size_t hashPeak = hashBudget * 2;
+      size_t       freeRam  = 0;
       for (int i = 0; i < _numaCount; i++)
       {
         long long nodeFree = 0;
@@ -324,16 +320,31 @@ public:
         freeRam += (size_t)nodeFree;
       }
       const size_t usable = (size_t)((double)freeRam * 0.90); // 10% headroom: emulators, OS, fragmentation
+
+      // Shared input-history trie: an uncounted structure that grows ~ live-states x depth up to its node
+      // cap. The cap is "Max Memory (Mb)" if configured, otherwise whatever the databases leave of the usable
+      // RAM; the driver stops the run gracefully near it. (0 for None/Raw.)
+      size_t historyBound = 0;
+      if (_inputHistoryBacking != nullptr)
+      {
+        const size_t configured = inputHistory::getConfiguredMaxMemoryBytes(_runners[0]->getInputHistoryConfig());
+        const size_t remaining  = usable > stateBudget + hashPeak ? usable - stateBudget - hashPeak : 0;
+        inputHistory::setSharedBackingMaxMemoryBytes(_inputHistoryBacking, configured > 0 ? configured : remaining);
+        historyBound = inputHistory::getSharedBackingMaxMemoryBytes(_inputHistoryBacking);
+        jaffarCommon::logger::log("[J+] Input-history trie node storage cap:         %.3f GB%s\n", (double)historyBound / (1024.0 * 1024.0 * 1024.0),
+                                  configured > 0 ? "" : " (the RAM left by the databases; set 'Max Memory (Mb)' to choose)");
+      }
+      const size_t totalBudget = stateBudget + hashPeak + historyBound;
       if (totalBudget > usable)
       {
         const double GB = 1024.0 * 1024.0 * 1024.0;
         JAFFAR_THROW_RUNTIME("Configured database budget exceeds available memory:\n"
                              "  State DB ('Max Size (Mb)', fixed pool)                       = %.1f GB\n"
                              "  Hash DB peak (2 x 'Max Store Size' x 'Max Store Count')      = %.1f GB\n"
-                             "  Input-history trie (hard node-storage ceiling)               = %.1f GB\n"
+                             "  Input-history trie (node-storage cap)                        = %.1f GB\n"
                              "  TOTAL                                                        = %.1f GB\n"
                              "  Usable (90%% of %.1f GB free RAM)                             = %.1f GB\n"
-                             "Reduce 'State Database/Max Size (Mb)' and/or 'Hash Database/Max Store Size (Mb)'.\n"
+                             "Reduce 'State Database/Max Size (Mb)', 'Hash Database/Max Store Size (Mb)' and/or 'Store Input History/Max Memory (Mb)'.\n"
                              "NOTE: the hash DB reserves 2x its budget (discarded generations may stay resident in malloc); the\n"
                              "Trie input-history is a separate structure that grows up to its node ceiling. Both are otherwise uncounted.\n",
                              (double)stateBudget / GB, (double)hashPeak / GB, (double)historyBound / GB, (double)totalBudget / GB, (double)freeRam / GB, (double)usable / GB);

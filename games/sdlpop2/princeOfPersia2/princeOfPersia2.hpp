@@ -1,12 +1,12 @@
 #pragma once
 
+#include "inputPruning.hpp"
 #include <emulator.hpp>
 #include <game.hpp>
 #include <jaffarCommon/deserializers/contiguous.hpp>
 #include <jaffarCommon/json.hpp>
 #include <jaffarCommon/serializers/contiguous.hpp>
 #include <quickerSDLPoP2/quickerSDLPoP2.hpp>
-#include "inputPruning.hpp"
 #include <vector>
 
 namespace jaffarPlus
@@ -62,13 +62,10 @@ public:
       for (const auto& r : jaffarCommon::json::popArray<int>(_gameConfigRemaining, "Hash Visited Rooms")) _hashVisited.push_back((size_t)r);
     if (_gameConfigRemaining.contains("Hash Stood On Rows"))
       for (const auto& t : jaffarCommon::json::popArray<nlohmann::json>(_gameConfigRemaining, "Hash Stood On Rows")) _hashStood.push_back({t[0].get<size_t>(), t[1].get<size_t>()});
-    _pruneInputs    = _gameConfigRemaining.contains("Prune Inputs") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Prune Inputs");
-    _restartAtCheckpoint =
-        _gameConfigRemaining.contains("Restart At Checkpoint") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Restart At Checkpoint");
-    _levelEndLookahead =
-        _gameConfigRemaining.contains("Level End Lookahead") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Level End Lookahead");
-    _musicOnAtStart =
-        _gameConfigRemaining.contains("Music On At Start") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Music On At Start");
+    _pruneInputs         = _gameConfigRemaining.contains("Prune Inputs") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Prune Inputs");
+    _restartAtCheckpoint = _gameConfigRemaining.contains("Restart At Checkpoint") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Restart At Checkpoint");
+    _levelEndLookahead   = _gameConfigRemaining.contains("Level End Lookahead") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Level End Lookahead");
+    _musicOnAtStart      = _gameConfigRemaining.contains("Music On At Start") && jaffarCommon::json::popBoolean(_gameConfigRemaining, "Music On At Start");
   }
 
 private:
@@ -110,7 +107,7 @@ private:
 
     registerGameProperty("Current Level", &_s->level_number, dt::dt_uint8, le);
     registerGameProperty("Next Level", &_s->counter_5cec, dt::dt_uint16, le);
-    registerGameProperty("Level End Wait", &_levelEndWait, dt::dt_uint16, le);   // (updateLevelEndWait)
+    registerGameProperty("Level End Wait", &_levelEndWait, dt::dt_uint16, le); // (updateLevelEndWait)
     registerGameProperty("Drawn Room", &_s->drawn_room, dt::dt_uint8, le);
     registerGameProperty("Minutes Left", &_s->minutes_left, dt::dt_uint16, le);
     registerGameProperty("Clock Ticks", &_s->clock_ticks, dt::dt_uint16, le);
@@ -123,18 +120,18 @@ private:
     registerGameProperty("Restart Requested", &_s->word_5cd8, dt::dt_uint16, le);
     registerGameProperty("Moving Object Count", &_s->mob_count, dt::dt_uint16, le);
     registerGameProperty("Sea Grabbed Char", &_s->byte_9276, dt::dt_uint8, le); // level 1's sea: the character it took (10 the prince, 255 none)
-    registerGameProperty("Puzzle Answer", &_s->puzzle_answer, dt::dt_int8, le);  // level 2: the sand tile (0..5) that must stay up
-    registerGameProperty("Puzzle Chosen", &_s->byte_14a0, dt::dt_uint8, le);     // level 2: 255 until room 1 is entered
-    registerGameProperty("Checkpoint Saved", &_s->cp.index, dt::dt_uint16, le);  // the checkpoint saved (1, 2; 0 none, and see cp.used)
+    registerGameProperty("Puzzle Answer", &_s->puzzle_answer, dt::dt_int8, le); // level 2: the sand tile (0..5) that must stay up
+    registerGameProperty("Puzzle Chosen", &_s->byte_14a0, dt::dt_uint8, le);    // level 2: 255 until room 1 is entered
+    registerGameProperty("Checkpoint Saved", &_s->cp.index, dt::dt_uint16, le); // the checkpoint saved (1, 2; 0 none, and see cp.used)
     registerGameProperty("Tile Animation Count", &_s->trob_count, dt::dt_uint16, le);
-    registerGameProperty("Player Smooth Pos Y", &_kidPosY, dt::dt_float32, le);   // y smoothed through climbs (stateUpdatePostHook)
+    registerGameProperty("Player Smooth Pos Y", &_kidPosY, dt::dt_float32, le); // y smoothed through climbs (stateUpdatePostHook)
     for (size_t r = 1; r <= roomCount; r++) registerGameProperty("Visited Room[" + std::to_string(r) + "]", &_visited[r], dt::dt_uint8, le);
     // "Stood On Row[room][row]": he has stood (frame 15) on that row of that room (latched, as the visited flags)
     for (size_t r = 1; r <= roomCount; r++)
       for (size_t w = 0; w < 3; w++)
       {
         registerGameProperty("Stood On Row[" + std::to_string(r) + "][" + std::to_string(w) + "]", &_stood[r][w], dt::dt_uint8, le);
-        registerGameProperty("HP When Stood[" + std::to_string(r) + "][" + std::to_string(w) + "]", &_stoodHP[r][w], dt::dt_uint8, le);   // (his hit points then)
+        registerGameProperty("HP When Stood[" + std::to_string(r) + "][" + std::to_string(w) + "]", &_stoodHP[r][w], dt::dt_uint8, le); // (his hit points then)
       }
     // "Room Heads Hunting[room]": its floating heads (charids 7/8, types 5/6) alive and hunting or biting (their record's state,
     // heads.c; the room he is in counts its live characters' hit points), as stateUpdatePostHook counts them
@@ -159,8 +156,8 @@ private:
     // "Wasted Kills": of those, the ones that left no big potion where they fell (seen on the tick the body is dead for
     // good, alive 7: level 14's room 3 draws what it leaves a tick before)
     registerGameProperty("Wasted Kills", &_wastedKills, dt::dt_uint8, le);
-    registerGameProperty("Bridge Count", &_s->word_693c, dt::dt_int16, le);       // level 5's rope bridge: ticks the prince and room 10's character stood together
-    registerGameProperty("Bridge State", &_s->bridge_693e[0], dt::dt_int16, le);  // 0 waiting, 1..3 starting, -1 collapsed
+    registerGameProperty("Bridge Count", &_s->word_693c, dt::dt_int16, le);      // level 5's rope bridge: ticks the prince and room 10's character stood together
+    registerGameProperty("Bridge State", &_s->bridge_693e[0], dt::dt_int16, le); // 0 waiting, 1..3 starting, -1 collapsed
 
     registerCharacter("Player", &_s->Kid);
     registerCharacter("Opponent", &_s->Opp);
@@ -213,8 +210,8 @@ private:
                 if ((x != 0) + (y != 0) == n) inputs.push_back({x, y, sh, k});
       for (const auto& in : inputs)
       {
-        std::string str = std::string("|") + (in.keystroke ? 'K' : '.') + "|" + (in.x < 0 ? 'L' : '.') + (in.x > 0 ? 'R' : '.') + (in.y < 0 ? 'U' : '.') +
-                          (in.y > 0 ? 'D' : '.') + (in.shift == 1 ? 'S' : '.') + (in.shift == 2 ? 'C' : '.') + "|";
+        std::string str = std::string("|") + (in.keystroke ? 'K' : '.') + "|" + (in.x < 0 ? 'L' : '.') + (in.x > 0 ? 'R' : '.') + (in.y < 0 ? 'U' : '.') + (in.y > 0 ? 'D' : '.') +
+                          (in.shift == 1 ? 'S' : '.') + (in.shift == 2 ? 'C' : '.') + "|";
         _prunedInputs.push_back({in, _emulator->registerInput(str)});
         // "Music On At Start": the same input with the game's Music On/Off key (Alt+M) in the key's place
         if (_musicOnAtStart)
@@ -241,9 +238,9 @@ private:
   __INLINE__ void getAdditionalAllowedInputs(std::vector<InputSet::inputIndex_t>& allowedInputSet) override
   {
     if (!_pruneInputs) return;
-    InputPruner           pruner(_s);
-    uint64_t              keys[64];
-    size_t                nKeys = 0;
+    InputPruner pruner(_s);
+    uint64_t    keys[64];
+    size_t      nKeys = 0;
     // "Music On At Start": the run switches the ambient music off to end a level's wait for its music (the game's
     // Alt+M during the level-end music loads the next level at once) and on again on the next level's first tick. So
     // the key is the one input offered on two kinds of tick: with the music on, while the level-end music plays
@@ -301,12 +298,12 @@ private:
     // The prince's press states between ticks: a jump or a grab needs a fresh press
     hashEngine.Update(_s->kid_ctrl1_saved);
     hashEngine.Update(_s->word_8a84);
-    hashEngine.Update(_s->word_5cbe);   // the turns in a row (the spirit's)
+    hashEngine.Update(_s->word_5cbe); // the turns in a row (the spirit's)
     hashEngine.Update(_s->word_5d38);
     hashEngine.Update(_s->puzzle_answer); // level 2's puzzle
     hashEngine.Update(_s->puzzle_last);
     hashEngine.Update(_s->byte_14a0);
-    hashEngine.Update(_s->word_693c);   // level 5's rope bridge: its collapse count and state
+    hashEngine.Update(_s->word_693c); // level 5's rope bridge: its collapse count and state
     hashEngine.Update(_s->bridge_693e);
     hashEngine.Update(_s->cp.used); // the checkpoint a restart starts from
     hashEngine.Update(_s->cp.index);
@@ -375,12 +372,18 @@ private:
     updateLevelEndWait();
     const int f = _s->Kid.frame;
     float     o = 0.0f;
-    if (f >= 67 && f <= 80) o = -(float)(f - 66);
-    else if (f >= 87 && f <= 99) o = -20.0f;
-    else if (_s->Kid.f19 == 68 && f >= 141 && f <= 148) o = 2.0f * (float)(148 - f);
-    else if (_s->Kid.f19 == 68 && f >= 136 && f <= 140) o = -45.0f + 2.5f * (float)(140 - f);
-    else if (f >= 135 && f <= 140) o = -(20.0f + 4.0f * (float)(f - 134));
-    else if (f >= 141 && f <= 149) o = 19.0f - 2.0f * (float)(f - 140);
+    if (f >= 67 && f <= 80)
+      o = -(float)(f - 66);
+    else if (f >= 87 && f <= 99)
+      o = -20.0f;
+    else if (_s->Kid.f19 == 68 && f >= 141 && f <= 148)
+      o = 2.0f * (float)(148 - f);
+    else if (_s->Kid.f19 == 68 && f >= 136 && f <= 140)
+      o = -45.0f + 2.5f * (float)(140 - f);
+    else if (f >= 135 && f <= 140)
+      o = -(20.0f + 4.0f * (float)(f - 134));
+    else if (f >= 141 && f <= 149)
+      o = 19.0f - 2.0f * (float)(f - 140);
     _kidPosY = (float)_s->Kid.y + o;
     if (_s->Kid.room >= 1 && _s->Kid.room <= roomCount) _visited[_s->Kid.room] = 1;
     if (_s->Kid.room >= 1 && _s->Kid.room <= roomCount && _s->Kid.frame == 15 && _s->Kid.curr_row >= 0 && _s->Kid.curr_row < 3 && _stood[_s->Kid.room][_s->Kid.curr_row] == 0)
@@ -394,26 +397,30 @@ private:
       uint8_t     n    = 0;
       for (size_t i = 0; i < room.nchars && i < 5; i++)
       {
-        const auto&   c  = room.chars[i];
-        if (c.type != 5 && c.type != 6) continue;   // (the heads' types: DS:0096 maps types 5, 6 to charids 7, 8)
+        const auto& c = room.chars[i];
+        if (c.type != 5 && c.type != 6) continue; // (the heads' types: DS:0096 maps types 5, 6 to charids 7, 8)
         const uint8_t hp = _s->Kid.room == r ? _s->chars[i].f12 : c.hp;
-        const uint8_t st = (uint8_t)c.y;   // (the low byte: the head's state, 1 hunting, 3 biting)
+        const uint8_t st = (uint8_t)c.y; // (the low byte: the head's state, 1 hunting, 3 biting)
         if (hp > 0 && (st == 1 || st == 3)) n++;
       }
       _headsHunting[r] = n;
     }
     // the prince's room: potions, guards (see the properties)
     _roomBigPotions = _roomOtherPotions = _roomLiveGuards = 0;
-    _killBalance    = 0;
-    _bigPotionDist  = 0.0f;
-    const uint8_t kr = _s->Kid.room;
+    _killBalance                                          = 0;
+    _bigPotionDist                                        = 0.0f;
+    const uint8_t kr                                      = _s->Kid.room;
     if (kr >= 1 && kr <= roomCount)
     {
       float best = 1.0e9f;
       for (int t = 0; t < 30; t++)
         if (roomTiles(kr)[t] == 0x0A)
         {
-          if (((roomModifiers(kr)[t] >> 5) & 7) != 2) { _roomOtherPotions++; continue; }
+          if (((roomModifiers(kr)[t] >> 5) & 7) != 2)
+          {
+            _roomOtherPotions++;
+            continue;
+          }
           _roomBigPotions++;
           // (column c spans x 146 + 32 c .. 177 + 32 c: its middle; row r's floor is at y 56 + 63 r: his y smoothed
           // through climbs, so that a climb towards it counts all along)
@@ -421,8 +428,8 @@ private:
           if (d < best) best = d;
         }
       if (_roomBigPotions > 0) _bigPotionDist = best;
-      int        bodies = 0;
-      float      near   = 1.0e9f, nearRow = 1.0e9f;
+      int   bodies = 0;
+      float near = 1.0e9f, nearRow = 1.0e9f;
       _roomGuardsOnRow  = 0;
       const auto n      = _s->level.rooms[kr - 1].nchars;
       _roomGuardsDamage = 0;
@@ -430,7 +437,7 @@ private:
       {
         // (guards: charid 2, and level 14's Jaffars, charid 6: his room 6 illusions die of one cut)
         const bool   guard = i < n && (_s->chars[i].charid == 2 || _s->chars[i].charid == 6);
-        const int8_t alive = guard ? (_s->chars[i].alive < 0 ? -1 : 1) : 0;   // (-1 alive, 1 dead, 0 no guard in the slot)
+        const int8_t alive = guard ? (_s->chars[i].alive < 0 ? -1 : 1) : 0; // (-1 alive, 1 dead, 0 no guard in the slot)
         if (guard && alive < 0)
         {
           _roomLiveGuards++;
@@ -441,7 +448,8 @@ private:
           if (dr < nearRow) nearRow = dr;
           if (_s->chars[i].curr_row == _s->Kid.curr_row) _roomGuardsOnRow++;
         }
-        else if (guard && _s->chars[i].charid == 2 && _s->chars[i].alive >= 7) bodies++;
+        else if (guard && _s->chars[i].charid == 2 && _s->chars[i].alive >= 7)
+          bodies++;
         // a guard of this slot alive on the last tick (in this room) and dead now: a kill
         if (_prevRoom == kr && _prevAlive[i] == -1 && alive == 1 && _guardKills < 255) _guardKills++;
         _prevAlive[i] = alive;
@@ -449,7 +457,7 @@ private:
         const uint8_t decided = guard && _s->chars[i].charid == 2 && _s->chars[i].alive >= 7 ? 1 : 0;
         if (_prevRoom == kr && decided && !_prevDecided[i] && alive == 1)
         {
-          const int tp = (int)_s->chars[i].curr_row * 10 + (int)_s->chars[i].curr_col;
+          const int  tp  = (int)_s->chars[i].curr_row * 10 + (int)_s->chars[i].curr_col;
           const bool big = tp >= 0 && tp < 30 && roomTiles(kr)[tp] == 0x0A && ((roomModifiers(kr)[tp] >> 5) & 7) == 2;
           if (!big && _wastedKills < 255) _wastedKills++;
         }
@@ -476,32 +484,40 @@ private:
           }
         if (bestF < 1.0e8f) _fireballDist = bestF;
       }
-      _guardDist   = _roomLiveGuards > 0 ? near : 0.0f;
+      _guardDist    = _roomLiveGuards > 0 ? near : 0.0f;
       _guardRowDist = _roomLiveGuards > 0 ? nearRow : 0.0f;
-      _killBalance = (int8_t)(bodies - (int)_roomBigPotions);
+      _killBalance  = (int8_t)(bodies - (int)_roomBigPotions);
     }
     else
     {
-      _guardDist = 0.0f; _guardRowDist = 0.0f; _roomGuardsDamage = 0; _roomGuardsOnRow = 0; _fireballDist = 0.0f;
-      for (size_t i = 0; i < 5; i++) { _prevAlive[i] = 0; _prevDecided[i] = 0; }
+      _guardDist        = 0.0f;
+      _guardRowDist     = 0.0f;
+      _roomGuardsDamage = 0;
+      _roomGuardsOnRow  = 0;
+      _fireballDist     = 0.0f;
+      for (size_t i = 0; i < 5; i++)
+      {
+        _prevAlive[i]   = 0;
+        _prevDecided[i] = 0;
+      }
     }
     _prevRoom = kr;
   }
 
   __INLINE__ void ruleUpdatePreHook() override
   {
-    _playerPosXMagnet.intensity = 0.0;
-    _playerPosYMagnet.intensity = 0.0;
-    _playerDirectionMagnet      = 0.0;
-    _opponentHPMagnet           = 0.0;
-    _playerHPMagnet             = 0.0;
+    _playerPosXMagnet.intensity   = 0.0;
+    _playerPosYMagnet.intensity   = 0.0;
+    _playerDirectionMagnet        = 0.0;
+    _opponentHPMagnet             = 0.0;
+    _playerHPMagnet               = 0.0;
     _opponentPosXMagnet.intensity = 0.0;
     _opponentPosYMagnet.intensity = 0.0;
-    _puzzleMagnet               = 0.0;
-    _headsMagnet.intensity      = 0.0;
-    _bigPotionMagnet            = 0.0;
-    _guardMagnet                = guardMagnet_t{};
-    _fireballMagnet             = 0.0;
+    _puzzleMagnet                 = 0.0;
+    _headsMagnet.intensity        = 0.0;
+    _bigPotionMagnet              = 0.0;
+    _guardMagnet                  = guardMagnet_t{};
+    _fireballMagnet               = 0.0;
   }
 
   // The rooms visited so far (since the search began): part of the state, so a route can ask for a room to have been
@@ -533,7 +549,7 @@ private:
   {
     float reward = 0.0;
     reward += _playerPosXMagnet.intensity * -std::abs((float)_playerPosXMagnet.position - (float)_s->Kid.x);
-    reward += _playerPosYMagnet.intensity * -std::abs((float)_playerPosYMagnet.position - _kidPosY);   // (smoothed: see stateUpdatePostHook)
+    reward += _playerPosYMagnet.intensity * -std::abs((float)_playerPosYMagnet.position - _kidPosY); // (smoothed: see stateUpdatePostHook)
     reward += (_s->Kid.direction == 0 ? 1.0f : -1.0f) * _playerDirectionMagnet;
     reward += (float)((int)_s->Opp.f13 - (int)_s->Opp.f12) * _opponentHPMagnet;
     reward += (float)_s->Kid.f12 * _playerHPMagnet;
@@ -542,7 +558,7 @@ private:
     reward += _opponentPosYMagnet.intensity * (_s->Opp.room != 0 ? -std::abs((float)_opponentPosYMagnet.position - (float)_s->Opp.y) : -1000.0f);
     if (_puzzleMagnet != 0.0f) reward += _puzzleMagnet * puzzleProgress();
     if (_headsMagnet.intensity != 0.0f) reward += _headsMagnet.intensity * -headsDistance(_headsMagnet.room, _headsMagnet.x, _headsMagnet.row);
-    reward += _bigPotionMagnet * -_bigPotionDist;   // (no big potion in his room: nothing)
+    reward += _bigPotionMagnet * -_bigPotionDist; // (no big potion in his room: nothing)
     reward += _fireballMagnet * -_fireballDist;   // (Sergio: the fireball's way to Jaffar)
     // the guards of his room (level 14's room 3, where two may stand): the hit points the live ones have lost, the
     // kills so far (a kill must outweigh the damage it wipes: Kill Intensity above 5 Damage Intensity), and the way
@@ -577,15 +593,16 @@ private:
     const auto& k = _s->Kid;
     jaffarCommon::logger::log("[J+]  + Level / Next Level:   %2u / %2u (level end wait: %u)\n", _s->level_number, _s->counter_5cec, _levelEndWait);
     jaffarCommon::logger::log("[J+]  + Time Left:            %u minutes, %u ticks\n", _s->minutes_left, _s->clock_ticks);
-    jaffarCommon::logger::log("[J+]  + [Prince]              Room: %u, Pos: %d, %d (smooth %.0f), Row: %d, Col: %d, Frame: 0x%X, Action: %u, Dir: %d, HP: %u/%u, Alive: %d\n", k.room,
-                              k.x, k.y, _kidPosY, k.curr_row, k.curr_col, k.frame, k.action, k.direction, k.f12, k.f13, k.alive);
+    jaffarCommon::logger::log("[J+]  + [Prince]              Room: %u, Pos: %d, %d (smooth %.0f), Row: %d, Col: %d, Frame: 0x%X, Action: %u, Dir: %d, HP: %u/%u, Alive: %d\n",
+                              k.room, k.x, k.y, _kidPosY, k.curr_row, k.curr_col, k.frame, k.action, k.direction, k.f12, k.f13, k.alive);
     const auto& o = _s->Opp;
     if (o.room != 0)
       jaffarCommon::logger::log("[J+]  + [Opponent]            Room: %u, Pos: %d, %d, Frame: 0x%X, Char Id: %u, HP: %u/%u, Alive: %d\n", o.room, o.x, o.y, o.frame, o.charid, o.f12,
                                 o.f13, o.alive);
     if (_roomLiveGuards != 0 || _guardKills != 0 || _roomBigPotions != 0 || _roomOtherPotions != 0)
-      jaffarCommon::logger::log("[J+]  + [Room]                Live Guards: %u (damage %u, nearest %.0f), Kills: %u (wasted %u), Big Potions: %u (nearest %.0f), Other Potions: %u, Fireball: %.0f\n",
-                                _roomLiveGuards, _roomGuardsDamage, _guardDist, _guardKills, _wastedKills, _roomBigPotions, _bigPotionDist, _roomOtherPotions, _fireballDist);
+      jaffarCommon::logger::log(
+          "[J+]  + [Room]                Live Guards: %u (damage %u, nearest %.0f), Kills: %u (wasted %u), Big Potions: %u (nearest %.0f), Other Potions: %u, Fireball: %.0f\n",
+          _roomLiveGuards, _roomGuardsDamage, _guardDist, _guardKills, _wastedKills, _roomBigPotions, _bigPotionDist, _roomOtherPotions, _fireballDist);
     jaffarCommon::logger::log("[J+]  + Random Seed:          0x%08X\n", _s->random_seed);
     for (size_t i = 0; i < _s->mob_count && i < 30; i++)
       jaffarCommon::logger::log("[J+]  + Moving Object %lu:      Room: %u, Pos: %d, %d, Type: %u, Row: %u\n", i, _s->mobs[i].room, _s->mobs[i].x, _s->mobs[i].y, _s->mobs[i].type,
@@ -705,24 +722,25 @@ private:
   }
 
   // Level 2's puzzle (kind1.c puzzle_check): each wrong sand tile pressed down after it rose (attribute bits 0..8 clear;
-  // a sunk tile, which puzzle_check also counts as down, rises again later), the right one standing, the gate's count (bits 8..12 of room 1 position 10) and its opening (bits 0..4).
-  // The right tile pressed after it rose (bits 0..8 clear) before the count reaches 10 stays down until room 1 is entered
-  // again: -3. 0 until room 1
-  // has been entered.
+  // a sunk tile, which puzzle_check also counts as down, rises again later), the right one standing, the gate's count (bits 8..12 of room 1 position 10) and its opening (bits
+  // 0..4). The right tile pressed after it rose (bits 0..8 clear) before the count reaches 10 stays down until room 1 is entered again: -3. 0 until room 1 has been entered.
   __INLINE__ float puzzleProgress() const
   {
     if (_s->byte_14a0 == 0xFF) return 0.0f;
-    const auto attr = [this](int tp) { return (uint16_t)*((const uint32_t*)((const uint8_t*)&_s->level + 0x348 + 1 * 0x78) + tp); };
-    const uint16_t gate  = attr(10);
+    const auto     attr = [this](int tp) { return (uint16_t) * ((const uint32_t*)((const uint8_t*)&_s->level + 0x348 + 1 * 0x78) + tp); };
+    const uint16_t gate = attr(10);
     if ((gate & 0x1F) != 0) return 6.0f + 5.0f + (float)(gate & 0x1F); // opening: the tiles no longer matter (the sunk ones must rise to be crossed)
-    const int count = (gate >> 8) & 0x1F; // from 10 on the game presses the right tile itself
-    float          p     = 0.0f;
+    const int count = (gate >> 8) & 0x1F;                              // from 10 on the game presses the right tile itself
+    float     p     = 0.0f;
     for (int i = 0; i < 6; i++)
     {
       const uint16_t a = attr(12 + i);
-      if (i != _s->puzzle_answer) p += (a & 0x1FF) == 0 ? 1.0f : 0.0f; // pressed after it rose (a sunk tile rises again: nothing)
-      else if ((a & 0xF) != 0 || count >= 10) p += 1.0f;
-      else if ((a & 0x1F0) == 0) p -= 3.0f;
+      if (i != _s->puzzle_answer)
+        p += (a & 0x1FF) == 0 ? 1.0f : 0.0f; // pressed after it rose (a sunk tile rises again: nothing)
+      else if ((a & 0xF) != 0 || count >= 10)
+        p += 1.0f;
+      else if ((a & 0x1F0) == 0)
+        p -= 3.0f;
     }
     return p + (float)count / 4.0f + (float)(gate & 0x1F);
   }
@@ -738,30 +756,30 @@ private:
   quicker::QuickerSDLPoP2State* _s;
 
   std::vector<std::pair<size_t, size_t>> _hashTileModifiers;
-  bool                                   _hashRandomSeed = false;
-  bool                                   _hashClock      = false;
-  bool                                   _hashRoomChars  = false;   // ("Hash Room Characters")
-  bool                                   _pruneInputs    = false;
+  bool                                   _hashRandomSeed      = false;
+  bool                                   _hashClock           = false;
+  bool                                   _hashRoomChars       = false; // ("Hash Room Characters")
+  bool                                   _pruneInputs         = false;
   bool                                   _restartAtCheckpoint = false;
   InputSet::inputIndex_t                 _restartInputIdx     = 0;
 
   std::vector<std::pair<pop2Input, InputSet::inputIndex_t>> _prunedInputs;
 
-  pointMagnet_t _playerPosXMagnet;
-  pointMagnet_t _playerPosYMagnet;
-  float         _kidPosY = 0.0f;   // the prince's y smoothed through climbs (stateUpdatePostHook)
-  uint8_t             _visited[roomCount + 1] = {};   // rooms visited so far (stateUpdatePostHook)
-  uint8_t             _stood[roomCount + 1][3] = {};   // rows of rooms stood on so far (stateUpdatePostHook)
-  uint8_t             _stoodHP[roomCount + 1][3] = {};   // his hit points when he first stood there
-  uint8_t             _headsHunting[roomCount + 1] = {};   // per room, its heads alive and hunting (stateUpdatePostHook)
-  std::vector<size_t> _hashVisited;                   // the rooms whose visited flag goes into the hash ("Hash Visited Rooms")
-  std::vector<std::pair<size_t, size_t>> _hashStood;  // the "Stood On Row" flags that go into the hash ("Hash Stood On Rows")
-  float         _playerDirectionMagnet = 0.0;
-  float         _opponentHPMagnet      = 0.0;
-  float         _playerHPMagnet        = 0.0;
-  pointMagnet_t _opponentPosXMagnet;
-  pointMagnet_t _opponentPosYMagnet;
-  float         _puzzleMagnet          = 0.0;
+  pointMagnet_t                          _playerPosXMagnet;
+  pointMagnet_t                          _playerPosYMagnet;
+  float                                  _kidPosY                     = 0.0f; // the prince's y smoothed through climbs (stateUpdatePostHook)
+  uint8_t                                _visited[roomCount + 1]      = {};   // rooms visited so far (stateUpdatePostHook)
+  uint8_t                                _stood[roomCount + 1][3]     = {};   // rows of rooms stood on so far (stateUpdatePostHook)
+  uint8_t                                _stoodHP[roomCount + 1][3]   = {};   // his hit points when he first stood there
+  uint8_t                                _headsHunting[roomCount + 1] = {};   // per room, its heads alive and hunting (stateUpdatePostHook)
+  std::vector<size_t>                    _hashVisited;                        // the rooms whose visited flag goes into the hash ("Hash Visited Rooms")
+  std::vector<std::pair<size_t, size_t>> _hashStood;                          // the "Stood On Row" flags that go into the hash ("Hash Stood On Rows")
+  float                                  _playerDirectionMagnet = 0.0;
+  float                                  _opponentHPMagnet      = 0.0;
+  float                                  _playerHPMagnet        = 0.0;
+  pointMagnet_t                          _opponentPosXMagnet;
+  pointMagnet_t                          _opponentPosYMagnet;
+  float                                  _puzzleMagnet = 0.0;
   struct headsMagnet_t
   {
     float   intensity = 0.0;
@@ -770,18 +788,18 @@ private:
     int8_t  row       = 0;
   } _headsMagnet;
   float   _bigPotionMagnet  = 0.0;
-  float   _bigPotionDist    = 0.0f;   // the prince to the nearest big potion of his room (stateUpdatePostHook)
-  uint8_t _roomBigPotions   = 0;      // his room's potions and guards (stateUpdatePostHook; see the properties)
+  float   _bigPotionDist    = 0.0f; // the prince to the nearest big potion of his room (stateUpdatePostHook)
+  uint8_t _roomBigPotions   = 0;    // his room's potions and guards (stateUpdatePostHook; see the properties)
   uint8_t _roomOtherPotions = 0;
   uint8_t _roomLiveGuards   = 0;
   int8_t  _killBalance      = 0;
   uint8_t _roomGuardsDamage = 0;
-  float   _guardDist        = 0.0f;   // the prince to the nearest live guard of his room (0: none)
-  uint8_t _guardKills       = 0;      // (state: serialized)
-  int8_t  _prevAlive[5]     = {};     // (state) each slot's guard on the last tick: -1 alive, 1 dead, 0 none
-  uint8_t _prevRoom         = 0;      // (state) the prince's room on the last tick
-  uint8_t _wastedKills      = 0;      // (state)
-  uint8_t _prevDecided[5]   = {};     // (state) each slot's guard dead for good on the last tick
+  float   _guardDist        = 0.0f; // the prince to the nearest live guard of his room (0: none)
+  uint8_t _guardKills       = 0;    // (state: serialized)
+  int8_t  _prevAlive[5]     = {};   // (state) each slot's guard on the last tick: -1 alive, 1 dead, 0 none
+  uint8_t _prevRoom         = 0;    // (state) the prince's room on the last tick
+  uint8_t _wastedKills      = 0;    // (state)
+  uint8_t _prevDecided[5]   = {};   // (state) each slot's guard dead for good on the last tick
   struct guardMagnet_t
   {
     float damage   = 0.0;
@@ -789,16 +807,16 @@ private:
     float distance = 0.0;
     float row      = 0.0;
   } _guardMagnet;
-  float   _fireballMagnet   = 0.0;
-  float   _fireballDist     = 0.0f;   // level 14's fireball to the nearest live guard (stateUpdatePostHook)
-  float   _guardRowDist     = 0.0f;   // the prince's height to the nearest live guard's row
-  uint8_t _roomGuardsOnRow  = 0;
+  float   _fireballMagnet  = 0.0;
+  float   _fireballDist    = 0.0f; // level 14's fireball to the nearest live guard (stateUpdatePostHook)
+  float   _guardRowDist    = 0.0f; // the prince's height to the nearest live guard's row
+  uint8_t _roomGuardsOnRow = 0;
 
-  bool                 _levelEndLookahead = false;   // "Level End Lookahead"
-  bool                 _musicOnAtStart    = false;   // "Music On At Start"
-  std::vector<InputSet::inputIndex_t> _musicInputs;  // _prunedInputs' inputs with the Music On/Off key
-  uint16_t             _levelEndWait      = 65535;   // (updateLevelEndWait)
-  std::vector<uint8_t> _lookaheadBuffer;
+  bool                                _levelEndLookahead = false; // "Level End Lookahead"
+  bool                                _musicOnAtStart    = false; // "Music On At Start"
+  std::vector<InputSet::inputIndex_t> _musicInputs;               // _prunedInputs' inputs with the Music On/Off key
+  uint16_t                            _levelEndWait = 65535;      // (updateLevelEndWait)
+  std::vector<uint8_t>                _lookaheadBuffer;
 
   InputSet::inputIndex_t _nullInputIdx;
 };

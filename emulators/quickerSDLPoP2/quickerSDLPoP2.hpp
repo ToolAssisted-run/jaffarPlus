@@ -61,7 +61,7 @@ public:
     // The instance reads "Game Path" from the configuration itself
     _instance = std::make_unique<PoP2Instance>(config);
     _gamePath = jaffarCommon::json::popString(_emulatorConfigRemaining, "Game Path");
-    jaffarCommon::json::popString(_emulatorConfigRemaining, "Game Version"); // (required; the instance reads it)
+    jaffarCommon::json::popString(_emulatorConfigRemaining, "Game Version");                                                                   // (required; the instance reads it)
     if (_emulatorConfigRemaining.contains("Skip Story Scenes")) jaffarCommon::json::popBoolean(_emulatorConfigRemaining, "Skip Story Scenes"); // (the instance reads it)
 
     _startLevel = jaffarCommon::json::popNumber<int>(_emulatorConfigRemaining, "Start Level");
@@ -126,9 +126,9 @@ public:
     for (auto& e : _maxHPAt)
     {
       if (e.applied || _instance->getLevel() != e.level) continue;
-      auto* core = _instance->getCore();
+      auto* core    = _instance->getCore();
       core->Kid.f12 = core->Kid.f13 = core->start_hp = (uint8_t)e.hp;
-      e.applied = true;
+      e.applied                                      = true;
     }
   }
 

@@ -747,6 +747,13 @@ private:
 
   __INLINE__ jaffarCommon::hash::hash_t getStateInputHash() override { return {0, _s->Kid.frame}; }
 
+  // The rule actions only set reward magnets: ruleUpdatePreHook resets them and only the reward (and the
+  // printout) reads them, after the engine evaluates the rules again. The allowed inputs, the input hash
+  // and the advance read only the game state. So the engine may skip the action pass when it reloads a
+  // state, and the reload before a base state's first input.
+  bool ruleActionsNeededOnReload() const override { return false; }
+  bool inputQueriesPreserveState() const override { return true; }
+
   struct pointMagnet_t
   {
     float   intensity = 0.0;

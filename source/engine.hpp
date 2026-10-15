@@ -99,6 +99,10 @@ public:
     // Grabbing a runner to do continue build the state databases
     auto& r = *_runners[0];
 
+    // What the game lets the expansion skip (see Game::ruleActionsNeededOnReload and inputQueriesPreserveState)
+    _runRuleActionsOnReload = r.getGame()->ruleActionsNeededOnReload();
+    _reloadBeforeFirstInput = r.getGame()->inputQueriesPreserveState() == false;
+
     // Mutable copy so unrecognized Engine keys can be flagged after the known ones are consumed
     auto engineConfigRemaining = engineConfig;
 
@@ -1123,7 +1127,7 @@ private:
 
       // Load state into runner via the state database (base states are slab slots: hot slot + cold path)
       JAFFAR_PROF_DECL(t0);
-      _stateDb->loadStateFromSlot(*r, baseStateData);
+      _stateDb->loadStateFromSlot(*r, baseStateData, _runRuleActionsOnReload);
       r->setSearchStep(_currentStep); // base state's depth = current search step (count is not stored per-state)
       JAFFAR_PROF_ACC(acc.runnerStateLoad, t0);
 
@@ -1149,8 +1153,14 @@ private:
       jaffarCommon::hash::hash_t baseStateInputHash{};
       if (uniqueCandidateInputs.empty() == false) baseStateInputHash = r->getGame()->getStateInputHash();
 
-      // Trying out each possible input in the set
-      for (auto inputItr = allowedInputs.begin(); inputItr != allowedInputs.end(); inputItr++) runNewInput(*r, baseStateData, *inputItr, acc, threadId);
+      // Trying out each possible input in the set. The runner still holds the base state for the first one,
+      // unless the input queries above may have changed it.
+      bool reloadBase = _reloadBeforeFirstInput;
+      for (auto inputItr = allowedInputs.begin(); inputItr != allowedInputs.end(); inputItr++)
+      {
+        runNewInput(*r, baseStateData, *inputItr, acc, threadId, reloadBase);
+        reloadBase = true;
+      }
 
       // Run each candidate input, keyed by the base state's discriminating hash
       for (const auto input : uniqueCandidateInputs)
@@ -1162,7 +1172,7 @@ private:
         if (alreadyDetected) continue;
 
         // Running input
-        const auto result = runNewInput(*r, baseStateData, input, acc, threadId);
+        const auto result = runNewInput(*r, baseStateData, input, acc, threadId, true);
 
         // If this is not a repeated state, store it as new candidate input (under the submap's lock)
         if (result != inputResult_t::repeated)
@@ -1201,18 +1211,23 @@ private:
    * @param input         Index of the input to run.
    * @param acc           This thread's accumulator to update with the outcome counter.
    * @param threadId      Calling thread's id, used for state-database free/allocation operations.
+   * @param reloadBase    Whether to reload the base state first (false only when the runner already holds it).
    * @return The @ref inputResult_t describing the outcome of running the input.
    */
-  __INLINE__ inputResult_t runNewInput(Runner& r, const void* baseStateData, const InputSet::inputIndex_t input, threadAccumulator_t& acc, const size_t threadId)
+  __INLINE__ inputResult_t runNewInput(Runner& r, const void* baseStateData, const InputSet::inputIndex_t input, threadAccumulator_t& acc, const size_t threadId,
+                                       const bool reloadBase)
   {
     // Increasing new state counter
     acc.newStatesProcessed++;
 
     // Re-loading base state (slab slot: hot slot + cold path)
-    JAFFAR_PROF_DECL(t0);
-    _stateDb->loadStateFromSlot(r, baseStateData);
-    r.setSearchStep(_currentStep); // base state's depth = current search step (count is not stored per-state)
-    JAFFAR_PROF_ACC(acc.runnerStateLoad, t0);
+    if (reloadBase)
+    {
+      JAFFAR_PROF_DECL(t0);
+      _stateDb->loadStateFromSlot(r, baseStateData, _runRuleActionsOnReload);
+      r.setSearchStep(_currentStep); // base state's depth = current search step (count is not stored per-state)
+      JAFFAR_PROF_ACC(acc.runnerStateLoad, t0);
+    }
 
     // Running input
     const auto result = runInput(r, baseStateData, input, acc, threadId);
@@ -1328,7 +1343,7 @@ private:
             // every child does, gives the same result)
             if (_hashLookahead > 0 && isPlainChild == false)
             {
-              _stateDb->loadStateFromSlot(r, baseStateData);
+              _stateDb->loadStateFromSlot(r, baseStateData, _runRuleActionsOnReload);
               r.setSearchStep(_currentStep);
               r.advanceState(input);
               isPlainChild = true;
@@ -1391,7 +1406,7 @@ private:
     // Survivor: rebuild the pristine child (base + input) before rules/serialization see it.
     if (_hashLookahead > 0 && isPlainChild == false)
     {
-      _stateDb->loadStateFromSlot(r, baseStateData);
+      _stateDb->loadStateFromSlot(r, baseStateData, _runRuleActionsOnReload);
       r.setSearchStep(_currentStep);
       r.advanceState(input);
     }
@@ -1647,6 +1662,8 @@ private:
   std::atomic<size_t>                     _refPinSeenPreDedup{0};           ///< Reference-depth matches seen (diagnostic).
   std::unique_ptr<std::atomic<uint8_t>[]> _refPinnedAtDepth;                ///< Per reference depth: claimed(1)/unclaimed(0), so exactly one copy is pinned.
   bool                                    _hashStepToleranceActive = false; ///< Whether the runners use a Hash Step Tolerance (the hash then depends on the depth).
+  bool                                    _runRuleActionsOnReload  = true;  ///< Whether reloading a stored state re-runs its rules' actions (Game::ruleActionsNeededOnReload).
+  bool _reloadBeforeFirstInput = true; ///< Whether a base state is reloaded before its first input too (not when Game::inputQueriesPreserveState).
 
 public:
   /// @brief Supplies per-depth serialized reference states for exact pin verification, and computes the

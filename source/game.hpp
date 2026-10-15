@@ -232,11 +232,14 @@ public:
    * @details Runs the pre-update hook, restores the emulator state (unless bypassed) and
    * game-specific data via @ref deserializeStateImpl, runs the post-update hook, then pops the
    * reward, checkpoint level, save-solution rule ids and state type. Finally runs the pre-rule
-   * hook, restores the rule status vector, re-runs game-specific rule actions and runs the post-rule
-   * hook.
+   * hook, restores the rule status vector, re-runs game-specific rule actions (unless
+   * @p runRuleActions is false) and runs the post-rule hook.
    * @param deserializer The deserializer to pop state from.
+   * @param runRuleActions Whether to re-run the satisfied rules' actions. The engine passes false when
+   *        the game allows it (see @ref ruleActionsNeededOnReload): it re-runs them in evaluateRules
+   *        before anything reads what they set.
    */
-  __INLINE__ void deserializeState(jaffarCommon::deserializer::Base& deserializer)
+  __INLINE__ void deserializeState(jaffarCommon::deserializer::Base& deserializer, const bool runRuleActions = true)
   {
     // Calling the pre-update hook
     stateUpdatePreHook();
@@ -272,7 +275,7 @@ public:
     deserializer.pop(_rulesStatus.data(), _rulesStatus.size());
 
     // Running game specific rule actions
-    runGameSpecificRuleActions();
+    if (runRuleActions) runGameSpecificRuleActions();
 
     // Calling the post-rule update hook
     ruleUpdatePostHook();
@@ -774,6 +777,25 @@ public:
    * @return false in the base implementation.
    */
   virtual bool hasDirectStateHash() const { return false; }
+
+  /**
+   * @brief Tells whether the engine must re-run the satisfied rules' actions when it reloads a stored
+   *        state to expand it.
+   * @return true in the base implementation (always safe). A game returns false when its actions only
+   *         set what is read after the rules are evaluated again (e.g. reward magnets, reset by its
+   *         pre-rule hook and read in its reward): nothing between the reload and evaluateRules (the
+   *         advance, the hash, the allowed inputs) depends on them. Saves the action pass on every
+   *         reload, which is several microseconds per input for configs with many rules.
+   */
+  virtual bool ruleActionsNeededOnReload() const { return true; }
+
+  /**
+   * @brief Tells whether getting a state's allowed inputs, candidate inputs and input hash leaves the
+   *        state unchanged.
+   * @return false in the base implementation (always safe). A game returns true when those hooks only
+   *         read the state; the engine then tries a base state's first input without reloading it.
+   */
+  virtual bool inputQueriesPreserveState() const { return false; }
 
 protected:
   /**

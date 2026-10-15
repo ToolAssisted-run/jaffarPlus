@@ -439,11 +439,14 @@ public:
   /**
    * @brief Deserializes a state-database slab slot into the runner: hot state from the slot, path from
    * the parallel cold slot. Use only with slab-slot pointers.
+   * @param r              The runner the state is loaded into.
+   * @param statePtr       The slot the state is read from.
+   * @param runRuleActions Whether the game re-runs its satisfied rules' actions (see Game::deserializeState).
    */
-  __INLINE__ void loadStateFromSlot(Runner& r, const void* statePtr)
+  __INLINE__ void loadStateFromSlot(Runner& r, const void* statePtr, const bool runRuleActions = true)
   {
     jaffarCommon::deserializer::Contiguous d(statePtr, _stateSizeRaw);
-    r.deserializeHotState(d);
+    r.deserializeHotState(d, runRuleActions);
     jaffarCommon::deserializer::Contiguous h(getHistoryPtr(statePtr), _histSize);
     r.deserializeHistory(h);
   }

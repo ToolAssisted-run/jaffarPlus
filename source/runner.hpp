@@ -420,8 +420,8 @@ public:
 
   /// @brief Serializes only the hot game+emulator state (what the search reads every step) into @p serializer.
   __INLINE__ void serializeHotState(jaffarCommon::serializer::Base& serializer) const { _game->serializeState(serializer); }
-  /// @brief Restores only the hot game+emulator state from @p deserializer.
-  __INLINE__ void deserializeHotState(jaffarCommon::deserializer::Base& deserializer) { _game->deserializeState(deserializer); }
+  /// @brief Restores only the hot game+emulator state from @p deserializer (see Game::deserializeState for @p runRuleActions).
+  __INLINE__ void deserializeHotState(jaffarCommon::deserializer::Base& deserializer, const bool runRuleActions = true) { _game->deserializeState(deserializer, runRuleActions); }
 
   /// @brief Serializes only the cold input-history "path" (written once at state creation, read at
   /// solution time) into @p serializer.

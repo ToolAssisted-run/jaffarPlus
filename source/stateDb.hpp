@@ -6,6 +6,7 @@
  *        the search one step at a time and a free-slot pool the workers draw from.
  */
 
+#include "environment.hpp"
 #include "inputHistory/inputHistory.hpp"
 #include "numa.hpp"
 #include <algorithm>
@@ -56,12 +57,13 @@ public:
   /**
    * @brief Constructs the state database and reads its maximum size from configuration.
    * @param r      The runner whose states will be serialized into and deserialized out of the database.
-   * @param config Configuration object; the "Max Size (Mb)" field sets the database's maximum size.
+   * @param config Configuration object; the "Max Size (Mb)" field sets the database's maximum size (the
+   *        key is consumed; the caller checks for leftovers).
    *
    * @details Reads "Max Size (Mb)" from @p config. If the environment variable
    * `JAFFAR_ENGINE_OVERRIDE_MAX_STATEDB_SIZE_MB` is set, its value overrides that maximum.
    */
-  StateDb(Runner& r, const nlohmann::json& config) : _runner(&r)
+  StateDb(Runner& r, nlohmann::json& config) : _runner(&r)
   {
     // Initialization message
     jaffarCommon::logger::log("[J+] Initializing State Database...\n");
@@ -69,10 +71,10 @@ public:
     ///////// Getting original state sizes from the runner
 
     // Checking maximum db sizes per each numa group
-    _maxSizeMb = jaffarCommon::json::getNumber<size_t>(config, "Max Size (Mb)");
+    _maxSizeMb = jaffarCommon::json::popNumber<size_t>(config, "Max Size (Mb)");
 
     // Overriding if provided
-    if (auto* value = std::getenv("JAFFAR_ENGINE_OVERRIDE_MAX_STATEDB_SIZE_MB")) _maxSizeMb = std::stoul(value);
+    getEnvironmentUnsigned("JAFFAR_ENGINE_OVERRIDE_MAX_STATEDB_SIZE_MB", _maxSizeMb);
   }
 
   /// @brief Configured maximum state-DB footprint in bytes (used by the engine's combined RAM guard).

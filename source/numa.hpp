@@ -7,6 +7,7 @@
  *        NUMA domain lookup.
  */
 
+#include "environment.hpp"
 #include <cstdlib>
 #include <jaffarCommon/exceptions.hpp>
 #include <jaffarCommon/logger.hpp>
@@ -60,13 +61,11 @@ __INLINE__ void initializeNUMA()
   if (numa_available() < 0) JAFFAR_THROW_RUNTIME("The system does not provide NUMA detection support.\n");
 
   // Overriding thread count, if requested. Applied first, so every count below derives from it.
-  if (auto* value = std::getenv("JAFFAR_ENGINE_OVERRIDE_MAX_THREAD_COUNT"))
+  size_t threadCountOverride = 0;
+  if (getEnvironmentUnsigned("JAFFAR_ENGINE_OVERRIDE_MAX_THREAD_COUNT", threadCountOverride))
   {
-    char*               end   = nullptr;
-    const unsigned long count = std::strtoul(value, &end, 10);
-    if (end == value || *end != '\0' || count == 0 || value[0] == '-')
-      JAFFAR_THROW_RUNTIME("JAFFAR_ENGINE_OVERRIDE_MAX_THREAD_COUNT must be a positive number (got '%s')\n", value);
-    jaffarCommon::parallel::setThreadCount(count);
+    if (threadCountOverride == 0) JAFFAR_THROW_RUNTIME("[ERROR] JAFFAR_ENGINE_OVERRIDE_MAX_THREAD_COUNT must be at least 1\n");
+    jaffarCommon::parallel::setThreadCount(threadCountOverride);
   }
 
   // Every parallel region must run the full team: per-thread data is indexed by OpenMP thread id and

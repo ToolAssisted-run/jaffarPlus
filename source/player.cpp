@@ -162,6 +162,17 @@ static size_t parseUIntAnyBase(const std::string& value, const std::string& flag
 }
 
 /**
+ * @brief Writes a file or reports the failure.
+ * @param content The file contents.
+ * @param path    The file path.
+ * @throws A logic error if the file could not be written completely.
+ */
+static void saveOrThrow(const std::string& content, const std::string& path)
+{
+  if (jaffarCommon::file::saveStringToFile(content, path) == false) JAFFAR_THROW_LOGIC("[ERROR] Could not write file: %s\n", path.c_str());
+}
+
+/**
  * @brief Checks that the emulator's low work RAM is large enough for a mode that reads fixed offsets.
  * @param r       The runner.
  * @param minSize The size the mode needs (one past its highest offset).
@@ -217,7 +228,7 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
   {
     auto        prop = r.getGame()->getEmulator()->getProperty("NTAB");
     std::string data((const char*)prop.pointer, prop.size);
-    jaffarCommon::file::saveStringToFile(data, dumpNtabPath);
+    saveOrThrow(data, dumpNtabPath);
     jaffarCommon::logger::log("[J+] Dumped NTAB (%lu bytes) to %s\n", prop.size, dumpNtabPath.c_str());
     return 0;
   }
@@ -266,7 +277,7 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
       data.resize(sz);
       jaffarCommon::serializer::Contiguous ser(data.data(), sz);
       emu->serializeState(ser);
-      jaffarCommon::file::saveStringToFile(data, savePokedStatePath);
+      saveOrThrow(data, savePokedStatePath);
       jaffarCommon::logger::log("[J+] Saved poked state (%lu bytes) to %s\n", sz, savePokedStatePath.c_str());
       return 0;
     }
@@ -311,7 +322,7 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
       }
       out += "\n";
     }
-    jaffarCommon::file::saveStringToFile(out, dumpRacerPath.c_str());
+    saveOrThrow(out, dumpRacerPath);
     return false;
   }
 
@@ -371,7 +382,7 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
                kv.second.maxSpd, kv.second.maxDrop, kv.second.maxFall, kv.second.maxZ, kv.second.n);
       csv += buf;
     }
-    jaffarCommon::file::saveStringToFile(csv, terrainDrivePath.c_str());
+    saveOrThrow(csv, terrainDrivePath);
     jaffarCommon::logger::log("[J+] Terrain drive: %lu cells logged to %s\n", cells.size(), terrainDrivePath.c_str());
     return false;
   }
@@ -534,7 +545,7 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
         snprintf(b, sizeof b, "%d,%d,%d,%d,%d,%.2f,%d,%d\n", k, gyOf(), gxOf(), rd16(0xA648) & 0xFF, rd16(0xA649) & 0xFF, speed(), ram[0xA66C], s16(0xA64C));
         dg += b;
       }
-      jaffarCommon::file::saveStringToFile(dg, outPath.c_str());
+      saveOrThrow(dg, outPath);
       return false;
     }
     // interpret range as GRID cells: gy in [x0,x1], gx in [y0,y1]
@@ -572,7 +583,7 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
                  nApproach);
         csv += buf;
       }
-    jaffarCommon::file::saveStringToFile(csv, outPath.c_str());
+    saveOrThrow(csv, outPath);
     jaffarCommon::logger::log("[J+] Terrain sweep written to %s\n", outPath.c_str());
     return false;
   }
@@ -647,7 +658,7 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
           char       vpath[1024];
           snprintf(vpath, sizeof(vpath), "%s/vram_%06ld.bin", screenshotDir.c_str(), s + 1);
           std::string vdump((const char*)vram.pointer, vram.size);
-          jaffarCommon::file::saveStringToFile(vdump, vpath);
+          saveOrThrow(vdump, vpath);
         }
         catch (const std::exception&)
         {
@@ -850,7 +861,7 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
       jaffarCommon::logger::log("[J+] ----------------------------------------------------------------\n");
       jaffarCommon::logger::log("[J+] Current Step #:              %lu / %lu\n", currentStep, sequenceLength);
       jaffarCommon::logger::log("[J+] Playback:                    %s\n", isReproduce ? "Playing" : "Stopped");
-      jaffarCommon::logger::log("[J+] Input:                       %s (0x%X)\n", inputString.c_str(), inputIndex);
+      jaffarCommon::logger::log("[J+] Input:                       %s (0x%lX)\n", inputString.c_str(), inputIndex);
       jaffarCommon::logger::log("[J+] On Finish:                   %s\n", isReload ? "Auto Reload" : "Stop");
 
       jaffarCommon::logger::log("[J+] Repeated Hash Steps:         %lu total [ ", repeatedHashStates.size());

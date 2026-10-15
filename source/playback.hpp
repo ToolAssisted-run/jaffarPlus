@@ -166,7 +166,7 @@ public:
         _runner->serializeState(s);
         char path[512];
         snprintf(path, sizeof(path), "%s/state%04lu.bin", dumpDir, i + 1);
-        jaffarCommon::file::saveStringToFile(std::string((char*)buf.data(), buf.size()), path);
+        if (jaffarCommon::file::saveStringToFile(std::string((char*)buf.data(), buf.size()), path) == false) JAFFAR_THROW_LOGIC("[ERROR] Could not write file: %s\n", path);
       }
 
       // Diagnostic (JAFFAR_ROUNDTRIP_PER_STEP=1): serialize+deserialize the runner after every

@@ -54,7 +54,7 @@ public:
     for (size_t i = 0; i < stepCount && i < _maxSize; i++)
     {
       const auto idx = getInput(i);
-      if (inputStringMap.contains(idx) == false) JAFFAR_THROW_RUNTIME("Move Index %u not found in runner\n", idx);
+      if (inputStringMap.contains(idx) == false) JAFFAR_THROW_RUNTIME("Move Index %lu not found in runner\n", idx);
       out += inputStringMap.at(idx) + std::string("\n");
     }
     return out;

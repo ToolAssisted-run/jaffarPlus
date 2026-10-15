@@ -853,7 +853,7 @@ protected:
             rule->addSatisfyRule(subRule.get());
             subRuleFound = true;
           }
-        if (subRuleFound == false) JAFFAR_THROW_LOGIC("Rule label %u referenced by rule %u in the 'Satisfies' array does not exist.\n", label, rule->getIndex());
+        if (subRuleFound == false) JAFFAR_THROW_LOGIC("Rule label %lu referenced by rule %lu in the 'Satisfies' array does not exist.\n", label, rule->getIndex());
       }
 
     // Create rule status vector

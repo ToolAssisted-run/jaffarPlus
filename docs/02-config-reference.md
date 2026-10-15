@@ -51,6 +51,7 @@ The driver owns the top-level run loop: when to stop and what to checkpoint to d
 | `Frequency (s)` | number (float) | yes | How often (in seconds) to write the intermediate files. Only used when `Enabled` is `true`. |
 | `Best Solution Path` | string | yes | File path for the best (highest-reward) solution found so far. |
 | `Worst Solution Path` | string | yes | File path for the worst solution found so far. |
+| `Win Solution Path` | string | no | File the best win's solution is written to the moment it is found (also when the run goes on past the win). Default `/tmp/jaffar.winsolution.sol`; give each job on a machine its own. |
 
 > Older example configs used to carry `Best State Path` / `Worst State Path` here. The engine never
 > read them, and they are now **rejected** as unrecognized keys — they have been removed from the

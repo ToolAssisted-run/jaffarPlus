@@ -32,7 +32,7 @@ nlohmann::json makeConfig()
 {
   nlohmann::json j;
   j["Max Store Count"]     = 4;
-  j["Max Store Size (Mb)"] = 4096.0;
+  j["Max Store Size (Mb)"] = 64.0;
   return j;
 }
 
@@ -58,7 +58,8 @@ void simulateTopology(int numaDomains)
 TEST(HashDbTwoTier, CrossDomainDuplicateDetected)
 {
   simulateTopology(4);
-  HashDb db(makeConfig());
+  auto   dbConfig = makeConfig();
+  HashDb db(dbConfig);
   db.initialize();
 
   _preferredNumaDomain = 0;
@@ -76,7 +77,8 @@ TEST(HashDbTwoTier, CrossDomainDuplicateDetected)
 TEST(HashDbTwoTier, NoFalsePositives)
 {
   simulateTopology(4);
-  HashDb db(makeConfig());
+  auto   dbConfig = makeConfig();
+  HashDb db(dbConfig);
   db.initialize();
 
   _preferredNumaDomain = 2;
@@ -90,7 +92,8 @@ TEST(HashDbTwoTier, NoFalsePositives)
 TEST(HashDbTwoTier, WithinDomainDuplicateDetected)
 {
   simulateTopology(4);
-  HashDb db(makeConfig());
+  auto   dbConfig = makeConfig();
+  HashDb db(dbConfig);
   db.initialize();
 
   _preferredNumaDomain = 1;
@@ -104,7 +107,8 @@ TEST(HashDbTwoTier, WithinDomainDuplicateDetected)
 TEST(HashDbSingleDomain, BasicDedup)
 {
   simulateTopology(1);
-  HashDb db(makeConfig());
+  auto   dbConfig = makeConfig();
+  HashDb db(dbConfig);
   db.initialize();
 
   _preferredNumaDomain = 0;
@@ -119,7 +123,8 @@ TEST(HashDbSingleDomain, BasicDedup)
 TEST(HashDbTwoTier, InsertHashThenCheck)
 {
   simulateTopology(4);
-  HashDb db(makeConfig());
+  auto   dbConfig = makeConfig();
+  HashDb db(dbConfig);
   db.initialize();
 
   _preferredNumaDomain = 0;
@@ -137,13 +142,15 @@ TEST(HashDbTwoTier, MatchesGlobalDedupOverSequence)
 {
   // Reference: single global table
   simulateTopology(1);
-  HashDb global(makeConfig());
+  auto   globalConfig = makeConfig();
+  HashDb global(globalConfig);
   global.initialize();
 
   // Subject: 4-domain two-tier (initialized after; checkHashExists reads only the
   // per-instance L1/L2 it captured, not the live _numaCount)
   simulateTopology(4);
-  HashDb twoTier(makeConfig());
+  auto   twoTierConfig = makeConfig();
+  HashDb twoTier(twoTierConfig);
   twoTier.initialize();
 
   std::set<uint64_t> distinct;
@@ -170,4 +177,50 @@ TEST(HashDbTwoTier, MatchesGlobalDedupOverSequence)
 
   // Complete dedup: each distinct hash is reported "new" exactly once across all domains
   EXPECT_EQ(twoTierNew, distinct.size());
+}
+
+// Rolling: an L1 must not remember a hash once the global L2 has rolled it out (each L1 rolls whenever
+// L2 does), so a later copy of that state gets the same verdict on every domain.
+TEST(HashDbTwoTier, L1ForgetsWithL2)
+{
+  simulateTopology(4);
+  nlohmann::json cfg;
+  cfg["Max Store Count"]     = 2;
+  cfg["Max Store Size (Mb)"] = 8.0;
+  HashDb db(cfg);
+  db.initialize();
+
+  // X is first seen on domain 1
+  const hash_t x       = H(0xFFFFFFFFULL);
+  _preferredNumaDomain = 1;
+  EXPECT_FALSE(db.checkHashExists(x));
+
+  // Then many steps of fresh hashes, all from domain 0, roll L2 (and the L1s with it) past X
+  uint64_t next = 1;
+  for (int step = 0; step < 12; step++)
+  {
+    _preferredNumaDomain = 0;
+    for (int i = 0; i < 200000; i++) db.checkHashExists(H(next++));
+    db.advanceStep();
+  }
+
+  // X was forgotten everywhere: new on domain 1 (whose L1 saw it) as on domain 2
+  _preferredNumaDomain = 1;
+  EXPECT_FALSE(db.checkHashExists(x));
+  _preferredNumaDomain = 2;
+  EXPECT_TRUE(db.checkHashExists(x)); // registered globally by the probe from domain 1 just above
+}
+
+// The configured counts are validated
+TEST(HashDbConfig, RejectsZeroCountOrSize)
+{
+  nlohmann::json zeroCount;
+  zeroCount["Max Store Count"]     = 0;
+  zeroCount["Max Store Size (Mb)"] = 8.0;
+  EXPECT_THROW(HashDb db(zeroCount), std::logic_error);
+
+  nlohmann::json zeroSize;
+  zeroSize["Max Store Count"]     = 2;
+  zeroSize["Max Store Size (Mb)"] = 0.0;
+  EXPECT_THROW(HashDb db(zeroSize), std::logic_error);
 }

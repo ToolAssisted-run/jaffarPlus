@@ -74,10 +74,10 @@ public:
     initializeNUMA();
 
     // Sanity check
-    if (_threadCount == 0) JAFFAR_THROW_LOGIC("The number of worker threads must be at least one. Provided: %lu\n", _threadCount);
+    if (_threadCount == 0) JAFFAR_THROW_LOGIC("The number of worker threads must be at least one. Provided: %d\n", _threadCount);
 
     // Printing initial information
-    jaffarCommon::logger::log("[J+] Using %lu worker threads.\n", _threadCount);
+    jaffarCommon::logger::log("[J+] Using %d worker threads.\n", _threadCount);
 
     // Creating storage for the runnners (one per thread)
     _runners.resize(_threadCount);
@@ -105,11 +105,14 @@ public:
     // Creating State database
     auto stateDatabaseJs = jaffarCommon::json::popObject(engineConfigRemaining, "State Database");
     _stateDb             = std::make_unique<jaffarPlus::StateDb>(r, stateDatabaseJs);
+    jaffarCommon::json::checkEmpty(stateDatabaseJs, "Engine Configuration > State Database");
 
-    // Creating hash database
+    // Creating hash database (its sizing keys may stay in the config while it is disabled)
     auto hashDbConfig = jaffarCommon::json::popObject(engineConfigRemaining, "Hash Database");
-    _hashDbEnabled    = jaffarCommon::json::getBoolean(hashDbConfig, "Enabled");
+    _hashDbEnabled    = jaffarCommon::json::popBoolean(hashDbConfig, "Enabled");
     if (_hashDbEnabled == true) _hashDb = std::make_unique<jaffarPlus::HashDb>(hashDbConfig);
+    for (const auto* key : {"Max Store Count", "Max Store Size (Mb)"}) hashDbConfig.erase(key);
+    jaffarCommon::json::checkEmpty(hashDbConfig, "Engine Configuration > Hash Database");
 
     // Base-state pull batch size (per-worker queue-pull granularity). Optional: an explicit value
     // always wins; otherwise 0 here means "auto-tune", resolved in initialize() from the measured
@@ -306,9 +309,11 @@ public:
       // node cap (~384 GiB for the Trie strategy on this build). Reserve its ceiling. (0 for None/Raw.)
       const size_t historyBound = inputHistory::getSharedBackingMaxMemoryBytes(_inputHistoryBacking);
       // The state DB is a fixed pool (1x; full slots are scavenged from the current step, never doubled).
-      // The hash DB phmap grows by doubling, so during a rehash the old table and the new 2x table briefly
-      // coexist -- reserve ~2x the hash budget for that transient. (Empirically a 270 GB state+hash config
-      // peaked at ~520 GB RSS = state + ~2*hash + trie, then OOM-killed mid-run.)
+      // Each hash DB generation is reserved within its budget (see HashDb::getRungSlots), but malloc may
+      // keep a discarded generation's tables resident for the next one, and a step inserting more hashes
+      // than a generation holds grows it past the budget (HashDb warns): reserve 2x the hash budget.
+      // (Before generations were reserved, a 270 GB state+hash config peaked at ~520 GB RSS = state +
+      // ~2*hash + trie and was OOM-killed mid-run.)
       const size_t hashPeak    = hashBudget * 2;
       const size_t totalBudget = stateBudget + hashPeak + historyBound;
       size_t       freeRam     = 0;
@@ -329,8 +334,8 @@ public:
                              "  TOTAL                                                        = %.1f GB\n"
                              "  Usable (90%% of %.1f GB free RAM)                             = %.1f GB\n"
                              "Reduce 'State Database/Max Size (Mb)' and/or 'Hash Database/Max Store Size (Mb)'.\n"
-                             "NOTE: the hash DB phmap doubles on growth, so a rehash briefly holds the old + new (2x) table; the\n"
-                             "Trie input-history is a separate structure that grows up to ~384 GiB. Both are otherwise uncounted.\n",
+                             "NOTE: the hash DB reserves 2x its budget (discarded generations may stay resident in malloc); the\n"
+                             "Trie input-history is a separate structure that grows up to its node ceiling. Both are otherwise uncounted.\n",
                              (double)stateBudget / GB, (double)hashPeak / GB, (double)historyBound / GB, (double)totalBudget / GB, (double)freeRam / GB, (double)usable / GB);
       }
     }
@@ -689,6 +694,11 @@ public:
     _winCollectEnabled = true;
   }
 
+  /// @brief Sets the file the best win's solution is written to the moment it is found (default
+  ///        /tmp/jaffar.winsolution.sol; the driver's "Save Intermediate Results" > "Win Solution Path").
+  /// @param path The file path.
+  void setWinSolutionPath(const std::string& path) { _winSolutionPath = path; }
+
   /// @brief Whether "Reference Reward Prune" is enabled in the engine configuration (the driver
   ///        checks this to know it must supply the reference trace).
   bool isReferencePruneRequested() const { return _refPruneRequested; }
@@ -877,12 +887,19 @@ public:
     jaffarCommon::logger::log("[J+]   + Last Rule Idx:                           %ld (Active: %ld, Path: '%s')\n", _manualSaveSolution.lastRuleIdx,
                               _manualSaveSolutionActiveLastRuleId, _manualSaveSolutionLastPath.c_str());
 
-    // Printing candidate inpts
-    jaffarCommon::logger::log("[J+] Candidate Inputs:\n");
-    for (const auto& entry : _candidateInputsDetected)
+    // Printing candidate inputs (a bounded sample: the map can hold one entry per distinct base-state hash)
+    if (_candidateInputsDetected.empty() == false)
     {
-      jaffarCommon::logger::log("[J+]  + Hash:                                     %s\n", jaffarCommon::hash::hashToString(entry.first).c_str());
-      for (const auto input : entry.second) jaffarCommon::logger::log("[J+]    + %3lu %s\n", input, _runners[0]->getInputStringFromIndex(input).c_str());
+      constexpr size_t maxPrinted = 16;
+      jaffarCommon::logger::log("[J+] Candidate Inputs (%lu state classes%s):\n", _candidateInputsDetected.size(),
+                                _candidateInputsDetected.size() > maxPrinted ? ", first 16 shown" : "");
+      size_t printed = 0;
+      for (const auto& entry : _candidateInputsDetected)
+      {
+        if (printed++ == maxPrinted) break;
+        jaffarCommon::logger::log("[J+]  + Hash:                                     %s\n", jaffarCommon::hash::hashToString(entry.first).c_str());
+        for (const auto input : entry.second) jaffarCommon::logger::log("[J+]    + %3lu %s\n", input, _runners[0]->getInputStringFromIndex(input).c_str());
+      }
     }
   }
 
@@ -1121,15 +1138,24 @@ private:
       // Run each candidate input, keyed by the base state's discriminating hash
       for (const auto input : uniqueCandidateInputs)
       {
-        // Making sure we don't try the input if it was already detected for this type of state
-        if (_candidateInputsDetected.contains(baseStateInputHash))
-          if (_candidateInputsDetected[baseStateInputHash].contains(input)) continue;
+        // Making sure we don't try the input if it was already detected for this type of state (the
+        // entry is read under its submap's lock: other threads insert concurrently)
+        bool alreadyDetected = false;
+        _candidateInputsDetected.if_contains(baseStateInputHash, [&](const auto& inputs) { alreadyDetected = std::find(inputs.begin(), inputs.end(), input) != inputs.end(); });
+        if (alreadyDetected) continue;
 
         // Running input
         const auto result = runNewInput(*r, baseStateData, input, acc, threadId);
 
-        // If this is not a repeated state, store it as new candidate input
-        if (result != inputResult_t::repeated) _candidateInputsDetected[baseStateInputHash].insert(input);
+        // If this is not a repeated state, store it as new candidate input (under the submap's lock)
+        if (result != inputResult_t::repeated)
+          _candidateInputsDetected.lazy_emplace_l(
+              baseStateInputHash,
+              [&](auto& inputs)
+              {
+                if (std::find(inputs.begin(), inputs.end(), input) == inputs.end()) inputs.push_back(input);
+              },
+              [&](const auto& construct) { construct(baseStateInputHash, std::vector<InputSet::inputIndex_t>{input}); });
       }
 
       // Return base state to the free state queue
@@ -1422,15 +1448,21 @@ private:
         _winCollectLock.lock();
         if (_winKeysSeen.contains(key) == false && _winKeysSeen.size() < _winCollectMax)
         {
-          _winKeysSeen.insert(key);
+          // A key counts as collected only once its solution is on disk (a failed write is retried
+          // by the next win with the same key)
           const auto solution = r.getInputHistoryString();
-          jaffarCommon::file::saveStringToFile(solution, _winCollectPrefix + key + ".sol");
-          // No per-capture log line (screen churn): progress is reported as a collected/max
-          // counter in the regular per-step block; the manifest records key/step per capture.
+          const auto path     = _winCollectPrefix + key + ".sol";
+          if (jaffarCommon::file::saveStringToFile(solution, path))
           {
+            _winKeysSeen.insert(key);
+            // No per-capture log line (screen churn): progress is reported as a collected/max
+            // counter in the regular per-step block; the manifest records key/step per capture.
             std::ofstream mf(_winCollectPrefix + "manifest.txt", std::ios::app);
             mf << "key " << key << " step " << r.getStepCount() << "\n";
+            if (mf.good() == false) jaffarCommon::logger::log("[J+] Warning: could not append to '%smanifest.txt'\n", _winCollectPrefix.c_str());
           }
+          else
+            jaffarCommon::logger::log("[J+] Warning: could not write win solution '%s'\n", path.c_str());
         }
         _winCollectLock.unlock();
       }
@@ -1449,7 +1481,8 @@ private:
       if (gameReward > _bestWinSolutionReward)
       {
         _bestWinSolutionReward = gameReward;
-        jaffarCommon::file::saveStringToFile(r.getInputHistoryString(), _winSolutionPath);
+        if (jaffarCommon::file::saveStringToFile(r.getInputHistoryString(), _winSolutionPath) == false)
+          jaffarCommon::logger::log("[J+] Warning: could not write the best win solution to '%s'\n", _winSolutionPath.c_str());
       }
       _stepBestWinStateLock.unlock();
 
@@ -1529,8 +1562,9 @@ private:
     return inputResult_t::normal;
   }
 
-  /// @brief Per-base-state-input-hash set of candidate inputs already detected, used to dedup candidate-input probing.
-  jaffarCommon::concurrent::HashMap_t<jaffarCommon::hash::hash_t, jaffarCommon::concurrent::HashSet_t<InputSet::inputIndex_t>> _candidateInputsDetected;
+  /// @brief Per-base-state-input-hash list of candidate inputs already detected, used to dedup candidate-input probing.
+  /// Entries are read and modified only under their submap's lock (if_contains / lazy_emplace_l).
+  jaffarCommon::concurrent::HashMap_t<jaffarCommon::hash::hash_t, std::vector<InputSet::inputIndex_t>> _candidateInputsDetected;
 
   /// @brief Counter for the current step.
   size_t _currentStep = 0;

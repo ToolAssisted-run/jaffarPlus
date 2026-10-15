@@ -7,11 +7,13 @@
  */
 
 #include "engine.hpp"
+#include "environment.hpp"
 #include "game.hpp"
 #include "runner.hpp"
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <jaffarCommon/deserializers/contiguous.hpp>
 #include <jaffarCommon/file.hpp>
@@ -89,7 +91,11 @@ public:
     _stopFramesAfterFirstWin = -1;
     if (driverConfig.contains("End On First Win State")) _stopFramesAfterFirstWin = jaffarCommon::json::popBoolean(driverConfig, "End On First Win State") ? 0 : -1;
     if (driverConfig.contains("Stop Frames After First Win"))
-      _stopFramesAfterFirstWin = (ssize_t)jaffarCommon::json::popNumber<size_t>(driverConfig, "Stop Frames After First Win");
+    {
+      // -1 (or any negative value) never stops on wins, as when the key is absent
+      _stopFramesAfterFirstWin = jaffarCommon::json::popNumber<ssize_t>(driverConfig, "Stop Frames After First Win");
+      if (_stopFramesAfterFirstWin < 0) _stopFramesAfterFirstWin = -1;
+    }
     // Optional: save EVERY win state's solution, deduplicated by a configurable tuple of game
     // properties. Driver-owned config; the engine performs the capture at the moment each win
     // state is produced (the worker runner still holds it live).
@@ -117,7 +123,7 @@ public:
     _maxSteps = jaffarCommon::json::popNumber<uint32_t>(driverConfig, "Max Steps");
 
     // For testing purposes, the maximum number of steps can be overriden via environment variables
-    if (auto* value = std::getenv("JAFFAR_DRIVER_OVERRIDE_DRIVER_MAX_STEP")) _maxSteps = std::stoul(value);
+    getEnvironmentUnsigned("JAFFAR_DRIVER_OVERRIDE_DRIVER_MAX_STEP", _maxSteps);
 
     // Getting intermediate result configuration
     auto saveIntermediateResultsJs     = jaffarCommon::json::popObject(driverConfig, "Save Intermediate Results");
@@ -125,6 +131,10 @@ public:
     _saveIntermediateFrequency         = jaffarCommon::json::popNumber<float>(saveIntermediateResultsJs, "Frequency (s)");
     _saveIntermediateBestSolutionPath  = jaffarCommon::json::popString(saveIntermediateResultsJs, "Best Solution Path");
     _saveIntermediateWorstSolutionPath = jaffarCommon::json::popString(saveIntermediateResultsJs, "Worst Solution Path");
+    // Optional: where the best win's solution is written the moment it is found (several jobs on one
+    // machine should each name their own file)
+    _winSolutionPath = saveIntermediateResultsJs.contains("Win Solution Path") ? jaffarCommon::json::popString(saveIntermediateResultsJs, "Win Solution Path")
+                                                                               : std::string("/tmp/jaffar.winsolution.sol");
     jaffarCommon::json::checkEmpty(saveIntermediateResultsJs, "Driver Configuration > Save Intermediate Results");
 
     // Optional reference reward floor: cancel the whole job if the BEST state's reward falls below a
@@ -204,6 +214,7 @@ public:
     // Creating engine from the configuration
     _engine = std::make_unique<Engine>(emulatorConfig, gameConfig, runnerConfig, engineConfig);
     if (_winCollectArm) _engine->setWinStateCollection(_winCollectProps, _winCollectPrefix, _winCollectMax);
+    _engine->setWinSolutionPath(_winSolutionPath);
   }
 
   /// @brief Destroys the driver.
@@ -217,6 +228,14 @@ public:
    */
   void initialize()
   {
+    // The output files' directories must exist: a typo would otherwise lose every solution of the run
+    for (const auto& path : {_saveIntermediateBestSolutionPath, _saveIntermediateWorstSolutionPath, _winSolutionPath, _winCollectArm ? _winCollectPrefix : std::string()})
+    {
+      if (path.empty()) continue;
+      const auto dir = std::filesystem::path(path).parent_path();
+      if (dir.empty() == false && std::filesystem::is_directory(dir) == false) JAFFAR_THROW_RUNTIME("[ERROR] The directory of output file '%s' does not exist\n", path.c_str());
+    }
+
     // Resetting step counter
     _currentStep = 0;
     _publishedStep.store(0);
@@ -364,7 +383,7 @@ public:
         std::string out;
         for (size_t i = 0; i < _referenceReward.size(); i++)
           out += std::to_string(i) + "\t" + std::to_string(_referenceReward[i]) + "\t" + std::to_string(i < _referenceStateType.size() ? _referenceStateType[i] : -1) + "\n";
-        jaffarCommon::file::saveStringToFile(out, tracePath);
+        saveFile(out, tracePath);
       }
 
       // Restore the runner to its initial state (and reset its step counter) for the search
@@ -625,7 +644,7 @@ public:
 
       // Saving manually stored solution
       std::string solutionData = _runner->getInputHistoryString();
-      jaffarCommon::file::saveStringToFile(solutionData, manualSaveSolution.path);
+      saveFile(solutionData, manualSaveSolution.path);
     }
   }
 
@@ -645,10 +664,10 @@ public:
     std::string stepSuffix = std::string(".") + std::to_string(_publishedStep.load());
 
     // Saving files with standard name
-    if (_saveIntermediateBestSolutionPath != "") jaffarCommon::file::saveStringToFile(_bestSolutionStorage, _saveIntermediateBestSolutionPath);
+    if (_saveIntermediateBestSolutionPath != "") saveFile(_bestSolutionStorage, _saveIntermediateBestSolutionPath);
 
     // Saving files with a job suffix and step number
-    if (_saveIntermediateBestSolutionPath != "") jaffarCommon::file::saveStringToFile(_bestSolutionStorage, _saveIntermediateBestSolutionPath + jobSuffix + stepSuffix);
+    if (_saveIntermediateBestSolutionPath != "") saveFile(_bestSolutionStorage, _saveIntermediateBestSolutionPath + jobSuffix + stepSuffix);
 
     // Making sure the main thread is not currently writing
     _updateIntermediateResultMutex.unlock();
@@ -669,10 +688,10 @@ public:
     std::string jobSuffix = std::string(".") + std::to_string(_jobId);
 
     // Saving best solution and state
-    if (_saveIntermediateWorstSolutionPath != "") jaffarCommon::file::saveStringToFile(_worstSolutionStorage, _saveIntermediateWorstSolutionPath);
+    if (_saveIntermediateWorstSolutionPath != "") saveFile(_worstSolutionStorage, _saveIntermediateWorstSolutionPath);
 
     // Saving best solution and state
-    if (_saveIntermediateWorstSolutionPath != "") jaffarCommon::file::saveStringToFile(_worstSolutionStorage, _saveIntermediateWorstSolutionPath + jobSuffix);
+    if (_saveIntermediateWorstSolutionPath != "") saveFile(_worstSolutionStorage, _saveIntermediateWorstSolutionPath + jobSuffix);
 
     // Making sure the main thread is not currently writing
     _updateIntermediateResultMutex.unlock();
@@ -976,6 +995,18 @@ public:
   size_t getCurrentStep() { return _currentStep; }
 
 private:
+  /**
+   * @brief Writes a file, logging a warning if it fails (the run goes on; the next save retries).
+   * @param content The file contents.
+   * @param path    The file path.
+   */
+  static void saveFile(const std::string& content, const std::string& path)
+  {
+    if (jaffarCommon::file::saveStringToFile(content, path) == false) jaffarCommon::logger::log("[J+] Warning: could not write '%s'\n", path.c_str());
+  }
+
+  std::string _winSolutionPath; ///< File the best win's solution is written to when found ("Win Solution Path").
+
   const std::string _configFilePath; ///< Path to the config file, kept for reference.
 
   std::unique_ptr<Engine> _engine; ///< Pointer to the internal Jaffar engine.

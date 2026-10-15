@@ -466,6 +466,7 @@ public:
     _popBaseStateDbThreadRawTime     = 0;
     _stepBaseStatesProcessed         = 0;
     _stepNewStatesProcessed          = 0;
+    _stepMaxLevelStored              = 0;
     for (ssize_t i = 0; i < _threadCount; i++)
     {
       const auto& a = _threadAccumulators[i];
@@ -491,6 +492,7 @@ public:
       _droppedStatesFailedSerialization += a.droppedStatesFailedSerialization;
       _droppedStatesCheckpoint += a.droppedStatesCheckpoint;
       _droppedStatesBelowReference += a.droppedStatesBelowReference;
+      _stepMaxLevelStored += a.statesAtCheckpointLevel;
     }
 
     // Advancing hash database state
@@ -600,7 +602,7 @@ public:
     // checkpoint level, the milestone's surviving lineage is gone -- executing the purge would
     // wipe the whole database for the benefit of nobody. Demote the level so the search can
     // re-achieve the milestone; the next genuine rise re-arms the cutoff.
-    if (_checkpointLevel.load(std::memory_order_relaxed) > 0 && _stepMaxLevelStored.load(std::memory_order_relaxed) == 0 && _stateDb->getStateCount() > 0)
+    if (_checkpointLevel.load(std::memory_order_relaxed) > 0 && _stepMaxLevelStored == 0 && _stateDb->getStateCount() > 0)
     {
       std::lock_guard<std::mutex> lk(_checkpointMutex);
       const auto                  lvl = _checkpointLevel.load(std::memory_order_relaxed);
@@ -610,7 +612,6 @@ public:
         jaffarCommon::logger::log("[J+] Checkpoint level %lu cohort extinct -- demoting to %lu\n", lvl, lvl - 1);
       }
     }
-    _stepMaxLevelStored.store(0, std::memory_order_relaxed);
 
     // Advancing step
     _currentStep++;
@@ -991,6 +992,7 @@ private:
     size_t droppedStatesFailedSerialization; ///< Number of states dropped due to failed serialization.
     size_t droppedStatesCheckpoint;          ///< Number of states dropped for not meeting the checkpoint.
     size_t droppedStatesBelowReference;      ///< Number of states dropped for falling below the reference reward trace.
+    size_t statesAtCheckpointLevel;          ///< Number of stored states whose checkpoint level was >= the global level (cohort-extinction guard).
 
     /// @brief Resets all timers and counters to zero.
     __INLINE__ void reset() { *this = threadAccumulator_t{}; }
@@ -1142,7 +1144,7 @@ private:
     {
       const auto stateCheckpointLevel     = r.getGame()->getCheckpointLevel();
       const auto stateCheckpointTolerance = r.getGame()->getCheckpointTolerance();
-      if (stateCheckpointLevel >= _checkpointLevel.load(std::memory_order_relaxed)) _stepMaxLevelStored.fetch_add(1, std::memory_order_relaxed);
+      if (stateCheckpointLevel >= _checkpointLevel.load(std::memory_order_relaxed)) acc.statesAtCheckpointLevel++;
       if (stateCheckpointLevel > _checkpointLevel.load(std::memory_order_relaxed))
       {
         // Publication order is load-bearing: the new cutoff must become visible BEFORE the new
@@ -1626,11 +1628,11 @@ private:
   std::string          _manualSaveSolutionLastPath = "";     ///< Path of the most recently activated manual-save solution.
 
   // Checkpoint information
-  std::atomic<size_t> _checkpointLevel;     ///< Highest checkpoint level reached so far.
-  std::atomic<size_t> _checkpointTolerance; ///< Tolerance (in steps) associated with the current checkpoint level.
-  std::atomic<size_t> _checkpointCutoff;    ///< Step index after which states below @ref _checkpointLevel are dropped.
-  std::mutex          _checkpointMutex;     ///< Serializes checkpoint level rises (rare path).
-  std::atomic<size_t> _stepMaxLevelStored;  ///< States stored this step whose level >= the global checkpoint level.
+  std::atomic<size_t> _checkpointLevel;        ///< Highest checkpoint level reached so far.
+  std::atomic<size_t> _checkpointTolerance;    ///< Tolerance (in steps) associated with the current checkpoint level.
+  std::atomic<size_t> _checkpointCutoff;       ///< Step index after which states below @ref _checkpointLevel are dropped.
+  std::mutex          _checkpointMutex;        ///< Serializes checkpoint level rises (rare path).
+  size_t              _stepMaxLevelStored = 0; ///< States stored this step whose level >= the global checkpoint level (reduced from the per-thread accumulators).
 
   //////////////// Statistics
 

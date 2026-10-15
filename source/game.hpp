@@ -8,15 +8,18 @@
 
 #include "emulator.hpp"
 #include "rule.hpp"
+#include <cmath>
 #include <jaffarCommon/bitwise.hpp>
 #include <jaffarCommon/deserializers/base.hpp>
 #include <jaffarCommon/hash.hpp>
 #include <jaffarCommon/json.hpp>
 #include <jaffarCommon/logger.hpp>
 #include <jaffarCommon/serializers/base.hpp>
+#include <limits>
 #include <map>
 #include <memory>
 #include <set>
+#include <type_traits>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -410,9 +413,10 @@ public:
    * @brief Recomputes the state type and checkpoint level from the satisfied rules.
    *
    * @details Resets the state type to normal and the checkpoint level to zero, then iterates the
-   * satisfied rules: checkpoint rules increment the checkpoint level and record their tolerance,
+   * satisfied rules: checkpoint rules increment the checkpoint level and record their tolerance, and
    * save-solution rules update the current save-solution rule id when their index exceeds the
-   * previous one, win rules set the state type to win, and fail rules set it to fail.
+   * previous one. The state is a fail if any satisfied rule is a fail rule, otherwise a win if any is
+   * a win rule, whatever their order in the file.
    */
   __INLINE__ void updateGameStateType()
   {
@@ -422,7 +426,11 @@ public:
     // Clearing checkpoint level and tolerance
     _checkpointLevel = 0;
 
-    // Second, we run the specified actions for the satisfied rules in label order
+    // Whether any satisfied rule is a win / fail rule
+    bool isWin  = false;
+    bool isFail = false;
+
+    // Second, we run the specified actions for the satisfied rules in file order
     for (auto& rule : _rules)
     {
       // Getting rule index
@@ -443,11 +451,14 @@ public:
         // Evaluate save state rule and path if specified -- only if the current rule label is greater than the last rule to activate this
         if (rule->isSaveSolutionRule() && (ssize_t)ruleIdx > _saveSolutionCurrentLastRuleIdx) _saveSolutionCurrentLastRuleId = ruleIdx;
 
-        // Winning in the same rule superseeds checkpoint, and failing superseed everything
-        if (rule->isWinRule()) _stateType = stateType_t::win;
-        if (rule->isFailRule()) _stateType = stateType_t::fail;
+        // Winning superseeds checkpoint, and failing superseeds everything
+        if (rule->isWinRule()) isWin = true;
+        if (rule->isFailRule()) isFail = true;
       }
     }
+
+    if (isWin) _stateType = stateType_t::win;
+    if (isFail) _stateType = stateType_t::fail;
   }
 
   /**
@@ -487,12 +498,21 @@ public:
    *
    * @details Resolves the "Op" operator and the "Property" first operand (which must be registered),
    * then interprets "Value": a number or boolean becomes an immediate second operand, while a string
-   * is treated as the name of a second registered property. The condition is instantiated as a
-   * @ref _vCondition specialized to the first property's datatype.
+   * is treated as the name of a second registered property. The condition is normally instantiated as
+   * a @ref _vCondition specialized to the first property's datatype. Values are checked here, so a
+   * mistake fails at load time instead of silently changing the comparison:
+   * - An integer immediate for an integer property must fit the property's width, as either a signed
+   *   or an unsigned number (-1 on a UINT8 is the byte 0xFF, as before; 257 is an error).
+   * - A fractional immediate for an integer property is compared by value (@ref _wCondition): "HP <
+   *   17.99" holds for HP <= 17 (it used to be truncated to "HP < 17").
+   * - Two properties of different datatypes are compared by value (@ref _wCondition); with different
+   *   sizes this used to throw during the search.
+   * - BitTrue/BitFalse need an integer property and a bit index inside it; %0/%N need a nonzero
+   *   integer immediate.
    * @param conditionJs The condition JSON object, expected to contain "Op", "Property" and "Value".
    * @return An owning pointer to the constructed condition.
    * @throws A logic error if the operator is unknown, a referenced property is not declared, the
-   *         "Value" key is missing, or its format/type is invalid.
+   *         "Value" key is missing, or its format, type or range is invalid.
    */
   std::unique_ptr<Condition> parseCondition(const nlohmann::json& conditionJs)
   {
@@ -517,36 +537,42 @@ public:
     // Getting property data type
     auto datatype1 = property1->getDatatype();
 
+    // Bit tests only make sense on integer properties
+    if (Condition::isBitOperator(opType) && Property::isIntegerDatatype(datatype1) == false)
+      JAFFAR_THROW_LOGIC("[ERROR] Operator '%s' needs an integer property, but '%s' is not one.\n", opName.c_str(), property1Name.c_str());
+
     // Parsing second operand (number)
     if (conditionJs.contains("Value") == false) JAFFAR_THROW_LOGIC("[ERROR] Rule condition missing 'Value' key.\n");
-    if (conditionJs["Value"].is_number() == false && conditionJs["Value"].is_string() == false && conditionJs["Value"].is_boolean() == false)
+    const auto& valueJs = conditionJs["Value"];
+    if (valueJs.is_number() == false && valueJs.is_string() == false && valueJs.is_boolean() == false)
       JAFFAR_THROW_LOGIC("[ERROR] Wrong format for 'Value' entry in rule condition. It must be a string or number");
 
     // If value is a number, take it as immediate
-    if (conditionJs["Value"].is_number())
+    if (valueJs.is_number())
     {
-      if (datatype1 == Property::datatype_t::dt_uint8) return std::make_unique<_vCondition<uint8_t>>(opType, property1, nullptr, 0, conditionJs["Value"].get<uint8_t>());
-      if (datatype1 == Property::datatype_t::dt_uint16) return std::make_unique<_vCondition<uint16_t>>(opType, property1, nullptr, 0, conditionJs["Value"].get<uint16_t>());
-      if (datatype1 == Property::datatype_t::dt_uint32) return std::make_unique<_vCondition<uint32_t>>(opType, property1, nullptr, 0, conditionJs["Value"].get<uint32_t>());
-      if (datatype1 == Property::datatype_t::dt_uint64) return std::make_unique<_vCondition<uint64_t>>(opType, property1, nullptr, 0, conditionJs["Value"].get<uint64_t>());
+      if (datatype1 == Property::datatype_t::dt_uint8) return makeIntegerImmediateCondition<uint8_t>(opType, property1, valueJs);
+      if (datatype1 == Property::datatype_t::dt_uint16) return makeIntegerImmediateCondition<uint16_t>(opType, property1, valueJs);
+      if (datatype1 == Property::datatype_t::dt_uint32) return makeIntegerImmediateCondition<uint32_t>(opType, property1, valueJs);
+      if (datatype1 == Property::datatype_t::dt_uint64) return makeIntegerImmediateCondition<uint64_t>(opType, property1, valueJs);
 
-      if (datatype1 == Property::datatype_t::dt_int8) return std::make_unique<_vCondition<int8_t>>(opType, property1, nullptr, 0, conditionJs["Value"].get<int8_t>());
-      if (datatype1 == Property::datatype_t::dt_int16) return std::make_unique<_vCondition<int16_t>>(opType, property1, nullptr, 0, conditionJs["Value"].get<int16_t>());
-      if (datatype1 == Property::datatype_t::dt_int32) return std::make_unique<_vCondition<int32_t>>(opType, property1, nullptr, 0, conditionJs["Value"].get<int32_t>());
-      if (datatype1 == Property::datatype_t::dt_int64) return std::make_unique<_vCondition<int64_t>>(opType, property1, nullptr, 0, conditionJs["Value"].get<int64_t>());
+      if (datatype1 == Property::datatype_t::dt_int8) return makeIntegerImmediateCondition<int8_t>(opType, property1, valueJs);
+      if (datatype1 == Property::datatype_t::dt_int16) return makeIntegerImmediateCondition<int16_t>(opType, property1, valueJs);
+      if (datatype1 == Property::datatype_t::dt_int32) return makeIntegerImmediateCondition<int32_t>(opType, property1, valueJs);
+      if (datatype1 == Property::datatype_t::dt_int64) return makeIntegerImmediateCondition<int64_t>(opType, property1, valueJs);
 
-      if (datatype1 == Property::datatype_t::dt_float32) return std::make_unique<_vCondition<float>>(opType, property1, nullptr, 0, conditionJs["Value"].get<float>());
-      if (datatype1 == Property::datatype_t::dt_float64) return std::make_unique<_vCondition<double>>(opType, property1, nullptr, 0, conditionJs["Value"].get<double>());
+      if (Condition::isModuloOperator(opType) && valueJs.get<double>() == 0.0) JAFFAR_THROW_LOGIC("[ERROR] Operator '%s' needs a nonzero value.\n", opName.c_str());
+      if (datatype1 == Property::datatype_t::dt_float32) return std::make_unique<_vCondition<float>>(opType, property1, nullptr, 0, valueJs.get<float>());
+      if (datatype1 == Property::datatype_t::dt_float64) return std::make_unique<_vCondition<double>>(opType, property1, nullptr, 0, valueJs.get<double>());
     }
 
     // If value is a boolean, take it as immediate
-    if (conditionJs["Value"].is_boolean())
+    if (valueJs.is_boolean())
     {
-      if (datatype1 == Property::datatype_t::dt_bool) return std::make_unique<_vCondition<bool>>(opType, property1, nullptr, 0, conditionJs["Value"].get<bool>());
+      if (datatype1 == Property::datatype_t::dt_bool) return std::make_unique<_vCondition<bool>>(opType, property1, nullptr, 0, valueJs.get<bool>());
     }
 
     // If value is a string, take value as property number 2
-    if (conditionJs["Value"].is_string())
+    if (valueJs.is_string())
     {
       // Parsing second operand (property name)
       const auto& property2Name = jaffarCommon::json::getString(conditionJs, "Value");
@@ -559,6 +585,15 @@ public:
 
       // Getting property object
       const auto property2 = _propertyMap[property2NameHash].get();
+
+      // Properties of different datatypes are compared by value
+      if (property2->getDatatype() != datatype1)
+      {
+        if (Condition::isBitOperator(opType) || Condition::isModuloOperator(opType))
+          if (Property::isIntegerDatatype(property2->getDatatype()) == false)
+            JAFFAR_THROW_LOGIC("[ERROR] Operator '%s' needs an integer second property, but '%s' is not one.\n", opName.c_str(), property2Name.c_str());
+        return std::make_unique<_wCondition>(opType, property1, property2, 0.0L);
+      }
 
       if (datatype1 == Property::datatype_t::dt_uint8) return std::make_unique<_vCondition<uint8_t>>(opType, property1, property2, 0, 0);
       if (datatype1 == Property::datatype_t::dt_uint16) return std::make_unique<_vCondition<uint16_t>>(opType, property1, property2, 0, 0);
@@ -575,7 +610,52 @@ public:
       if (datatype1 == Property::datatype_t::dt_bool) return std::make_unique<_vCondition<bool>>(opType, property1, property2, 0, 0);
     }
 
-    JAFFAR_THROW_LOGIC("[ERROR] Rule contains an invalid 'Value' key.\n", conditionJs["Value"].dump().c_str());
+    JAFFAR_THROW_LOGIC("[ERROR] Rule condition on property '%s' contains an invalid 'Value': %s\n", property1Name.c_str(), valueJs.dump().c_str());
+  }
+
+  /**
+   * @brief Builds the condition for an integer property compared with a numeric immediate.
+   * @tparam T The property's integer type.
+   * @param opType    The comparison operator.
+   * @param property1 The property.
+   * @param valueJs   The immediate value (a JSON number).
+   * @return A @ref _vCondition over @p T when the value is an integer that fits the property's width
+   *         (as a signed or an unsigned number: -1 on a UINT8 is the byte 0xFF); otherwise, for a
+   *         fractional value and a relational operator, a by-value @ref _wCondition.
+   * @throws A logic error for an integer that fits neither way, a fractional value with a bit or
+   *         modulo operator, a bit index outside the property, or a zero modulo divisor.
+   */
+  template <typename T>
+  std::unique_ptr<Condition> makeIntegerImmediateCondition(const Condition::operator_t opType, Property* const property1, const nlohmann::json& valueJs)
+  {
+    using unsignedT       = std::make_unsigned_t<T>;
+    using signedT         = std::make_signed_t<T>;
+    const auto& name      = property1->getName();
+    const bool  isBitOp   = Condition::isBitOperator(opType);
+    const bool  isModOp   = Condition::isModuloOperator(opType);
+    const bool  isInteger = valueJs.is_number_integer() || (valueJs.is_number_float() && valueJs.get<double>() == std::trunc(valueJs.get<double>()));
+
+    // A fractional value: compare by value (only meaningful for the relational operators)
+    if (isInteger == false)
+    {
+      if (isBitOp || isModOp) JAFFAR_THROW_LOGIC("[ERROR] The value for '%s' must be an integer with this operator (got %s).\n", name.c_str(), valueJs.dump().c_str());
+      return std::make_unique<_wCondition>(opType, property1, nullptr, (long double)valueJs.get<double>());
+    }
+
+    // An integer value: it must fit the property's width, as a signed or an unsigned number
+    const long double v  = valueJs.is_number_unsigned()  ? (long double)valueJs.get<uint64_t>()
+                           : valueJs.is_number_integer() ? (long double)valueJs.get<int64_t>()
+                                                         : (long double)valueJs.get<double>();
+    const long double lo = (long double)std::numeric_limits<signedT>::min();
+    const long double hi = (long double)std::numeric_limits<unsignedT>::max();
+    if (v < lo || v > hi) JAFFAR_THROW_LOGIC("[ERROR] The value %s is out of range for property '%s' (%lu bytes).\n", valueJs.dump().c_str(), name.c_str(), sizeof(T));
+    const T immediate = v < 0 ? (T)(signedT)(int64_t)v : (T)(unsignedT)(uint64_t)v;
+
+    if (isBitOp && (v < 0 || v >= 8.0L * sizeof(T)))
+      JAFFAR_THROW_LOGIC("[ERROR] Bit index %s is outside property '%s' (%lu bits).\n", valueJs.dump().c_str(), name.c_str(), 8 * sizeof(T));
+    if (isModOp && v == 0) JAFFAR_THROW_LOGIC("[ERROR] The modulo divisor for property '%s' must not be zero.\n", name.c_str());
+
+    return std::make_unique<_vCondition<T>>(opType, property1, nullptr, 0, immediate);
   }
 
   /** @brief Returns a pointer to the internal emulator. */
@@ -609,9 +689,14 @@ public:
    */
   virtual __INLINE__ float getFloorReward() const { return _reward; }
 
+  /// @brief Returned by @ref getNullInputIndex when the game does not define a null input.
+  static constexpr InputSet::inputIndex_t noNullInput = std::numeric_limits<InputSet::inputIndex_t>::max();
+
   /** @brief The input index representing "no buttons pressed" -- used by the engine's Hash
-   *         Lookahead (advance-with-null before hashing). Games override with their real null. */
-  virtual __INLINE__ InputSet::inputIndex_t getNullInputIndex() const { return 0; }
+   *         Lookahead (advance-with-null before hashing) when the configuration names no
+   *         "Hash Lookahead Input". Games override with their real null; the default is
+   *         @ref noNullInput (none). */
+  virtual __INLINE__ InputSet::inputIndex_t getNullInputIndex() const { return noNullInput; }
 
   /** @brief Returns the current state type (normal, win or fail). */
   __INLINE__ stateType_t getStateType() const { return _stateType; }
@@ -884,27 +969,19 @@ protected:
   /**
    * @brief Marks a rule as satisfied, recursively satisfying the rules it satisfies first.
    *
-   * @details For each sub-rule in this rule's satisfy list that is not yet satisfied, recurses into
-   * @ref satisfyRule, then sets this rule's status bit to satisfied.
+   * @details Sets this rule's status bit to satisfied, then recurses into @ref satisfyRule for each
+   * sub-rule in its satisfy list that is not yet satisfied. Setting the bit first makes cyclic
+   * "Satisfies" references (a rule listing itself, or two rules listing each other) terminate.
    * @param rule The rule to mark as satisfied.
    */
   __INLINE__ void satisfyRule(Rule& rule)
   {
-    // Recursively run actions for the yet unsatisfied rules that are satisfied by this one and mark them as satisfied
-    for (const auto subRule : rule.getSatisfyRules())
-    {
-      // Getting index from the subrule
-      auto subRuleIdx = subRule->getIndex();
-
-      // Only activate it if it hasn't been activated before
-      if (jaffarCommon::bitwise::getBitValue(_rulesStatus.data(), subRuleIdx) == false) satisfyRule(*subRule);
-    }
-
-    // Getting rule index
-    const auto ruleIdx = rule.getIndex();
-
     // Setting status to satisfied
-    jaffarCommon::bitwise::setBitValue(_rulesStatus.data(), ruleIdx, true);
+    jaffarCommon::bitwise::setBitValue(_rulesStatus.data(), rule.getIndex(), true);
+
+    // Recursively mark as satisfied the yet unsatisfied rules that are satisfied by this one
+    for (const auto subRule : rule.getSatisfyRules())
+      if (jaffarCommon::bitwise::getBitValue(_rulesStatus.data(), subRule->getIndex()) == false) satisfyRule(*subRule);
   }
 
   /**

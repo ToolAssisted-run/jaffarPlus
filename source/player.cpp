@@ -48,6 +48,12 @@ std::string dumpHashesPath;
 /// @brief Null-input advances applied before hashing each step in the --dumpHashes pass (mirrors engine "Hash Lookahead").
 size_t dumpHashesLookahead = 0;
 
+/// @brief The config's "Engine Configuration" > "Hash Lookahead Input" (empty: the game's null input), as the engine uses it.
+std::string dumpHashesLookaheadInput;
+
+/// @brief Process exit code for an error (an exception reaching main).
+constexpr int errorExitCode = 8;
+
 /// @brief When non-empty, writes the full low work-RAM ("LRAM") segment for every step to this file
 ///        as a flat binary blob (size-of-LRAM bytes per step). Diffing two emulators' RAM dumps
 ///        byte-by-byte identifies the exact RAM addresses (hence game variables) that diverge.
@@ -120,6 +126,7 @@ std::string terrainDrivePath;
  */
 static size_t parseUInt(const std::string& value, const std::string& flag)
 {
+  if (value.empty() || value[0] == '-') JAFFAR_THROW_LOGIC("Invalid value '%s' for %s (expected a non-negative integer)\n", value.c_str(), flag.c_str());
   try
   {
     size_t       consumed = 0;
@@ -131,6 +138,41 @@ static size_t parseUInt(const std::string& value, const std::string& flag)
   }
   JAFFAR_THROW_LOGIC("Invalid value '%s' for %s (expected a non-negative integer)\n", value.c_str(), flag.c_str());
   return 0;
+}
+
+/**
+ * @brief Parses an integer from a CLI argument value, accepting a 0x hex prefix.
+ * @param value The string value to parse.
+ * @param flag  The name of the CLI flag the value came from, used in the error message.
+ * @return The parsed non-negative integer.
+ */
+static size_t parseUIntAnyBase(const std::string& value, const std::string& flag)
+{
+  try
+  {
+    size_t       consumed = 0;
+    const size_t result   = std::stoul(value, &consumed, 0);
+    if (consumed == value.size() && value.empty() == false && value[0] != '-') return result;
+  }
+  catch (const std::exception&)
+  {
+  }
+  JAFFAR_THROW_LOGIC("Invalid value '%s' for %s (expected a non-negative integer)\n", value.c_str(), flag.c_str());
+  return 0;
+}
+
+/**
+ * @brief Checks that the emulator's low work RAM is large enough for a mode that reads fixed offsets.
+ * @param r       The runner.
+ * @param minSize The size the mode needs (one past its highest offset).
+ * @param flag    The CLI flag of the mode, used in the error message.
+ * @throws A logic error if the "LRAM" property is smaller (the mode was written for one specific game).
+ */
+static void requireLram(jaffarPlus::Runner& r, const size_t minSize, const char* flag)
+{
+  const auto lram = r.getGame()->getEmulator()->getProperty("LRAM");
+  if (lram.size < minSize)
+    JAFFAR_THROW_LOGIC("[ERROR] %s reads fixed RAM offsets up to 0x%lX of one specific game, but this emulator's LRAM has only %lu bytes\n", flag, minSize - 1, lram.size);
 }
 
 /**
@@ -160,8 +202,14 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
   if (jaffarCommon::file::loadStringFromFile(solutionFileString, solutionFile) == false)
     JAFFAR_THROW_LOGIC("[ERROR] Could not find or read from solution sequence file: %s\n", solutionFile.c_str());
 
-  // Getting input sequence
-  const auto solutionSequence = jaffarCommon::string::split(solutionFileString, '\0');
+  // Getting input sequence. Empty tokens (e.g. a trailing separator) are skipped and a carriage return
+  // (a file edited on Windows) is dropped, as the engine does when it replays a reference solution.
+  std::vector<std::string> solutionSequence;
+  for (auto token : jaffarCommon::string::split(solutionFileString, '\0'))
+  {
+    while (token.empty() == false && (token.back() == '\r' || token.back() == '\n')) token.pop_back();
+    if (token.empty() == false) solutionSequence.push_back(token);
+  }
 
   // Optional RAM poke(s) into the post-initial-sequence state, before any replay (mechanic experiments).
   // --dumpNTAB: write the current nametable memory to a file and exit (transplant calibration)
@@ -176,9 +224,11 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
 
   if (pokeRam.empty() == false)
   {
-    auto* ram = r.getGame()->getEmulator()->getProperty("LRAM").pointer;
+    const auto lram = r.getGame()->getEmulator()->getProperty("LRAM");
+    auto*      ram  = lram.pointer;
     for (const auto& [addr, val] : pokeRam)
     {
+      if (addr >= lram.size) JAFFAR_THROW_LOGIC("[ERROR] --pokeRAM address 0x%X is outside LRAM (%lu bytes)\n", addr, lram.size);
       ram[addr] = val;
       jaffarCommon::logger::log("[J+] Poked RAM 0x%04X = 0x%02X (%u)\n", addr, val, val);
     }
@@ -226,6 +276,7 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
   // empirically find the byte that flags "on honey" (true on the real slowdown crossing, false in corners).
   if (dumpRacerPath.empty() == false)
   {
+    requireLram(r, 0xA60C + 234, "--dumpRacer");
     auto* emu  = r.getGame()->getEmulator();
     auto* ram  = emu->getProperty("LRAM").pointer;
     auto  rd16 = [&](int a) { return ram[a] | (ram[a + 1] << 8); };
@@ -268,6 +319,7 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
   // (min speed = slowdown, fall state = hole, max Z = jump) per grid cell. Consistent physics state throughout.
   if (terrainDrivePath.empty() == false)
   {
+    requireLram(r, 0xA66D, "--terrainDrive");
     auto* emu  = r.getGame()->getEmulator();
     auto* ram  = emu->getProperty("LRAM").pointer;
     auto  rd16 = [&](int a) { return ram[a] | (ram[a + 1] << 8); };
@@ -328,10 +380,14 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
   if (terrainSweepSpec.empty() == false)
   {
     // parse "out.csv:x0,x1,y0,y1,step"
-    auto         colon   = terrainSweepSpec.find(':');
-    std::string  outPath = terrainSweepSpec.substr(0, colon);
-    auto         nums    = jaffarCommon::string::split(terrainSweepSpec.substr(colon + 1), ',');
-    int          x0 = std::stoi(nums[0]), x1 = std::stoi(nums[1]), y0 = std::stoi(nums[2]), y1 = std::stoi(nums[3]), st = std::stoi(nums[4]);
+    requireLram(r, 0xA6DC, "--terrainSweep");
+    auto colon = terrainSweepSpec.find(':');
+    if (colon == std::string::npos) JAFFAR_THROW_LOGIC("[ERROR] --terrainSweep expects \"out.csv:x0,x1,y0,y1,step\" (got '%s')\n", terrainSweepSpec.c_str());
+    std::string outPath = terrainSweepSpec.substr(0, colon);
+    auto        nums    = jaffarCommon::string::split(terrainSweepSpec.substr(colon + 1), ',');
+    if (nums.size() != 5) JAFFAR_THROW_LOGIC("[ERROR] --terrainSweep expects 5 numbers after the colon (got '%s')\n", terrainSweepSpec.c_str());
+    int x0 = std::stoi(nums[0]), x1 = std::stoi(nums[1]), y0 = std::stoi(nums[2]), y1 = std::stoi(nums[3]), st = std::stoi(nums[4]);
+    if (st <= 0) JAFFAR_THROW_LOGIC("[ERROR] --terrainSweep step must be positive (got %d)\n", st);
     auto*        emu       = r.getGame()->getEmulator();
     auto*        ram       = emu->getProperty("LRAM").pointer;
     const size_t stateSize = emu->getStateSize();
@@ -648,7 +704,7 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
         // The runner's step counter is not serialized: restore it so the hash's step-tolerance
         // stage matches the engine's ((depth + lookahead) mod (tolerance+1)) for depth-i states.
         r.setSearchStep((size_t)i);
-        const auto nullIdx = r.getGame()->getNullInputIndex();
+        const auto nullIdx = r.getHashLookaheadInputIndex(dumpHashesLookaheadInput);
         for (size_t k = 0; k < dumpHashesLookahead; k++) r.advanceState(nullIdx);
         hash = r.computeHash();
       }
@@ -866,8 +922,12 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
       currentStep++;
     }
 
-    // If it's not reproducing, grab command with a wait
-    if (isReproduce == false && isUnattended == false) command = jaffarCommon::logger::waitForKeyPress();
+    // If it's not reproducing, grab command with a wait (the end of the input stream quits)
+    if (isReproduce == false && isUnattended == false)
+    {
+      command = jaffarCommon::logger::waitForKeyPress();
+      if (command == EOF) isFinalize = true;
+    }
 
     // Headless fast-forward: when unattended and not actively reproducing (and not running a one-shot
     // command), advance through the sequence as fast as possible -- no key wait, no frame-rate sleep.
@@ -987,9 +1047,38 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
  *
  * @param argc Argument count.
  * @param argv Argument vector.
- * @return 0 on normal exit (implicit).
+ * @return 0 on normal exit, or @ref errorExitCode if an error was raised (its message goes to stderr).
+ */
+int run(int argc, char* argv[]);
+
+/**
+ * @brief Runs the player and reports any error with its message.
+ * @param argc Argument count.
+ * @param argv Argument vector.
+ * @return The player's exit code (see @ref run).
  */
 int main(int argc, char* argv[])
+{
+  try
+  {
+    return run(argc, argv);
+  }
+  catch (const std::exception& e)
+  {
+    jaffarCommon::logger::finalizeTerminal();
+    fflush(stdout);
+    fprintf(stderr, "[J+] Error: %s\n", e.what());
+    return errorExitCode;
+  }
+}
+
+/**
+ * @brief The player proper (see @ref main).
+ * @param argc Argument count.
+ * @param argv Argument vector.
+ * @return 0 on normal exit.
+ */
+int run(int argc, char* argv[])
 {
   // Parsing command line arguments
   argparse::ArgumentParser program("jaffar-tester", "2.0.0");
@@ -1084,8 +1173,10 @@ int main(int argc, char* argv[])
       {
         const auto eq = tok.find('=');
         if (eq == std::string::npos) JAFFAR_THROW_LOGIC("Bad --pokeRAM token (need addr=val): '%s'", tok.c_str());
-        const uint32_t addr = std::stoul(tok.substr(0, eq), nullptr, 0);
-        const uint32_t val  = std::stoul(tok.substr(eq + 1), nullptr, 0);
+        const size_t addr = parseUIntAnyBase(tok.substr(0, eq), "--pokeRAM address");
+        const size_t val  = parseUIntAnyBase(tok.substr(eq + 1), "--pokeRAM value");
+        if (val > 0xFF) JAFFAR_THROW_LOGIC("Bad --pokeRAM value (a byte, 0-255): '%s'", tok.c_str());
+        if (addr > UINT32_MAX) JAFFAR_THROW_LOGIC("Bad --pokeRAM address: '%s'", tok.c_str());
         pokeRam.emplace_back((uint32_t)addr, (uint8_t)val);
       }
   }
@@ -1113,6 +1204,7 @@ int main(int argc, char* argv[])
 
   // Getting frameskip
   frameskip = parseUInt(program.get<std::string>("--frameskip"), "--frameskip");
+  if (frameskip == 0) JAFFAR_THROW_LOGIC("Invalid value 0 for --frameskip (render every N-th frame, N >= 1)\n");
 
   // Getting frameskip
   const std::string initialSequence = program.get<std::string>("--initialSequence");
@@ -1125,7 +1217,7 @@ int main(int argc, char* argv[])
 
   // Getting the per-step hash dump path (if any)
   dumpHashesPath      = program.get<std::string>("--dumpHashes");
-  dumpHashesLookahead = (size_t)std::stoul(program.get<std::string>("--dumpHashesLookahead"));
+  dumpHashesLookahead = parseUInt(program.get<std::string>("--dumpHashesLookahead"), "--dumpHashesLookahead");
 
   // Getting the per-step RAM dump path (if any)
   dumpRamPath       = program.get<std::string>("--dumpRam");
@@ -1166,6 +1258,10 @@ int main(int argc, char* argv[])
   auto emulatorConfig = jaffarCommon::json::getObject(config, "Emulator Configuration");
   auto gameConfig     = jaffarCommon::json::getObject(config, "Game Configuration");
   auto runnerConfig   = jaffarCommon::json::getObject(config, "Runner Configuration");
+
+  // The input the engine's Hash Lookahead advances with (for --dumpHashesLookahead)
+  if (config.contains("Engine Configuration") && config["Engine Configuration"].contains("Hash Lookahead Input"))
+    dumpHashesLookaheadInput = jaffarCommon::json::getString(config["Engine Configuration"], "Hash Lookahead Input");
 
   // Overriding initial solution file, if provided
   if (initialSequence != "") emulatorConfig["Initial Sequence File Path"] = initialSequence;
@@ -1254,4 +1350,6 @@ int main(int argc, char* argv[])
 
   // Ending ncurses window
   jaffarCommon::logger::finalizeTerminal();
+
+  return 0;
 }

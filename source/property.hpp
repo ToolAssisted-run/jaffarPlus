@@ -140,6 +140,37 @@ public:
    * @return The value at the property's pointer, interpreted as @p T.
    * @throws A logic error if sizeof(T) does not match the property's datatype size.
    */
+  /**
+   * @brief Reads the property's value as a long double, whatever its datatype (exact for every
+   *        integer type up to 64 bits). Used by conditions whose operands have different datatypes.
+   * @return The property's current value.
+   */
+  __INLINE__ long double getValueAsLongDouble() const
+  {
+    switch (_datatype)
+    {
+      case dt_uint8: return getValue<uint8_t>();
+      case dt_uint16: return getValue<uint16_t>();
+      case dt_uint32: return getValue<uint32_t>();
+      case dt_uint64: return getValue<uint64_t>();
+      case dt_int8: return getValue<int8_t>();
+      case dt_int16: return getValue<int16_t>();
+      case dt_int32: return getValue<int32_t>();
+      case dt_int64: return getValue<int64_t>();
+      case dt_bool: return getValue<bool>() ? 1.0L : 0.0L;
+      case dt_float32: return getValue<float>();
+      case dt_float64: return getValue<double>();
+    }
+    return 0.0L;
+  }
+
+  /**
+   * @brief Tells whether a datatype is an integer type (signed or unsigned, not bool).
+   * @param datatype The datatype to test.
+   * @return true for the INT and UINT datatypes.
+   */
+  static __INLINE__ bool isIntegerDatatype(const datatype_t datatype) { return datatype != dt_bool && datatype != dt_float32 && datatype != dt_float64; }
+
   template <typename T>
   __INLINE__ T getValue() const
   {

@@ -107,6 +107,8 @@ explained in [Search Concepts & Tuning](04-search-concepts.md); the keys are:
 
 | Key | Type | Required | Description |
 |-----|------|----------|-------------|
+| `Hash Lookahead` | number | no | Hash each new state as it looks after this many more advances with the `Hash Lookahead Input` (default 0 = hash the state itself): states whose pending input (latched buttons, buffered presses) only shows up in RAM a frame later get distinct hashes. Costs that many extra advances per new state. |
+| `Hash Lookahead Input` | string | with `Hash Lookahead` | The input the lookahead advances with: the game's no-op input, written as in the allowed input sets (it must be registered there). Optional for games that define their own null input (Lode Runner); otherwise the run stops with an error rather than pressing a real input, which would merge distinct states. |
 | `Base State Batch Size` | number | no | How many base states each worker pulls from the per-NUMA queue per lock acquisition (clamped to 1–16). **When omitted it is auto-tuned**: at startup the engine times a burst of state advances and picks a batch worth roughly 200 µs of work, so cheap cores get a large batch (amortizing the queue lock) and heavy cores get a small one (better load balance). Measured: SDLPoP/TestEmulator → 16, Genesis/GBA/A2600 → 1. Set this explicitly to override the auto-tuned value. Pure performance knob — it does not change which states are explored or the result. |
 
 ### Engine Configuration → State Database
@@ -305,7 +307,7 @@ state, how state hashing behaves, and frame-skipping. *(Source: `source/runner.h
 | `Allowed Input Sets` | array of objects | yes | The legal inputs, possibly gated by conditions (see below). This is what defines the branching factor of the search. |
 | `Test Candidate Inputs` | boolean | yes | Whether to also evaluate the `Candidate Input Sets` (used to probe additional inputs). |
 | `Candidate Input Sets` | array of objects | yes (may be empty) | Same structure as `Allowed Input Sets`; only used when `Test Candidate Inputs` is `true`. |
-| `Hash Step Tolerance` | number | yes | How many consecutive steps a state may persist before re-hashing for deduplication. `0` hashes every step (most precise, most states); higher values collapse near-identical frames (fewer states). See [tuning](04-search-concepts.md#hash-step-tolerance). |
+| `Hash Step Tolerance` | number | yes | The step number modulo `Hash Step Tolerance` + 1 is part of every state hash. `0` ignores the step: the same state reached at any later step is a duplicate (strongest deduplication, fewest states); higher values keep up to that many + 1 copies of a state reached at different steps (more states). See [tuning](04-search-concepts.md#hash-step-tolerance). |
 | `Bypass Hash Calculation` | boolean | yes | If `true`, take the state hash from the game directly instead of computing it. Advanced; normally `false`. |
 | `Store Input History` | object | yes | Whether/how many inputs to record per state (needed to reconstruct solutions). |
 | `Frameskip` | object | yes | Frame-skipping behavior. |

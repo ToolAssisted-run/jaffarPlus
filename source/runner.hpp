@@ -285,6 +285,23 @@ public:
   }
 
   /**
+   * @brief Resolves the input that the engine's "Hash Lookahead" advances with before hashing.
+   * @param inputString The configured "Hash Lookahead Input", or empty to use the game's null input.
+   * @return The input index.
+   * @throws A logic error if the input is not registered, or if none is configured and the game defines
+   *         no null input (Game::getNullInputIndex returns Game::noNullInput): pressing an arbitrary
+   *         input instead would merge states that differ (input 0 is usually a real move).
+   */
+  __INLINE__ InputSet::inputIndex_t getHashLookaheadInputIndex(const std::string& inputString) const
+  {
+    if (inputString.empty() == false) return getInputIndex(inputString);
+    const auto nullIdx = _game->getNullInputIndex();
+    if (nullIdx == Game::noNullInput)
+      JAFFAR_THROW_LOGIC("[ERROR] 'Hash Lookahead' needs the input to advance with: set 'Hash Lookahead Input' (Engine Configuration) to the game's no-op input\n");
+    return nullIdx;
+  }
+
+  /**
    * @brief Reports whether an input string has been registered.
    * @param inputString The input string to test.
    * @return true if the input is registered, false otherwise.
@@ -510,8 +527,9 @@ public:
     }
   }
 
-  /** @brief Returns the current hash-step-tolerance stage (current input count modulo tolerance + 1). */
-  __INLINE__ uint32_t getHashStepToleranceStage() const { return (uint32_t)_stepCount % (_hashStepTolerance + 1); }
+  /** @brief Returns the current hash-step-tolerance stage (current input count modulo tolerance + 1, in 64 bits so the
+   *         largest tolerance does not wrap to a division by zero). */
+  __INLINE__ uint32_t getHashStepToleranceStage() const { return (uint32_t)((uint64_t)_stepCount % ((uint64_t)_hashStepTolerance + 1)); }
   /** @brief Returns a pointer to the owned game instance. */
   __INLINE__ Game* getGame() const { return _game.get(); }
 

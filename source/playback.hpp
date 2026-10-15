@@ -52,6 +52,9 @@ public:
     /// @brief The step's state hash.
     jaffarCommon::hash::hash_t stateHash;
 
+    /// @brief The runner's step counter (inputs applied) at this step; it is not part of the serialized state.
+    size_t stepCount = 0;
+
     /// @brief Earlier steps (ascending) that shared this step's hash.
     std::vector<size_t> _repeatedHashSteps;
   };
@@ -124,6 +127,9 @@ public:
       step._repeatedHashSteps = sameHashSteps;
       sameHashSteps.push_back(i);
 
+      // Recording the step counter, which loadStepData() must restore along with the state
+      step.stepCount = _runner->getStepCount();
+
       // Allocating space for the game state data
       step.gameStateData = malloc(_gameStateSize);
 
@@ -146,9 +152,9 @@ public:
       else
         step.rendererStateData = nullptr;
 
-      // Advancing state
+      // Advancing state (the end-of-sequence step re-applies the last input, if there is one)
       if (i < inputSequence.size()) _runner->advanceState(step.inputIndex);
-      if (i == inputSequence.size()) _runner->advanceState(_sequence.rbegin()->inputIndex);
+      if (i == inputSequence.size() && _sequence.empty() == false) _runner->advanceState(_sequence.rbegin()->inputIndex);
 
       // Diagnostic (JAFFAR_DUMP_FULLSTATE_DIR=<dir>): write each step's full serialized state to
       // <dir>/state<step>.bin. Diffing two replays' dumps at equal depth pinpoints which emulator
@@ -255,11 +261,16 @@ public:
   }
 
   /**
-   * @brief Loads the cached game state of the given step back into the runner.
+   * @brief Loads the cached game state of the given step back into the runner, with its step counter.
    * @param stepId The step whose game state to deserialize.
+   * @throws A runtime error if @p stepId exceeds the recorded sequence size.
    */
   void loadStepData(const size_t stepId)
   {
+    // Restoring the step counter first (it feeds the hash stage, and the trie rebuilds its path for that depth)
+    const auto& step = _sequence.at(std::min(stepId, _sequence.size() - 1));
+    _runner->setStepCount(step.stepCount);
+
     // Deserializing appropriate state
     jaffarCommon::deserializer::Contiguous d(getStateData(stepId), _gameStateSize);
     _runner->deserializeState(d);

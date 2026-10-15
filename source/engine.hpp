@@ -144,6 +144,9 @@ public:
     // divergent twins get distinct hashes WITHOUT hashing transient bits (which explodes the
     // state DB). Cost: N extra advances + a serialize/deserialize round-trip per hashed state.
     _hashLookahead = engineConfigRemaining.contains("Hash Lookahead") ? jaffarCommon::json::popNumber<size_t>(engineConfigRemaining, "Hash Lookahead") : 0;
+    // The input the lookahead advances with: "Hash Lookahead Input" (an input string), else the game's own
+    // null input (Game::getNullInputIndex). Resolved in initialize(), once the runners know their inputs.
+    _hashLookaheadInputString = engineConfigRemaining.contains("Hash Lookahead Input") ? jaffarCommon::json::popString(engineConfigRemaining, "Hash Lookahead Input") : "";
 
     _refPinEnabled = false;
     if (engineConfigRemaining.contains("Reference Pinning"))
@@ -283,6 +286,9 @@ public:
           r->setInputHistoryBacking(_inputHistoryBacking, (uint32_t)jaffarCommon::parallel::getThreadId(), _threadCount + 1);
           r->initialize();
         });
+
+    // Resolving the Hash Lookahead input (every runner registers the same inputs, so one index serves all)
+    if (_hashLookahead > 0) _hashLookaheadInput = _runners[0]->getHashLookaheadInputIndex(_hashLookaheadInputString);
 
     // Win-collection property names are resolved per win, inside the worker threads: check them now,
     // where an error is reported cleanly (instead of at the first win, losing it)
@@ -1235,11 +1241,7 @@ private:
     // pristine below by re-loading the base and re-advancing the input. Dups thus pay only
     // the lookahead advances; nobody pays serialization.
     JAFFAR_PROF_DECL(t2);
-    if (_hashLookahead > 0)
-    {
-      const auto nullIdx = r.getGame()->getNullInputIndex();
-      for (size_t i = 0; i < _hashLookahead; i++) r.advanceState(nullIdx);
-    }
+    for (size_t i = 0; i < _hashLookahead; i++) r.advanceState(_hashLookaheadInput);
     const auto hash = r.computeHash();
     JAFFAR_PROF_ACC(acc.calculateHash, t2);
 
@@ -1549,7 +1551,9 @@ private:
 
   // Reference pinning + lookahead (see constructor). Anchors a reference lineage in the frontier and
   // rewards being 1..Lookahead frames ahead of it.
-  size_t                                  _hashLookahead        = 0;     ///< N null-advances before hashing (see "Hash Lookahead"); 0 = hash the current state.
+  size_t                                  _hashLookahead = 0;            ///< N null-advances before hashing (see "Hash Lookahead"); 0 = hash the current state.
+  std::string                             _hashLookaheadInputString;     ///< "Hash Lookahead Input" (empty: the game's null input).
+  InputSet::inputIndex_t                  _hashLookaheadInput   = 0;     ///< The input index the Hash Lookahead advances with (resolved in initialize()).
   bool                                    _refPinEnabled        = false; ///< Whether reference pinning is active.
   bool                                    _refPinExactVerify    = true;  ///< Whether hash-matched pin candidates are byte-verified against captured reference states.
   float                                   _refPinBonus          = 0.0f;  ///< Reward bonus for matching the reference at the state's own depth.
@@ -1581,8 +1585,7 @@ public:
       r.serializeState(ser);
     }
     const size_t stepCount = r.getStepCount();
-    const auto   nullIdx   = r.getGame()->getNullInputIndex();
-    for (size_t i = 0; i < _hashLookahead; i++) r.advanceState(nullIdx);
+    for (size_t i = 0; i < _hashLookahead; i++) r.advanceState(_hashLookaheadInput);
     const auto h = r.computeHash();
     r.setStepCount(stepCount);
     {

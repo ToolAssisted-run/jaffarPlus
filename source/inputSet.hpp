@@ -9,6 +9,7 @@
 #include "condition.hpp"
 #include "property.hpp"
 #include <jaffarCommon/json.hpp>
+#include <memory>
 #include <unordered_set>
 #include <vector>
 
@@ -46,7 +47,7 @@ public:
   /** @brief Adds an input index to this set. @param inputIdx The input index to add. */
   void addInput(const inputIndex_t inputIdx) { _inputIndexes.insert(inputIdx); }
   /** @brief Adds a condition that must hold for this set to be active. @param condition The condition to add. */
-  void addCondition(std::unique_ptr<Condition> condition) { _conditions.insert(std::move(condition)); }
+  void addCondition(std::unique_ptr<Condition> condition) { _conditions.push_back(std::move(condition)); }
   /** @brief Returns the input indexes contained in this set. */
   const std::unordered_set<inputIndex_t>& getInputIndexes() const { return _inputIndexes; }
   /** @brief Returns whether this set stops evaluation of subsequent input sets. */
@@ -58,8 +59,8 @@ private:
   /// @brief Conditions that must all hold for this input set to be active.
   // Conditions are evaluated frequently, so this optimized for performance
   // Operands are pre-parsed as pointers/immediates and the evaluation function
-  // is a template that is created at compilation time.
-  std::unordered_set<std::unique_ptr<Condition>> _conditions;
+  // is a template that is created at compilation time. Evaluated in config order.
+  std::vector<std::unique_ptr<Condition>> _conditions;
 
   /// @brief Input indexes belonging to this set.
   // Storage for game-specific actions

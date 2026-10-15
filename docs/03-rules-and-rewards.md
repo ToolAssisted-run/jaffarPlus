@@ -72,10 +72,22 @@ A condition is a single comparison: a property, an operator, and a value.
 
 - `Property` — the left operand (a registered property name).
 - `Op` — one of `==`, `!=`, `>`, `>=`, `<`, `<=`, `%0`, `%N`, `BitTrue`, `BitFalse`.
-  - `%0` / `%N`: property modulo `Value` is zero / non-zero.
-  - `BitTrue` / `BitFalse`: the bit at index `Value` is set / clear.
+  - `%0` / `%N`: property modulo `Value` is zero / non-zero (`Value` must not be `0`; a divisor
+    property that reads `0` makes both false).
+  - `BitTrue` / `BitFalse`: the bit at index `Value` is set / clear. They need an integer property,
+    and an immediate index must lie inside it (0–7 for an 8-bit property, 0–15 for 16 bits, ...).
 - `Value` — the right operand. A **number** or **boolean** is an immediate value; a **string** is
   treated as *another property name*, so you can compare two properties (e.g. `Pos X` against `Pos Y`).
+  Values are checked when the configuration loads:
+  - An integer for an integer property must fit its width, read as a signed or an unsigned number:
+    on an 8-bit property `-1` means the byte `0xFF` (the same as `255`), and `257` is an error.
+  - A fractional number for an integer property is compared by value: `"HP" < 17.99` holds for
+    `HP <= 17`.
+  - Two properties of different datatypes are compared by value (a `UINT8` holding `200` is greater
+    than an `INT8` holding `-1`).
+
+Conditions are evaluated in the order they are written, and evaluation of a list stops at the first
+one that fails, so put the cheapest or most selective conditions first.
 
 Conditions appear in two contexts, with identical grammar: inside a **rule** (when does this rule
 fire?) and inside an **input set** (when is this input legal?). Within a single list, **all**
@@ -100,7 +112,10 @@ A rule couples a set of conditions to a set of actions.
 - `Actions` — what firing does (see below).
 - `Satisfies` — labels of *other* rules to also mark as satisfied when this one fires. Use it to
   build hierarchies: satisfying a "level complete" rule can auto-satisfy the checkpoints leading up
-  to it.
+  to it. References may form cycles (each rule is marked once).
+
+A state is a **fail** if any satisfied rule has `Trigger Fail`, otherwise a **win** if any has
+`Trigger Win`, whatever the order of the rules in the file: failing supersedes winning.
 
 ## Core actions
 
@@ -193,13 +208,16 @@ gradient is all a 5×5 grid needs.
 
 ## Checkpoints and tolerance
 
-`Trigger Checkpoint` records progress and carries a `Tolerance` (GridWalker uses `8`). Tolerance
-interacts with deduplication: normally two states with the same `Hash Properties` are merged, but
-right after a checkpoint the engine tolerates a number of additional steps before re-merging, so it
-does not immediately discard the slightly-different states that branch off a milestone. Larger
-tolerance = more states kept around a checkpoint = broader local search at the cost of memory. The
-related global knob is `Runner Configuration` > `Hash Step Tolerance`
-(see [Search Concepts & Tuning](04-search-concepts.md#hash-step-tolerance)).
+`Trigger Checkpoint` records progress and carries a `Tolerance` (GridWalker uses `8`). A state's
+checkpoint *level* is the number of checkpoint rules it has satisfied. The first time a stored state
+reaches a new level, say at step S, the search keeps the states below that level for `Tolerance`
+more steps and then drops them: states below the level produced after step S + `Tolerance` are
+discarded (`Dropped States (Checkpoint)`). A win is never dropped this way. Larger tolerance = the
+lineages that have not reached the milestone yet survive longer = broader search at the cost of
+memory. If every state at the new level is lost (e.g. replaced by better states while the database
+is full), the level is lowered again, so the search can re-achieve the milestone instead of
+emptying the database. (Unrelated to `Runner Configuration` > `Hash Step Tolerance`, which affects
+deduplication; see [Search Concepts & Tuning](04-search-concepts.md#hash-step-tolerance).)
 
 ## Frame-skip
 

@@ -8,8 +8,11 @@
 
 #include "condition.hpp"
 #include "property.hpp"
+#include <functional>
 #include <jaffarCommon/json.hpp>
+#include <memory>
 #include <set>
+#include <unordered_set>
 #include <vector>
 
 namespace jaffarPlus
@@ -66,7 +69,7 @@ public:
   /** @brief Appends a game-specific action to run for this rule. @param function The action to add. */
   void addAction(const std::function<void()>& function) { _actions.push_back(function); }
   /** @brief Adds a condition that must hold for this rule to be satisfied. @param condition The condition to add. */
-  void addCondition(std::unique_ptr<Condition> condition) { _conditions.insert(std::move(condition)); }
+  void addCondition(std::unique_ptr<Condition> condition) { _conditions.push_back(std::move(condition)); }
   /** @brief Adds the label of another rule considered satisfied alongside this one. @param satisfyRuleLabel The rule label. */
   void addSatisfyRuleLabel(const label_t satisfyRuleLabel) { _satisfyRuleLabels.insert(satisfyRuleLabel); }
   /** @brief Adds a pointer to another rule considered satisfied alongside this one. @param subRule The rule to add. */
@@ -101,8 +104,8 @@ private:
   /// @brief Conditions that must all hold for the rule to be satisfied.
   // Conditions are evaluated frequently, so this optimized for performance
   // Operands are pre-parsed as pointers/immediates and the evaluation function
-  // is a template that is created at compilation time.
-  std::unordered_set<std::unique_ptr<Condition>> _conditions;
+  // is a template that is created at compilation time. Evaluated in config order.
+  std::vector<std::unique_ptr<Condition>> _conditions;
 
   /// @brief Internal index for sequential access.
   const size_t _index;

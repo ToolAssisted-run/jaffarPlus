@@ -139,12 +139,12 @@ identical states hash differently.
 
 ### Hash step tolerance
 
-`Runner Configuration` > `Hash Step Tolerance` controls how eagerly states are re-hashed across
-consecutive steps. `0` hashes every step (maximum precision, maximum state count). A higher value
-lets a state persist for a few steps before being re-considered for deduplication, collapsing
-near-identical successive frames — fewer states, faster, at the risk of skipping over a
-fine-grained distinction. Start at `0`; raise it only if the state count is unmanageable and you've
-confirmed the lost precision doesn't drop the solution. (`Trigger Checkpoint` carries its own
+`Runner Configuration` > `Hash Step Tolerance` (T) mixes the step number modulo T + 1 into every
+state hash. With `0` the step is ignored: a state reached again at any later step is a duplicate —
+the most aggressive deduplication and the fewest states. With T > 0 the same game state reached at
+steps that differ modulo T + 1 is kept up to T + 1 times, which lets the search keep a later copy of
+a state (useful when timing matters, e.g. a frame counter that is not hashed) — more states, more
+memory. Start at `0`; raise it only when deduplication across steps loses solutions. (`Trigger Checkpoint` carries its own
 per-milestone `Tolerance`, described in [chapter 3](03-rules-and-rewards.md#checkpoints-and-tolerance).)
 
 ## The NUMA / threading model

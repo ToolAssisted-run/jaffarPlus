@@ -225,6 +225,24 @@ test('gridWalker_wincollect',
       args : [ 'checkWinCollect.sh', jaffar.full_path() ],
       suite : [ 'runs', 'TestEmulator', 'gridWalker' ])
 
+# Configuration errors are reported at load time with exit code 8 (zero modulo divisor, out-of-range
+# immediate, bad bit tests, Hash Lookahead without an input, unknown win-collection property), and
+# cyclic 'Satisfies', fractional integer bounds and an explicit 'Hash Lookahead Input' still solve.
+test('gridWalker_config_errors',
+      bash,
+      workdir : meson.current_source_dir() + '/testEmulator',
+      timeout: testTimeout,
+      args : [ 'checkConfigErrors.sh', jaffar.full_path() ],
+      suite : [ 'runs', 'TestEmulator', 'gridWalker' ])
+
+# Negative path: a missing config file must make the engine fail cleanly (exit code 8, no abort).
+test('jaffar_missing_config',
+      bash,
+      workdir : meson.current_source_dir() + '/testEmulator',
+      timeout: testTimeout,
+      args : [ meson.current_source_dir() + '/expectError.sh', 'Could not find or read from Jaffar config file', jaffar.full_path(), 'does_not_exist.jaffar' ],
+      suite : [ 'runs', 'TestEmulator', 'gridWalker' ])
+
 # End On First Win State = false: two wins exist -- a shallow low-reward win at (4,0) (depth 4) and a
 # deeper high-reward win at (4,4) (depth 8). Not stopping at the first win, the search must keep the
 # higher-reward 8-move solution. (Stopping on first win would instead yield the 4-move one.)
@@ -286,38 +304,50 @@ test('player_navigation',
 
 # Negative path: a missing config file must make the player fail cleanly.
 test('player_missing_config',
-      jaffarPlayer,
+      bash,
       workdir : meson.current_source_dir() + '/testEmulator',
       timeout: testTimeout,
-      args : [ 'does_not_exist.jaffar', 'unused.sol', '--reproduce', '--disableRender', '--exitOnEnd', '--unattended' ],
-      should_fail : true,
+      args : [ meson.current_source_dir() + '/expectError.sh', 'Could not find or read from Jaffar config file', jaffarPlayer.full_path(), 'does_not_exist.jaffar', 'unused.sol', '--reproduce', '--disableRender', '--exitOnEnd', '--unattended' ],
       suite : [ 'reproductions', 'TestEmulator', 'gridWalker' ])
 
 # Negative path: a missing solution file must make the player fail cleanly.
 test('player_missing_solution',
-      jaffarPlayer,
+      bash,
       workdir : meson.current_source_dir() + '/testEmulator',
       timeout: testTimeout,
-      args : [ 'gridWalker.jaffar', 'does_not_exist.sol', '--reproduce', '--disableRender', '--exitOnEnd', '--unattended' ],
-      should_fail : true,
+      args : [ meson.current_source_dir() + '/expectError.sh', 'Could not find or read from solution sequence file', jaffarPlayer.full_path(), 'gridWalker.jaffar', 'does_not_exist.sol', '--reproduce', '--disableRender', '--exitOnEnd', '--unattended' ],
       suite : [ 'reproductions', 'TestEmulator', 'gridWalker' ])
 
 # Negative path: a malformed (invalid JSON) config must make the player fail cleanly.
 test('player_malformed_config',
-      jaffarPlayer,
+      bash,
       workdir : meson.current_source_dir() + '/testEmulator',
       timeout: testTimeout,
-      args : [ 'malformed.jaffar', 'unused.sol', '--reproduce', '--disableRender', '--exitOnEnd', '--unattended' ],
-      should_fail : true,
+      args : [ meson.current_source_dir() + '/expectError.sh', 'Parsing configuration file', jaffarPlayer.full_path(), 'malformed.jaffar', 'unused.sol', '--reproduce', '--disableRender', '--exitOnEnd', '--unattended' ],
       suite : [ 'reproductions', 'TestEmulator', 'gridWalker' ])
 
 # Negative path: a non-numeric --frameskip must make the player fail cleanly.
 test('player_bad_frameskip',
+      bash,
+      workdir : meson.current_source_dir() + '/testEmulator',
+      timeout: testTimeout,
+      args : [ meson.current_source_dir() + '/expectError.sh', 'Invalid value', jaffarPlayer.full_path(), 'gridWalker.jaffar', 'unused.sol', '--reproduce', '--disableRender', '--exitOnEnd', '--unattended', '--frameskip', 'abc' ],
+      suite : [ 'reproductions', 'TestEmulator', 'gridWalker' ])
+
+# Negative path: --frameskip 0 must be rejected (it divided by zero).
+test('player_zero_frameskip',
+      bash,
+      workdir : meson.current_source_dir() + '/testEmulator',
+      timeout: testTimeout,
+      args : [ meson.current_source_dir() + '/expectError.sh', 'Invalid value 0 for --frameskip', jaffarPlayer.full_path(), 'gridWalker.jaffar', '/dev/null', '--reproduce', '--disableRender', '--exitOnEnd', '--unattended', '--frameskip', '0' ],
+      suite : [ 'reproductions', 'TestEmulator', 'gridWalker' ])
+
+# An empty solution file replays (zero steps) instead of crashing.
+test('player_empty_solution',
       jaffarPlayer,
       workdir : meson.current_source_dir() + '/testEmulator',
       timeout: testTimeout,
-      args : [ 'gridWalker.jaffar', 'unused.sol', '--reproduce', '--disableRender', '--exitOnEnd', '--unattended', '--frameskip', 'abc' ],
-      should_fail : true,
+      args : [ 'gridWalker.jaffar', '/dev/null', '--reproduce', '--disableRender', '--exitOnEnd', '--unattended', '--printFinalState' ],
       suite : [ 'reproductions', 'TestEmulator', 'gridWalker' ])
 
 endif
@@ -346,11 +376,10 @@ test('race04_short_reproduce',
 
 # Negative path: a missing solution file must make the player fail cleanly
 test('race04_short_missing_solution',
-      jaffarPlayer,
+      bash,
       workdir : meson.current_source_dir() + '/nes/sprilo',
       timeout: testTimeout,
-      args : [ 'race04_short.jaffar', 'does_not_exist.sol', '--reproduce', '--disableRender', '--exitOnEnd', '--unattended' ],
-      should_fail : true,
+      args : [ meson.current_source_dir() + '/expectError.sh', 'Could not find or read from solution sequence file', jaffarPlayer.full_path(), 'race04_short.jaffar', 'does_not_exist.sol', '--reproduce', '--disableRender', '--exitOnEnd', '--unattended' ],
       suite : [ 'reproductions', 'quickerNES', 'sprilo' ])
 
 endif
@@ -383,11 +412,10 @@ test('exciteBike_native_reproduce',
 
 # Negative path: a missing solution file must make the player fail cleanly
 test('exciteBike_native_missing_solution',
-      jaffarPlayer,
+      bash,
       workdir : meson.current_source_dir() + '/nes/exciteBike',
       timeout: testTimeout,
-      args : [ 'flatRun.jaffar', 'does_not_exist.sol', '--reproduce', '--disableRender', '--exitOnEnd', '--unattended' ],
-      should_fail : true,
+      args : [ meson.current_source_dir() + '/expectError.sh', 'Could not find or read from solution sequence file', jaffarPlayer.full_path(), 'flatRun.jaffar', 'does_not_exist.sol', '--reproduce', '--disableRender', '--exitOnEnd', '--unattended' ],
       suite : [ 'reproductions', 'ExciteBikeNative', 'exciteBike' ])
 
 endif

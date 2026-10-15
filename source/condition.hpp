@@ -74,7 +74,29 @@ public:
     return op_equal;
   }
 
+  /**
+   * @brief Tells whether an operator is a bit test (BitTrue/BitFalse).
+   * @param opType The operator.
+   * @return true for the bit-test operators.
+   */
+  static __INLINE__ bool isBitOperator(const operator_t opType) { return opType == op_bit_true || opType == op_bit_false; }
+
+  /**
+   * @brief Tells whether an operator is a modulo test (%0/%N).
+   * @param opType The operator.
+   * @return true for the modulo operators.
+   */
+  static __INLINE__ bool isModuloOperator(const operator_t opType) { return opType == op_modulo_zero || opType == op_modulo_non_zero; }
+
 protected:
+  /**
+   * @brief Tests one bit of a value.
+   * @param value The value (its two's-complement bits, for negative numbers).
+   * @param bit   The bit index.
+   * @return true if bit @p bit of @p value is set; false for an index past 63.
+   */
+  static __INLINE__ bool isBitSet(const uint64_t value, const uint64_t bit) { return bit < 64 && ((value >> bit) & 1) != 0; }
+
   /// @brief The comparison operator selected for this condition.
   const operator_t _opType;
 };
@@ -148,14 +170,14 @@ private:
   static __INLINE__ bool _opLess(const T a, const T b) { return a < b; }
   /// @brief Returns a <= b.
   static __INLINE__ bool _opLessOrEqual(const T a, const T b) { return a <= b; }
-  /// @brief Returns true if the bit of @p a at index @p b is set.
-  static __INLINE__ bool _opBitTrue(const T a, const T b) { return jaffarCommon::bitwise::getBitFlag(a, b); }
-  /// @brief Returns true if the bit of @p a at index @p b is clear.
-  static __INLINE__ bool _opBitFalse(const T a, const T b) { return !jaffarCommon::bitwise::getBitFlag(a, b); }
-  /// @brief Returns true if a % b == 0.
-  static __INLINE__ bool _opModuloZero(const T a, const T b) { return (uint64_t)a % (uint64_t)b == 0; }
-  /// @brief Returns true if a % b != 0.
-  static __INLINE__ bool _opModuloNonZero(const T a, const T b) { return (uint64_t)a % (uint64_t)b > 0; }
+  /// @brief Returns true if the bit of @p a at index @p b is set (false for an index past 63).
+  static __INLINE__ bool _opBitTrue(const T a, const T b) { return isBitSet((uint64_t)a, (uint64_t)b); }
+  /// @brief Returns true if the bit of @p a at index @p b is clear (true for an index past 63).
+  static __INLINE__ bool _opBitFalse(const T a, const T b) { return isBitSet((uint64_t)a, (uint64_t)b) == false; }
+  /// @brief Returns true if a % b == 0 (false when b is 0).
+  static __INLINE__ bool _opModuloZero(const T a, const T b) { return (uint64_t)b != 0 && (uint64_t)a % (uint64_t)b == 0; }
+  /// @brief Returns true if a % b != 0 (false when b is 0).
+  static __INLINE__ bool _opModuloNonZero(const T a, const T b) { return (uint64_t)b != 0 && (uint64_t)a % (uint64_t)b > 0; }
 
   /// @brief Resolved operator implementation, selected once at construction from @ref _opType.
   bool (*_opFcPtr)(const T, const T);
@@ -164,6 +186,60 @@ private:
   Property* const _property2;  ///< Second operand as a property, or nullptr to use @ref _immediate2.
   const T         _immediate1; ///< First operand's immediate value (used when @ref _property1 is null).
   const T         _immediate2; ///< Second operand's immediate value (used when @ref _property2 is null).
+};
+
+/**
+ * @brief Condition whose operands are compared by value whatever their datatypes: each is read as a
+ *        long double (exact for every integer type up to 64 bits).
+ *
+ * Used where a single operand type would change the comparison: two properties of different datatypes,
+ * or an integer property against an immediate that is fractional or outside the property's range (e.g.
+ * "HP < 17.99" on a UINT8, which must mean HP <= 17, not HP < 17). The bit and modulo operators work on
+ * the operands' integer values.
+ */
+class _wCondition : public Condition
+{
+public:
+  /**
+   * @brief Builds a value-compared condition from its operands.
+   * @param opType     The comparison operator to apply.
+   * @param property1  First operand (a property).
+   * @param property2  Second operand as a property, or nullptr to use @p immediate2.
+   * @param immediate2 Second operand's immediate value, used when @p property2 is nullptr.
+   */
+  _wCondition(const operator_t opType, Property* property1, Property* property2, const long double immediate2)
+      : Condition(opType), _property1(property1), _property2(property2), _immediate2(immediate2)
+  {
+  }
+
+  /**
+   * @brief Evaluates the comparison using the operands' current values.
+   * @return The result of applying the operator to the two operands' values.
+   */
+  __INLINE__ bool evaluate() const
+  {
+    const long double a = _property1->getValueAsLongDouble();
+    const long double b = _property2 != nullptr ? _property2->getValueAsLongDouble() : _immediate2;
+    switch (_opType)
+    {
+      case op_equal: return a == b;
+      case op_not_equal: return a != b;
+      case op_greater: return a > b;
+      case op_greater_or_equal: return a >= b;
+      case op_less: return a < b;
+      case op_less_or_equal: return a <= b;
+      case op_bit_true: return isBitSet((uint64_t)(int64_t)a, (uint64_t)(int64_t)b);
+      case op_bit_false: return isBitSet((uint64_t)(int64_t)a, (uint64_t)(int64_t)b) == false;
+      case op_modulo_zero: return (uint64_t)(int64_t)b != 0 && (uint64_t)(int64_t)a % (uint64_t)(int64_t)b == 0;
+      case op_modulo_non_zero: return (uint64_t)(int64_t)b != 0 && (uint64_t)(int64_t)a % (uint64_t)(int64_t)b > 0;
+    }
+    return false;
+  }
+
+private:
+  Property* const   _property1;  ///< First operand.
+  Property* const   _property2;  ///< Second operand as a property, or nullptr to use @ref _immediate2.
+  const long double _immediate2; ///< Second operand's immediate value (used when @ref _property2 is null).
 };
 
 } // namespace jaffarPlus

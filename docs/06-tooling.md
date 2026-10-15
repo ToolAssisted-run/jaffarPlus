@@ -20,16 +20,17 @@ jaffar <configFile> [--dryRun]
 | Argument | Description |
 |----------|-------------|
 | `configFile` | Path to the `.jaffar` configuration to run. Required. |
-| `--dryRun` | Load and validate the entire configuration (driver, emulator, game, rules, inputs) **without** initializing NUMA, loading trace files, or running the search. Prints `Finished dry run successfully.` on success. |
+| `--dryRun` | Load and validate the entire configuration (driver, emulator, game, rules, inputs) **without** loading data files (traces, reference solutions and hashes) or running the search. Prints `Finished dry run successfully.` on success. |
 
 `--dryRun` is the recommended first step on any new or edited configuration — it catches missing,
 mistyped, and **unrecognized** keys quickly and host-independently (it constructs the driver, game,
 and emulator, which is where both the required-key and unknown-key checks run). See the
 [Configuration Reference](02-config-reference.md).
 
-On a real run, the exit line reports one of `Solution found.`, `Engine ran out of states.`, or
-`Maximum step count reached.` — see [Getting Started](01-getting-started.md#reading-the-output) and
-[Search Concepts](04-search-concepts.md#states-and-the-state-database) for what each means.
+On a real run, the exit line reports why the search stopped (e.g. `Solution found.`, `Engine ran out
+of states.`, or `Maximum step count reached.`), and the process exit code matches it — see
+[Understanding the output](07-understanding-output.md#the-exit-line) for every reason and code, and
+[Search Concepts](04-search-concepts.md#states-and-the-state-database) for what they mean.
 
 ## `jaffar-player`
 

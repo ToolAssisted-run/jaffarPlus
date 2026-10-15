@@ -65,9 +65,8 @@ int main(int argc, char** argv)
   const uint64_t    insertsPerGen = strtoull(argv[3], nullptr, 10);
   const size_t      generations   = strtoull(argv[4], nullptr, 10);
 
-  // Single NUMA group, so the whole budget lives in one hash database driven by all threads.
-  const int numaCount = numa_max_node() + 1;
-  jaffarPlus::initializeNUMA(numaCount);
+  // NUMA topology and thread count from the host (OMP_NUM_THREADS)
+  jaffarPlus::initializeNUMA();
 
   // Build the hash-DB config. Total budget = Max Store Count * Max Store Size; use 2 stores so the
   // windowed scheme has its usual 50%-floor behaviour.

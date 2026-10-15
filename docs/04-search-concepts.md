@@ -198,6 +198,6 @@ benchmarking without editing the config:
 | `JAFFAR_ENGINE_OVERRIDE_MAX_STATEDB_SIZE_MB` | `Engine Configuration` > `State Database` > `Max Size (Mb)` |
 | `JAFFAR_ENGINE_OVERRIDE_MAX_HASHDB_SIZE_MB` | `Engine Configuration` > `Hash Database` > `Max Store Size (Mb)` |
 | `JAFFAR_ENGINE_OVERRIDE_MAX_THREAD_COUNT` | OpenMP thread count |
-| `JAFFAR_IS_DRY_RUN` | Set internally by `--dryRun`; skips the NUMA check and trace-file loading during config validation |
+| `JAFFAR_IS_DRY_RUN` | Set internally by `--dryRun`; skips data-file loading (traces, reference solutions and hashes) during config validation. A real run ignores (and clears) it. |
 
 See the [Tooling Reference](06-tooling.md) for the command-line flags.

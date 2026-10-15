@@ -5,8 +5,10 @@
  *
  * @details Reads the JSON config file named on the command line. In dry-run mode it only constructs
  * the driver to validate the configuration (signalling the construction path via the
- * @c JAFFAR_IS_DRY_RUN environment variable so host-specific side effects are skipped) and exits.
- * Otherwise it initializes and runs the driver, then reports the exit reason and final step.
+ * @c JAFFAR_IS_DRY_RUN environment variable so data-file loading is skipped) and exits.
+ * Otherwise it initializes and runs the driver, then reports the exit reason and final step. Any
+ * error (bad arguments or configuration, missing files, failed allocations) is reported with its
+ * message and ends the process with exit code @ref errorExitCode instead of an abort.
  */
 
 #include "driver.hpp"
@@ -16,21 +18,42 @@
 #include <jaffarCommon/logger.hpp>
 #include <jaffarCommon/string.hpp>
 
+/// @brief Process exit code for an error (an exception reaching main), distinct from every exit reason.
+constexpr int errorExitCode = 8;
+
+/// @brief The program proper (see @ref main, which reports its errors).
+int run(int argc, char* argv[]);
+
 /**
  * @brief Entry point for the jaffar engine executable.
  *
  * @details Parses the command line (required @c configFile and the @c --dryRun flag), loads and
  * parses the JSON config, and constructs a @ref jaffarPlus::Driver from it. In dry-run mode it sets
- * the @c JAFFAR_IS_DRY_RUN environment variable before constructing the driver (so host-specific side
- * effects -- the NUMA topology check and trace-file loading -- are skipped) and returns after
+ * the @c JAFFAR_IS_DRY_RUN environment variable before constructing the driver (so data-file loading
+ * is skipped) and returns after
  * successful validation. Otherwise it initializes and runs the driver, maps the resulting
  * @ref jaffarPlus::Driver::exitReason_t to a message, and prints the final step and exit reason.
  *
  * @param argc Argument count.
  * @param argv Argument vector.
- * @return The driver's exit reason value (in non-dry-run mode), or 0 after a successful dry run.
+ * @return The driver's exit reason value (in non-dry-run mode), 0 after a successful dry run, or
+ *         @ref errorExitCode if an error was raised.
  */
 int main(int argc, char* argv[])
+{
+  try
+  {
+    return run(argc, argv);
+  }
+  catch (const std::exception& e)
+  {
+    fflush(stdout);
+    fprintf(stderr, "[J+] Error: %s\n", e.what());
+    return errorExitCode;
+  }
+}
+
+int run(int argc, char* argv[])
 {
   // Parsing command line arguments
   argparse::ArgumentParser program("jaffar", "2.0.0");
@@ -54,10 +77,16 @@ int main(int argc, char* argv[])
   // Getting dry run option
   const bool isDryRun = program.get<bool>("--dryRun");
 
-  // In dry-run mode we only validate the configuration. Signal this to the construction path (via the
-  // same env var the test harness uses) so host-specific side effects -- the NUMA topology check and
-  // trace-file loading -- are skipped: config validation must not depend on the host or on data files.
+  // In dry-run mode we only validate the configuration. Signal this to the construction path (via an
+  // environment variable, which game modules read as well) so data-file loading (traces, reference
+  // solutions and hashes) is skipped: config validation must not depend on data files. A real run
+  // clears the variable, since a value left in the environment would silently disable those files.
   if (isDryRun) setenv("JAFFAR_IS_DRY_RUN", "1", 1);
+  if (isDryRun == false && std::getenv("JAFFAR_IS_DRY_RUN") != nullptr)
+  {
+    jaffarCommon::logger::log("[J+] Warning: ignoring JAFFAR_IS_DRY_RUN from the environment (use --dryRun for a dry run)\n");
+    unsetenv("JAFFAR_IS_DRY_RUN");
+  }
 
   // Reporting script file
   jaffarCommon::logger::log("[J+] Loading script file: '%s'\n", configFile.c_str());
@@ -101,7 +130,6 @@ int main(int argc, char* argv[])
   if (exitReason == jaffarPlus::Driver::exitReason_t::outOfStates) exitReasonString = "Engine ran out of states.";
   if (exitReason == jaffarPlus::Driver::exitReason_t::maximumStepReached) exitReasonString = "Maximum step count reached.";
   if (exitReason == jaffarPlus::Driver::exitReason_t::bestBelowReference) exitReasonString = "Best fell below the reference reward floor.";
-  if (exitReason == jaffarPlus::Driver::exitReason_t::referenceBelowWorst) exitReasonString = "Reference fell below the worst kept state (reference evicted from the frontier).";
   if (exitReason == jaffarPlus::Driver::exitReason_t::exceededReferenceFrames) exitReasonString = "Reached the reference's frame count without winning (can no longer beat it).";
   if (exitReason == jaffarPlus::Driver::exitReason_t::inputHistoryNearCapacity)
     exitReasonString = "Input-history trie neared its hard memory ceiling (use Type \"Raw\" or a smaller State DB).";

@@ -32,7 +32,11 @@ Step 154 - Exit Reason: Solution found.
 | `Solution found.` | 0 | A state satisfied a `Trigger Win` rule (and the `Stop Frames After First Win` window elapsed). The winning solution was written to the configured output path. |
 | `Engine ran out of states.` | 1 | The reachable, non-duplicate state space was **exhausted** without a win. The search is complete — no solution exists under the current rules/inputs/hashing. |
 | `Maximum step count reached.` | 2 | The search hit `Max Steps` before finding a win or exhausting the space. It was cut off, **not** completed — raise `Max Steps` (or improve guidance) to go further. |
+| `Best fell below the reference reward floor.` | 3 | `Reference Reward Floor` is enabled and, before any win, the best state's floor reward fell below the reference trace (beyond `Tolerance`, `Step Grace` steps back): the search can no longer keep pace with the reference. |
+| `Input-history trie neared its hard memory ceiling (...)` | 4 | The `Trie` input history reached 95% of its node ceiling (or ran out of nodes). The best solution so far is still saved. |
+| `Reached the reference's frame count without winning (can no longer beat it).` | 6 | `Reference Reward Floor` is enabled and the search reached the reference solution's length without a win. |
 | `Win collection complete (Max Files reached).` | 7 | `Win State Collection` was enabled and collected its `Max Files` cap of distinct win solutions. |
+| (no exit line; `[J+] Error: ...` on stderr) | 8 | An error stopped the run: a configuration error, a missing file, a failed allocation. The message says what went wrong. |
 
 > The shell `$?` after a backgrounded pipeline reflects the *last* command, not `jaffar`. Read the
 > `Exit Reason` line itself, not the exit code of a wrapping command.
@@ -92,7 +96,7 @@ done this step and in total:
 | `Win States` | New states that satisfied a win rule. **`> 0` means a solution exists**, even if the run is configured to continue past wins (`Stop Frames After First Win` absent or > 0). |
 | `Failed States` | New states killed by a `Trigger Fail` rule (pruned). |
 | `Repeated States` | New states discarded as **duplicates** (already-seen hash). A high percentage (e.g. 90%+) means the search is re-deriving the same positions — normal for combat/cycles, but if it dominates and the count is small, the reachable space is tiny. |
-| `Dropped States (No Storage Available)` | States discarded because the **state database is full** (see below). Non-zero means you are memory-bound — raise the budget or shrink the state. |
+| `Dropped States (No Storage Available)` | States discarded because the **state database is full** (see below): no free slot, no unexpanded state of the current step left to evict, and no worse state of the same worker's own new states to replace. Non-zero means you are memory-bound — raise the budget or shrink the state. |
 | `Dropped States (Failed Serialization)` / `(Checkpoint)` | States dropped because they could not be serialized, or pruned by checkpoint tolerance. |
 
 `Checkpoint (Level / Tolerance / Cutoff)` shows the current checkpoint depth reached, its tolerance,
@@ -134,6 +138,9 @@ memory bottleneck — tune the L1/L2 sizes in the config.
 - `Database Popping State Rates` / `Free-Slot Cache` / `Get Free State Rates` — NUMA locality
   bookkeeping for the state pool (hit/steal/locality rates, average NUMA distance). These matter when
   diagnosing scaling on a multi-socket host; on a single node they can be ignored.
+- `Next States Replaced By Better Ones` — once the database is full and nothing is left to steal, a
+  worker replaces the worst new state it produced itself in this step with a strictly better one
+  instead of dropping the better one. This counts those replacements (cumulative).
 - `Manually Saved Solution` — the path/reward of any solution written out so far.
 
 ## Reading a run at a glance

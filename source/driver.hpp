@@ -9,6 +9,7 @@
 #include "engine.hpp"
 #include "game.hpp"
 #include "runner.hpp"
+#include <atomic>
 #include <chrono>
 #include <cstdlib>
 #include <fstream>
@@ -51,7 +52,7 @@ public:
 
     inputHistoryNearCapacity = 4, ///< The shared input-history trie neared/hit its hard memory ceiling
 
-    referenceBelowWorst = 5, ///< The reference reward fell below the worst kept state (reference evicted from the frontier)
+    // 5 was referenceBelowWorst, never returned: "Cancel If Reference Below Worst" only flags the step in the log
 
     exceededReferenceFrames = 6 ///< The run reached the reference's frame count without winning (can no longer beat it)
   };
@@ -161,9 +162,9 @@ public:
       // compared against our best at k steps after OUR root: synchronized in reward, not in state.
       _referenceFloorInitialStatePath    = refJs.contains("Initial State File Path") ? jaffarCommon::json::popString(refJs, "Initial State File Path") : std::string();
       _referenceFloorInitialSequencePath = refJs.contains("Initial Sequence File Path") ? jaffarCommon::json::popString(refJs, "Initial Sequence File Path") : std::string();
-      // Optional (default false): also cancel the instant the reference reward falls BELOW the worst kept
-      // state -- i.e. the reference solution has been evicted from the frontier, so the winning line can no
-      // longer be reached no matter how good "best" looks. A stricter companion to the best-below check.
+      // Optional (default false): flag (in the per-step reference log line; it does NOT cancel, despite the
+      // key's name) every step at which the reference reward falls BELOW the worst kept state -- i.e. the
+      // frontier band no longer holds reference-level states, so it likely needs to be larger.
       _cancelIfReferenceBelowWorst = refJs.contains("Cancel If Reference Below Worst") ? jaffarCommon::json::popBoolean(refJs, "Cancel If Reference Below Worst") : false;
       // Optional margin for the below-worst check (default 0): cancel only when ref + margin < worst. Set this
       // to the Reference Pinning bonus so the guard does not fire while the pinned reference state (whose
@@ -218,6 +219,7 @@ public:
   {
     // Resetting step counter
     _currentStep = 0;
+    _publishedStep.store(0);
 
     // Resetting win state counter
     _winStatesFound = 0;
@@ -458,13 +460,19 @@ public:
       updateBestState();
       updateWorstState();
 
-      // Reference frame-count cap: the win state is checked at the top of the loop, so if the floor is enabled and
-      // we have reached the reference's frame count here without winning, the run has spent the reference's entire
-      // frame budget -- it can no longer even match, let alone beat, the reference. Cancel.
-      if (_referenceFloorEnabled && _referenceReward.size() > 0 && _currentStep >= _referenceReward.size())
+      // The reference checks below (frame cap and floor) only apply while no win has been found: once
+      // the search has a win and keeps going (Stop Frames After First Win > 0, or End On First Win State
+      // false), it is collecting further wins, not racing the reference.
+      const bool referenceChecksActive = _referenceFloorEnabled && _winStatesFound == 0;
+
+      // Reference frame-count cap: the trace holds one entry per depth, the root included, so a reference of
+      // N frames has N + 1 entries. Wins are checked at the top of the loop, so if we have reached depth N
+      // here without winning, the run has spent the reference's entire frame budget -- it can no longer even
+      // match, let alone beat, the reference. Cancel.
+      if (referenceChecksActive && _referenceReward.size() > 0 && _currentStep >= _referenceReward.size() - 1)
       {
         jaffarCommon::logger::log("[J+] Reached reference frame count (%lu frames) at step %lu without winning -- can no longer beat the reference, cancelling.\n",
-                                  _referenceReward.size(), _currentStep);
+                                  _referenceReward.size() - 1, _currentStep);
         exitReason = exitReason_t::exceededReferenceFrames;
         break;
       }
@@ -473,11 +481,11 @@ public:
       // can no longer keep pace with the reference -- cancel now (purely a stop signal; nothing was pruned).
       // With Step Grace G, the comparison point is the reference G steps earlier (bounded time slack).
       const size_t floorRefStep = (_currentStep > _referenceFloorStepGrace) ? _currentStep - _referenceFloorStepGrace : 0;
-      if (_referenceFloorEnabled && _currentStep < _referenceReward.size() && _bestStateFloorReward < _referenceReward[floorRefStep] - _referenceFloorTolerance)
+      if (referenceChecksActive && _currentStep < _referenceReward.size() && _bestStateFloorReward < _referenceReward[floorRefStep] - _referenceFloorTolerance)
       {
         // Diagnostic (JAFFAR_FLOOR_AUDIT=1): on cancel, byte-compare the best state against the
         // stored canonical reference state at this depth, under the volatile-residue mask.
-        if (false)
+        if (std::getenv("JAFFAR_FLOOR_AUDIT") != nullptr)
         {
           const auto& refStates = _engine->getRefStates();
           const auto& mask      = _engine->getRefVolatileMask();
@@ -570,6 +578,7 @@ public:
 
       // Increasing step counter
       _currentStep++;
+      _publishedStep.store(_currentStep);
     }
 
     // Setting finalized flag
@@ -633,7 +642,7 @@ public:
 
     // Saving best solution and state
     std::string jobSuffix  = std::string(".") + std::to_string(_jobId);
-    std::string stepSuffix = std::string(".") + std::to_string(_currentStep);
+    std::string stepSuffix = std::string(".") + std::to_string(_publishedStep.load());
 
     // Saving files with standard name
     if (_saveIntermediateBestSolutionPath != "") jaffarCommon::file::saveStringToFile(_bestSolutionStorage, _saveIntermediateBestSolutionPath);
@@ -692,7 +701,7 @@ public:
       auto timeElapsedSinceLastSave = jaffarCommon::timing::timeDeltaSeconds(currentTime, lastSaveTime);
 
       // Checking if we need to save best state
-      if (timeElapsedSinceLastSave > _saveIntermediateFrequency && _currentStep > 1)
+      if (timeElapsedSinceLastSave > _saveIntermediateFrequency && _publishedStep.load() > 1)
       {
         // Saving worst and best state information
         saveBestStateInformation();
@@ -719,8 +728,13 @@ public:
     // Making sure the intermediate result thread is not currently reading
     _updateIntermediateResultMutex.lock();
 
-    // Getting worst state so far
+    // Getting worst state so far (null when the last step produced no state)
     auto worstState = _engine->getStateDb()->getWorstState();
+    if (worstState == nullptr)
+    {
+      _updateIntermediateResultMutex.unlock();
+      return;
+    }
 
     // Saving worst state into the storage (gather hot slab slot + its cold history into the full buffer)
     _engine->getStateDb()->captureSlotToBuffer(worstState, _worstStateStorage.data());
@@ -760,11 +774,16 @@ public:
     // If we haven't found any winning state, simply use the currently best state
     if (_winStatesFound == 0)
     {
-      // Getting best state so far
+      // Getting best state so far (null when the last step produced no state: nothing to update)
       auto bestState = _engine->getStateDb()->getBestState();
+      if (bestState == nullptr)
+      {
+        _updateIntermediateResultMutex.unlock();
+        return;
+      }
 
       // Saving best state into the storage (gather hot slab slot + its cold history into the full buffer)
-      if (bestState != nullptr) _engine->getStateDb()->captureSlotToBuffer(bestState, _bestStateStorage.data());
+      _engine->getStateDb()->captureSlotToBuffer(bestState, _bestStateStorage.data());
     }
 
     // If we have found a winning state in this step that improves on the current best, save it now
@@ -969,6 +988,8 @@ private:
 
   size_t _currentStep; ///< Counter for the number of steps performed; the initial state counts as step zero.
 
+  std::atomic<size_t> _publishedStep{0}; ///< Copy of @ref _currentStep for the intermediate-result saver thread.
+
   ssize_t _stopFramesAfterFirstWin = -1; ///< Stop N steps after the first win (0 = immediately; -1 = never stop on wins)
 
   ssize_t _firstWinStep = -1; ///< Step at which the first win was found
@@ -1022,7 +1043,7 @@ private:
 
   size_t _stateSize; ///< Storage size of a runner state.
 
-  __volatile__ bool _hasFinished; ///< Internal flag indicating the driver has finished.
+  std::atomic<bool> _hasFinished{false}; ///< Internal flag indicating the driver has finished (read by the saver thread).
 
   /////////////// Intermediate Result Storage
 

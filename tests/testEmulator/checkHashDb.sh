@@ -37,8 +37,10 @@ outRoll="$("$JAFFAR" gridWalker.hashdb_rolling.jaffar 2>&1)"
 reRolled='Id: [1-9]'
 [[ "$outRoll" =~ $reRolled ]] || { printf '%s\n' "$outRoll" | grep -i "store" | tail -n 10; fail "tiny hash DB: the hash-store window did not roll (no store id > 0)"; }
 
-# Evidence deduplication actually fired: at least one non-zero collision count is reported.
-reCollision='Collision Count: [1-9]'
+# Evidence deduplication actually fired: at least one non-zero collision count is reported. With
+# workers on one NUMA domain the single store reports 'Collision Count'; across several domains the
+# two-tier store reports L1 'Local Hits' and L2 'Cross-Domain Hits' instead.
+reCollision='Collision Count: [1-9]|Local Hits: [1-9]|Cross-Domain Hits: [1-9]'
 [[ "$outRoll" =~ $reCollision ]] || fail "tiny hash DB: no collisions were detected (deduplication did not fire)"
 
 echo "PASS: hash DB correct when disabled, and rolls its window + dedups while still solving optimally"

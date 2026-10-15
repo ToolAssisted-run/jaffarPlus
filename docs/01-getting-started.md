@@ -143,6 +143,9 @@ finally an exit line. The most important fields:
     the given inputs/rules, or the state database was too small).
   - `Maximum step count reached.` — hit the `"Max Steps"` limit first.
 
+  It is also the process exit code; [Understanding the output](07-understanding-output.md#the-exit-line)
+  lists every reason and code.
+
 ## Validating a configuration without running
 
 Before committing to a long search, check that a configuration parses and builds the full engine

@@ -20,12 +20,12 @@ namespace jaffarPlus
 /**
  * @brief Two-tier hash database that deduplicates visited states across the whole search.
  *
- * @details On a multi-NUMA host it uses a two-tier layout: a NUMA-local L1 store per domain in front
- * of a single global authoritative L2 store. A worker first probes its own domain's L1 (local, fast);
+ * @details When the worker threads span several NUMA domains it uses a two-tier layout: a NUMA-local
+ * L1 store per domain (with worker threads) in front of a single global authoritative L2 store. A worker first probes its own domain's L1 (local, fast);
  * only on an L1 miss does it consult L2 (which may be remote / contended). Every globally-new hash is
  * registered in L2 exactly once, so dedup stays COMPLETE -- identical to a single global table --
- * while the frequent within-domain repeats are served locally. On a single-NUMA host (one domain) the
- * L1 tier is skipped and a single local store is used, since everything is local anyway.
+ * while the frequent within-domain repeats are served locally. When all workers run on a single domain
+ * the L1 tier is skipped and a single local store is used, since everything is local anyway.
  *
  * This is automatic; there is no script-level configuration for it.
  */
@@ -62,9 +62,10 @@ public:
    * @brief Allocates the hash stores and splits the configured budget across the L1 and L2 tiers.
    *
    * @details The configured "Max Store Size" is the absolute per-generation budget for the whole hash
-   * DB. On a multi-domain run the global L2 receives 3/4 of the budget and the per-domain L1 caches
-   * share the remaining 1/4 (split evenly across domains); on a single-domain run the lone global
-   * store receives the entire budget and no L1 tier is created.
+   * DB. When worker threads run on several NUMA domains the global L2 receives 3/4 of the budget and
+   * the per-domain L1 caches share the remaining 1/4 (split evenly across the domains with worker
+   * threads; the others get no L1); when they all run on one domain the lone global store receives
+   * the entire budget and no L1 tier is created.
    */
   __INLINE__ void initialize()
   {
@@ -74,7 +75,12 @@ public:
     // Rolling is driven by each store's actual measured memory (see getStoreSizeBytes).
     const size_t totalBudgetBytes = (size_t)(_maxStoreSizeMb * 1024.0 * 1024.0);
 
-    if (_numaCount > 1)
+    // Only the domains with worker threads ever probe an L1
+    size_t activeNumaCount = 0;
+    for (int i = 0; i < _numaCount; i++)
+      if (isNumaDomainActive(i)) activeNumaCount++;
+
+    if (activeNumaCount > 1)
     {
       // Multi-domain: split the budget so L2 + all L1 == the configured budget. The global L2 gets 3/4
       // and the per-domain L1 caches share the remaining 1/4. L2 holds the complete dedup set, which
@@ -83,9 +89,11 @@ public:
       // close states -- so a smaller cache still captures most of the local hit rate. Hence the 3:1
       // weighting toward L2.
       _maxStoreSizeBytes   = (totalBudgetBytes * 3) / 4;
-      _l1MaxStoreSizeBytes = (totalBudgetBytes / 4) / (size_t)_numaCount;
-      _l1.resize(_numaCount);
-      for (int i = 0; i < _numaCount; i++) _l1[i] = makeStore();
+      _l1MaxStoreSizeBytes = (totalBudgetBytes / 4) / activeNumaCount;
+      _l1.assign(_numaCount, nullptr);
+      for (int i = 0; i < _numaCount; i++)
+        if (isNumaDomainActive(i)) _l1[i] = makeStore();
+      _l1ActiveCount = activeNumaCount;
     }
     else
     {
@@ -139,7 +147,7 @@ public:
     // Single-domain (no L1 tier): report L2 as a single store, with its rolling-window breakdown
     if (_l1.empty())
     {
-      jaffarCommon::logger::log("[J+]   Single-Store Dedup (single NUMA domain), budget %.1f Mb:\n", (double)(_maxStoreSizeBytes * _maxStoreCount) * toMb);
+      jaffarCommon::logger::log("[J+]   Single-Store Dedup (workers on a single NUMA domain), budget %.1f Mb:\n", (double)(_maxStoreSizeBytes * _maxStoreCount) * toMb);
       printStores(_l2, "");
       return;
     }
@@ -154,6 +162,7 @@ public:
     // 100%. The lifetime totals make every ratio below a true fraction bounded by 100%.
     for (auto* const g : _l1)
     {
+      if (g == nullptr) continue;
       l1q += g->getTotalQueryCount();
       l1c += g->getTotalCollisionCount();
       for (const auto& s : g->_hashStores) l1entries += s.hashSet.size();
@@ -167,10 +176,10 @@ public:
     // Budgets: each L1 rolls at _l1MaxStoreSizeBytes and keeps up to _maxStoreCount generations
     // (times numaCount domains); L2 rolls at _maxStoreSizeBytes. The two budgets sum to the
     // configured Max Store Size x Max Store Count (3/4 to L2, 1/4 shared across the L1 caches).
-    const double l1BudgetMb = (double)(_l1MaxStoreSizeBytes * _maxStoreCount * (size_t)_numaCount) * toMb;
+    const double l1BudgetMb = (double)(_l1MaxStoreSizeBytes * _maxStoreCount * _l1ActiveCount) * toMb;
     const double l2BudgetMb = (double)(_maxStoreSizeBytes * _maxStoreCount) * toMb;
 
-    jaffarCommon::logger::log("[J+]   Two-Tier Dedup (%d NUMA-local L1 + global L2):\n", _numaCount);
+    jaffarCommon::logger::log("[J+]   Two-Tier Dedup (%lu NUMA-local L1 + global L2):\n", _l1ActiveCount);
     jaffarCommon::logger::log("[J+]      + L1 (local):                           Checks: %lu, Local Hits: %lu (%.3f%%), Entries: %.3f M, Size: %.1f / %.1f Mb\n", l1q, l1c,
                               l1q == 0 ? 0.0 : 100.0 * (double)l1c / (double)l1q, (double)l1entries * toMb, l1SizeMb, l1BudgetMb);
     jaffarCommon::logger::log(
@@ -248,7 +257,8 @@ public:
    */
   __INLINE__ void advanceStep()
   {
-    for (auto* const g : _l1) rollStore(g, _l1MaxStoreSizeBytes);
+    for (auto* const g : _l1)
+      if (g != nullptr) rollStore(g, _l1MaxStoreSizeBytes);
     rollStore(_l2, _maxStoreSizeBytes);
   }
 
@@ -466,9 +476,11 @@ private:
 
   size_t _maxStoreSizeBytes; ///< Maximum global L2 store size, in bytes (derived from @ref _maxStoreSizeMb).
 
-  size_t _l1MaxStoreSizeBytes = 0; ///< Per-domain L1 store budget, in bytes (derived: global budget / number of NUMA domains).
+  size_t _l1MaxStoreSizeBytes = 0; ///< Per-domain L1 store budget, in bytes (derived: a quarter of the budget / number of domains with worker threads).
 
-  std::vector<NUMAStore_t*> _l1; ///< Per-domain NUMA-local L1 caches. Empty on a single-domain run.
+  size_t _l1ActiveCount = 0; ///< Number of L1 caches (domains with worker threads); 0 on a single-domain run.
+
+  std::vector<NUMAStore_t*> _l1; ///< Per-domain NUMA-local L1 caches (null for domains without worker threads). Empty on a single-domain run.
 
   NUMAStore_t* _l2 = nullptr; ///< The single global authoritative store (holds the complete dedup set).
 };

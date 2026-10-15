@@ -37,8 +37,8 @@
 #ifdef JAFFARPLUS_DETAILED_PROFILING
 /// @brief Declares a timestamp variable @p var holding the current time (detailed-profiling build).
 #define JAFFAR_PROF_DECL(var) const auto var = jaffarCommon::timing::now()
-/// @brief Accumulates the microseconds elapsed since timestamp @p var into @p field.
-#define JAFFAR_PROF_ACC(field, var) field += jaffarCommon::timing::timeDeltaMicroseconds(jaffarCommon::timing::now(), var)
+/// @brief Accumulates the nanoseconds elapsed since timestamp @p var into @p field (reported in microseconds).
+#define JAFFAR_PROF_ACC(field, var) field += jaffarCommon::timing::timeDeltaNanoseconds(jaffarCommon::timing::now(), var)
 #else
 #define JAFFAR_PROF_DECL(var) ((void)0)
 #define JAFFAR_PROF_ACC(field, var) ((void)0)
@@ -83,17 +83,18 @@ public:
     _runners.resize(_threadCount);
 
     // Creating runners, one per thread
-    JAFFAR_PARALLEL
-    {
-      // Creating runner from the configuration
-      auto r = jaffarPlus::Runner::getRunner(emulatorConfig, gameConfig, runnerConfig);
+    runOnAllThreads(
+        [&]()
+        {
+          // Creating runner from the configuration
+          auto r = jaffarPlus::Runner::getRunner(emulatorConfig, gameConfig, runnerConfig);
 
-      // Storing runner. Index by the (dense) OpenMP thread id, NOT sched_getcpu(): the latter is only
-      // equal to the thread id when threads are pinned 1:1 (OMP_PROC_BIND), and otherwise leaves
-      // _runners[0] null -> the *_runners[0] use below (and workerFunction, which already uses the
-      // thread id) would dereference a null runner. This bites CI runners that don't pin threads.
-      _runners[jaffarCommon::parallel::getThreadId()] = std::move(r);
-    }
+          // Storing runner. Index by the (dense) OpenMP thread id, NOT sched_getcpu(): the latter is only
+          // equal to the thread id when threads are pinned 1:1 (OMP_PROC_BIND), and otherwise leaves
+          // _runners[0] null -> the *_runners[0] use below (and workerFunction, which already uses the
+          // thread id) would dereference a null runner. This bites CI runners that don't pin threads.
+          _runners[jaffarCommon::parallel::getThreadId()] = std::move(r);
+        });
 
     // Grabbing a runner to do continue build the state databases
     auto& r = *_runners[0];
@@ -239,6 +240,7 @@ public:
     _getAllowedInputsAverageCumulativeTime   = 0;
     _advanceStateDbAverageCumulativeTime     = 0;
     _popBaseStateDbAverageCumulativeTime     = 0;
+    _getCandidateInputsAverageCumulativeTime = 0;
 
     // Resetting total running time
     _totalRunningTime = 0;
@@ -271,15 +273,21 @@ public:
     _inputHistoryBacking = inputHistory::createSharedBacking(_runners[0]->getInputHistoryConfig(), _threadCount + 1);
 
     // Initializing runners, one per thread
-    JAFFAR_PARALLEL
-    {
-      // Creating thread's own runner (index by OpenMP thread id, consistent with construction/workerFunction)
-      auto& r = _runners[jaffarCommon::parallel::getThreadId()];
+    runOnAllThreads(
+        [&]()
+        {
+          // Creating thread's own runner (index by OpenMP thread id, consistent with construction/workerFunction)
+          auto& r = _runners[jaffarCommon::parallel::getThreadId()];
 
-      // Share the one backing (prefix sharing) and give each worker its own free-list shard (its thread id).
-      r->setInputHistoryBacking(_inputHistoryBacking, (uint32_t)jaffarCommon::parallel::getThreadId(), _threadCount + 1);
-      r->initialize();
-    }
+          // Share the one backing (prefix sharing) and give each worker its own free-list shard (its thread id).
+          r->setInputHistoryBacking(_inputHistoryBacking, (uint32_t)jaffarCommon::parallel::getThreadId(), _threadCount + 1);
+          r->initialize();
+        });
+
+    // Win-collection property names are resolved per win, inside the worker threads: check them now,
+    // where an error is reported cleanly (instead of at the first win, losing it)
+    for (const auto& pn : _winDedupPropNames)
+      if (_runners[0]->getGame()->findProperty(pn) == nullptr) JAFFAR_THROW_LOGIC("[ERROR] Win State Collection dedup property '%s' not registered\n", pn.c_str());
 
     // Combined RAM guard: the per-NUMA check inside StateDb::initialize() validates ONLY the state
     // DB, and the hash DB's peak footprint is (Max Store Size x Max Store Count) -- NOT just Max Store
@@ -337,6 +345,10 @@ public:
     // batch on heavy/variable cores so end-of-step load imbalance stays low. The measurement state is
     // saved and restored so the search still starts from the exact initial state. Batch size never
     // affects which states are explored, only the work distribution.
+    // Without any allowed input at the initial state there is nothing to measure (and the search ends
+    // after its first step anyway).
+    const auto allowedInputs = r.getAllowedInputs();
+    if (_baseStateBatch == 0 && allowedInputs.empty()) _baseStateBatch = 1;
     if (_baseStateBatch == 0)
     {
       const size_t      stateSize = r.getStateSize();
@@ -346,15 +358,17 @@ public:
         r.serializeState(s);
       }
 
-      const auto                   allowedInputs = r.getAllowedInputs();
-      const InputSet::inputIndex_t calInput      = allowedInputs.empty() ? (InputSet::inputIndex_t)0 : allowedInputs[0];
+      // The step counter is runner-owned (not part of the serialized state): keep it to restore it too
+      const size_t                 stepCount = r.getStepCount();
+      const InputSet::inputIndex_t calInput  = allowedInputs[0];
 
       const size_t CAL_FRAMES = 200;
       const auto   tCal0      = jaffarCommon::timing::now();
       for (size_t i = 0; i < CAL_FRAMES; i++) r.advanceState(calInput);
       const size_t perStateNs = jaffarCommon::timing::timeDeltaNanoseconds(jaffarCommon::timing::now(), tCal0) / CAL_FRAMES;
 
-      // Restore the exact initial state
+      // Restore the exact initial state, step counter first (the input history is rebuilt for that depth)
+      r.setStepCount(stepCount);
       {
         jaffarCommon::deserializer::Contiguous d(scratch.data(), stateSize);
         r.deserializeState(d);
@@ -389,10 +403,10 @@ public:
     auto stateData = _stateDb->getFreeState(0);
 
     // Pushing initial state to the next state database
-    _stateDb->pushState(reward, r, stateData);
+    _stateDb->pushState(reward, r, stateData, 0, r.getGame()->getCheckpointLevel());
 
     // Advancing the step in the state database
-    _stateDb->advanceStep();
+    _stateDb->advanceStep(0);
 
     // Getting memory for the reference state
     _stateSizeInDatabase = _stateDb->getStateSizeInDatabase();
@@ -445,9 +459,8 @@ public:
     // (Manual solution storing) Resetting last active rule id flag
     _manualSaveSolutionUpdatedLastRuleId = false;
 
-    // Performing one computation step in parallel
-    JAFFAR_PARALLEL
-    workerFunction();
+    // Performing one computation step in parallel (an error raised by any worker is rethrown here)
+    runOnAllThreads([&]() { workerFunction(); });
 
     // Reducing per-thread accumulators into the shared totals (serial, ~threadCount adds).
     // The per-step raw timers and step counters are zeroed here, then summed; the
@@ -466,22 +479,21 @@ public:
     _popBaseStateDbThreadRawTime     = 0;
     _stepBaseStatesProcessed         = 0;
     _stepNewStatesProcessed          = 0;
-    _stepMaxLevelStored              = 0;
     for (ssize_t i = 0; i < _threadCount; i++)
     {
       const auto& a = _threadAccumulators[i];
-      _runnerStateAdvanceThreadRawTime += a.runnerStateAdvance;
-      _runnerStateLoadThreadRawTime += a.runnerStateLoad;
-      _runnerStateSaveThreadRawTime += a.runnerStateSave;
-      _calculateHashThreadRawTime += a.calculateHash;
-      _checkHashThreadRawTime += a.checkHash;
-      _ruleCheckingThreadRawTime += a.ruleChecking;
-      _getFreeStateThreadRawTime += a.getFreeState;
-      _returnFreeStateThreadRawTime += a.returnFreeState;
-      _calculateRewardThreadRawTime += a.calculateReward;
-      _getAllowedInputsThreadRawTime += a.getAllowedInputs;
-      _getCandidateInputsThreadRawTime += a.getCandidateInputs;
-      _popBaseStateDbThreadRawTime += a.popBaseStateDb;
+      _runnerStateAdvanceThreadRawTime += a.runnerStateAdvance / 1000;
+      _runnerStateLoadThreadRawTime += a.runnerStateLoad / 1000;
+      _runnerStateSaveThreadRawTime += a.runnerStateSave / 1000;
+      _calculateHashThreadRawTime += a.calculateHash / 1000;
+      _checkHashThreadRawTime += a.checkHash / 1000;
+      _ruleCheckingThreadRawTime += a.ruleChecking / 1000;
+      _getFreeStateThreadRawTime += a.getFreeState / 1000;
+      _returnFreeStateThreadRawTime += a.returnFreeState / 1000;
+      _calculateRewardThreadRawTime += a.calculateReward / 1000;
+      _getAllowedInputsThreadRawTime += a.getAllowedInputs / 1000;
+      _getCandidateInputsThreadRawTime += a.getCandidateInputs / 1000;
+      _popBaseStateDbThreadRawTime += a.popBaseStateDb / 1000;
       _stepBaseStatesProcessed += a.baseStatesProcessed;
       _stepNewStatesProcessed += a.newStatesProcessed;
       _normalStates += a.normalStates;
@@ -492,7 +504,6 @@ public:
       _droppedStatesFailedSerialization += a.droppedStatesFailedSerialization;
       _droppedStatesCheckpoint += a.droppedStatesCheckpoint;
       _droppedStatesBelowReference += a.droppedStatesBelowReference;
-      _stepMaxLevelStored += a.statesAtCheckpointLevel;
     }
 
     // Advancing hash database state
@@ -500,9 +511,10 @@ public:
     if (_hashDbEnabled == true) _hashDb->advanceStep();
     _advanceHashDbThreadRawTime += jaffarCommon::timing::timeDeltaMicroseconds(jaffarCommon::timing::now(), t0);
 
-    // Swapping next and current state databases
-    const auto t1 = jaffarCommon::timing::now();
-    _stateDb->advanceStep();
+    // Swapping next and current state databases. It also counts the states that enter the database at
+    // the (final) checkpoint level of this step, for the cohort extinction guard below.
+    const auto t1       = jaffarCommon::timing::now();
+    _stepMaxLevelStored = _stateDb->advanceStep(_checkpointLevel.load(std::memory_order_relaxed));
     _advanceStateDbThreadRawTime += jaffarCommon::timing::timeDeltaMicroseconds(jaffarCommon::timing::now(), t1);
 
     // Updating last active last rule Id
@@ -598,10 +610,11 @@ public:
     _totalBaseStatesProcessed += _stepBaseStatesProcessed;
     _totalNewStatesProcessed += _stepNewStatesProcessed;
 
-    // Checkpoint cohort extinction guard: if this step stored ZERO states at the current
-    // checkpoint level, the milestone's surviving lineage is gone -- executing the purge would
-    // wipe the whole database for the benefit of nobody. Demote the level so the search can
-    // re-achieve the milestone; the next genuine rise re-arms the cutoff.
+    // Checkpoint cohort extinction guard: if ZERO states enter the database at the current
+    // checkpoint level (none was produced, or all were evicted by better states of a lower level),
+    // the milestone's surviving lineage is gone -- executing the purge would wipe the whole
+    // database for the benefit of nobody. Demote the level so the search can re-achieve the
+    // milestone; the next genuine rise re-arms the cutoff.
     if (_checkpointLevel.load(std::memory_order_relaxed) > 0 && _stepMaxLevelStored == 0 && _stateDb->getStateCount() > 0)
     {
       std::lock_guard<std::mutex> lk(_checkpointMutex);
@@ -659,6 +672,8 @@ public:
    * @param dedupProps Names of the game properties whose concatenated bytes form the dedup key.
    * @param pathPrefix Prefix (path + basename stem) for the saved .sol files and manifest.
    * @param maxFiles Stop collecting (and terminate the run) once this many distinct keys are saved.
+   *
+   * @details The property names are checked in @ref initialize, once the game has registered its properties.
    */
   void setWinStateCollection(const std::vector<std::string>& dedupProps, const std::string& pathPrefix, const size_t maxFiles)
   {
@@ -729,9 +744,8 @@ public:
         jaffarCommon::logger::log("[J+]  + Reference Pin Hits (cumulative):             %lu (deepest %lu / %lu; ref-depth matches seen %lu)\n", _refPinHits.load(),
                                   _refPinMaxDepthHit.load(), _refPinHashes.size(), _refPinSeenPreDedup.load());
       jaffarCommon::logger::log("[J+]  + State Db States:                             %lu (%.2f / %.2f GB, %.1f%% full)\n", _stateDb->getStateCount(),
-                                (double)(_stateDb->getStateCount() * _stateDb->getStateSizeInDatabase()) / (1024.0 * 1024.0 * 1024.0),
-                                (double)_stateDb->getMaxBudgetBytes() / (1024.0 * 1024.0 * 1024.0),
-                                100.0 * (double)(_stateDb->getStateCount() * _stateDb->getStateSizeInDatabase()) / (double)_stateDb->getMaxBudgetBytes());
+                                (double)(_stateDb->getStateCount() * _stateDb->getSlotSize()) / (1024.0 * 1024.0 * 1024.0),
+                                (double)_stateDb->getMaxBudgetBytes() / (1024.0 * 1024.0 * 1024.0), 100.0 * (double)_stateDb->getStateCount() / (double)_stateDb->getMaxStates());
       return;
     }
     // Printing information
@@ -928,7 +942,7 @@ private:
   enum inputResult_t
   {
     repeated,                   ///< Resulting state's hash was already seen.
-    droppedNoStorage,           ///< No free state slot was available to store the new state.
+    droppedNoStorage,           ///< No free slot was available and the worker had no worse state of its own to replace.
     droppedFailedSerialization, ///< Pushing the state into the database failed (e.g. serialization error).
     droppedCheckpoint,          ///< State did not meet the current checkpoint level past the cutoff step.
     droppedBelowReference,      ///< State's reward fell below the reference trace at its depth (beyond the prune tolerance).
@@ -967,7 +981,7 @@ private:
    */
   struct alignas(64) threadAccumulator_t
   {
-    // Timers (microseconds)
+    // Timers (nanoseconds, converted to microseconds when reduced in runStep)
     size_t runnerStateAdvance; ///< Time spent advancing the runner state with an input.
     size_t runnerStateLoad;    ///< Time spent loading states into the runner.
     size_t runnerStateSave;    ///< Time spent saving runner states into the state database.
@@ -992,11 +1006,39 @@ private:
     size_t droppedStatesFailedSerialization; ///< Number of states dropped due to failed serialization.
     size_t droppedStatesCheckpoint;          ///< Number of states dropped for not meeting the checkpoint.
     size_t droppedStatesBelowReference;      ///< Number of states dropped for falling below the reference reward trace.
-    size_t statesAtCheckpointLevel;          ///< Number of stored states whose checkpoint level was >= the global level (cohort-extinction guard).
 
     /// @brief Resets all timers and counters to zero.
     __INLINE__ void reset() { *this = threadAccumulator_t{}; }
   };
+
+  /**
+   * @brief Runs @p body on every OpenMP thread, and rethrows (after the parallel region) the first
+   *        exception any thread raised.
+   * @param body The work each thread performs.
+   *
+   * @details An exception must not escape an OpenMP parallel region (the runtime would call
+   * std::terminate and abort without a usable message), so each thread catches its own and the first
+   * one is kept. The other threads finish their work normally.
+   */
+  template <typename F>
+  void runOnAllThreads(F&& body)
+  {
+    std::exception_ptr error;
+    std::mutex         errorLock;
+    JAFFAR_PARALLEL
+    {
+      try
+      {
+        body();
+      }
+      catch (...)
+      {
+        std::lock_guard<std::mutex> lock(errorLock);
+        if (error == nullptr) error = std::current_exception();
+      }
+    }
+    if (error != nullptr) std::rethrow_exception(error);
+  }
 
   /**
    * @brief Worker body executed in parallel by every thread during a step.
@@ -1136,15 +1178,16 @@ private:
     if (result == inputResult_t::droppedCheckpoint) acc.droppedStatesCheckpoint++;
     if (result == inputResult_t::droppedBelowReference) acc.droppedStatesBelowReference++;
 
-    // Checking whether this state's checkpoint is new. Only states that were actually stored
-    // (normal/win) may raise the global level: a failed or repeated state that satisfies a
-    // checkpoint rule leaves no surviving lineage at that level, and raising the level from it
-    // purges the entire database (guaranteed starvation at tolerance 0).
-    if (result == inputResult_t::normal || result == inputResult_t::win)
+    // Checking whether this state's checkpoint is new. Only states that were actually stored may
+    // raise the global level: a failed, repeated or win state (wins are never stored) that
+    // satisfies a checkpoint rule leaves no surviving lineage at that level, and raising the level
+    // from it purges the entire database (guaranteed starvation at tolerance 0). A stored state
+    // may still be evicted later in the step; the extinction guard in runStep counts the states
+    // that survive the step (see StateDb::advanceStep).
+    if (result == inputResult_t::normal)
     {
       const auto stateCheckpointLevel     = r.getGame()->getCheckpointLevel();
       const auto stateCheckpointTolerance = r.getGame()->getCheckpointTolerance();
-      if (stateCheckpointLevel >= _checkpointLevel.load(std::memory_order_relaxed)) acc.statesAtCheckpointLevel++;
       if (stateCheckpointLevel > _checkpointLevel.load(std::memory_order_relaxed))
       {
         // Publication order is load-bearing: the new cutoff must become visible BEFORE the new
@@ -1283,7 +1326,15 @@ private:
     JAFFAR_PROF_DECL(t4);
     r.getGame()->evaluateRules();
 
-    // Checking whether this state meets checkpoint
+    // Determining state type. This also recomputes the child's own checkpoint level from its rules,
+    // which the cutoff test below needs (until then the game holds the level loaded with the parent).
+    r.getGame()->updateGameStateType();
+
+    // Getting state type
+    const auto stateType = r.getGame()->getStateType();
+
+    // Checking whether this state meets checkpoint (a win is never dropped for it: it is the goal)
+    if (stateType != Game::stateType_t::win)
     {
       // Read the level with acquire FIRST: seeing a new level guarantees the matching cutoff
       // (written before it under release ordering) is also visible.
@@ -1293,31 +1344,19 @@ private:
       // If state does not meet checkpoint past the cutoff, then do not process it further
       if (stateCheckpointLevel < globalCheckpointLevel && _currentStep > _checkpointCutoff.load(std::memory_order_relaxed)) return inputResult_t::droppedCheckpoint;
     }
-
-    // Determining state type
-    r.getGame()->updateGameStateType();
-
-    // Getting state type
-    const auto stateType = r.getGame()->getStateType();
     JAFFAR_PROF_ACC(acc.ruleChecking, t4);
 
     // Now we have determined the state is not repeated, check if it's not a failed state
     if (stateType == Game::stateType_t::fail) return inputResult_t::failed;
 
-    // Now that the state is not failed nor repeated, this is effectively a new state to add
-    JAFFAR_PROF_DECL(t5);
-    void* newStateData = _stateDb->getFreeState(threadId);
-    JAFFAR_PROF_ACC(acc.getFreeState, t5);
-
-    // If couldn't get any memory, simply drop the state
-    if (newStateData == nullptr) return inputResult_t::droppedNoStorage;
-
     // Updating state reward
     JAFFAR_PROF_DECL(t6);
     r.getGame()->updateReward();
 
-    // Getting state reward, plus the reference-pin bonus decided before the dedup check above.
-    auto reward = r.getGame()->getReward() + pinBonus;
+    // Getting state reward. The reference-pin bonus decided before the dedup check above only orders
+    // the database (reward); choosing among wins and manual saves uses the game's own reward.
+    const float gameReward = r.getGame()->getReward();
+    const float reward     = gameReward + pinBonus;
     JAFFAR_PROF_ACC(acc.calculateReward, t6);
 
     // Reference-reward pruning (greedy polish mode): drop any non-win child whose floor reward is
@@ -1329,11 +1368,30 @@ private:
     {
       const size_t childDepth = _currentStep + 1;
       const size_t graceDepth = childDepth >= _refPruneStepGrace ? childDepth - _refPruneStepGrace : 0;
-      if (graceDepth < _refPruneTrace.size() && r.getGame()->getFloorReward() < _refPruneTrace[graceDepth] - _refPruneTolerance)
+      if (graceDepth < _refPruneTrace.size() && r.getGame()->getFloorReward() < _refPruneTrace[graceDepth] - _refPruneTolerance) return inputResult_t::droppedBelowReference;
+    }
+
+    // Checking for manual saved solution is required ("Trigger Save Solution"), for win states too
+    const auto currentLastRuleIdx = r.getGame()->getSaveSolutionCurrentLastRuleIdx();
+    if (r.getGame()->isSaveSolution() && currentLastRuleIdx > _manualSaveSolutionActiveLastRuleId)
+    {
+      // Grab lock
+      _manualSaveSolutionLock.lock();
+
+      // Do this only if reward is better
+      if (gameReward > _manualSaveSolution.reward)
       {
-        _stateDb->returnFreeState(newStateData, threadId);
-        return inputResult_t::droppedBelowReference;
+        // Store path, data, and reward
+        _stateDb->saveStateFromRunner(r, _manualSaveSolution.stateData);
+        _manualSaveSolution.path             = r.getGame()->getSaveSolutionPath();
+        _manualSaveSolution.reward           = gameReward;
+        _manualSaveSolution.lastRuleIdx      = currentLastRuleIdx;
+        _manualSaveSolution.stepCount        = r.getStepCount(); // record depth (the count is not serialized per-state)
+        _manualSaveSolutionUpdatedLastRuleId = true;
       }
+
+      // Release lock
+      _manualSaveSolutionLock.unlock();
     }
 
     // If this is a win state, register it and return
@@ -1375,10 +1433,10 @@ private:
         _winCollectLock.unlock();
       }
       _stepBestWinStateLock.lock();
-      if (reward > _stepBestWinState.reward)
+      if (gameReward > _stepBestWinState.reward)
       {
         _stateDb->saveStateFromRunner(r, _stepBestWinState.stateData);
-        _stepBestWinState.reward    = reward;
+        _stepBestWinState.reward    = gameReward;
         _stepBestWinState.stepCount = r.getStepCount(); // record depth: the count is not serialized per-state
       }
       // Persist the winning input history DIRECTLY, now, when the runner still holds the exact path that
@@ -1386,17 +1444,12 @@ private:
       // its history, which is unreliable for terminal win states (a win is never pushed to the DB, so the
       // best-state saver tracks the non-win frontier instead). This writes only on a strictly-better win
       // (rare, under the lock), so the file always holds the highest-reward winning solution found.
-      if (reward > _bestWinSolutionReward)
+      if (gameReward > _bestWinSolutionReward)
       {
-        _bestWinSolutionReward = reward;
+        _bestWinSolutionReward = gameReward;
         jaffarCommon::file::saveStringToFile(r.getInputHistoryString(), _winSolutionPath);
       }
       _stepBestWinStateLock.unlock();
-
-      // Freeing up the state data
-      JAFFAR_PROF_DECL(t7);
-      _stateDb->returnFreeState(newStateData, threadId);
-      JAFFAR_PROF_ACC(acc.returnFreeState, t7);
 
       // Returning a win result
       return inputResult_t::win;
@@ -1405,6 +1458,17 @@ private:
     // If this is a normal state and has possible inputs store it in the next state database
     if (stateType == Game::stateType_t::normal)
     {
+      // A slot is taken only now, for a state that will actually be stored (win and pruned states
+      // never occupy one, so they can neither be lost to a full database nor make it steal an
+      // unexpanded base state). Free slot first (thread cache, free queues, then the worst
+      // unexpanded state of the current step); failing that, replace the worst state this worker
+      // already produced in this step if the new one is strictly better; otherwise drop it.
+      JAFFAR_PROF_DECL(t5);
+      void* newStateData = _stateDb->getFreeState(threadId);
+      if (newStateData == nullptr) newStateData = _stateDb->evictWorseNextState(reward, threadId);
+      JAFFAR_PROF_ACC(acc.getFreeState, t5);
+      if (newStateData == nullptr) return inputResult_t::droppedNoStorage;
+
       // Debug probe (JAFFAR_DEBUG_SAMPLE_RATE=N): log every Nth stored state's identity (depth,
       // floor reward, key game properties) and hard-check the reference-prune invariant on it.
       // Zero overhead unless the env var is set (checked once).
@@ -1420,13 +1484,15 @@ private:
           const auto                   n  = pushCounter.fetch_add(1, std::memory_order_relaxed);
           const float                  fr = r.getGame()->getFloorReward();
           const size_t                 cd = _currentStep + 1;
-          if (_refPruneEnabled && cd < _refPruneTrace.size() && fr < _refPruneTrace[cd] - _refPruneTolerance)
-            jaffarCommon::logger::log("[J+] SAMPLE-VIOLATION depth %lu floorReward %.6f < trace %.6f - tol %.1f\n", cd, fr, _refPruneTrace[cd], _refPruneTolerance);
+          // Same predicate as the prune itself (step grace, pinned reference exempt): a hit is a real violation
+          const size_t gd = cd >= _refPruneStepGrace ? cd - _refPruneStepGrace : 0;
+          if (_refPruneEnabled && isRefPin == false && gd < _refPruneTrace.size() && fr < _refPruneTrace[gd] - _refPruneTolerance)
+            jaffarCommon::logger::log("[J+] SAMPLE-VIOLATION depth %lu floorReward %.6f < trace %.6f - tol %.1f\n", cd, fr, _refPruneTrace[gd], _refPruneTolerance);
           if (n % (uint64_t)sampleRate == 0)
           {
-            char        props[512];
-            int         pp      = 0;
-            const char* names[] = {"Player Pos X", "Player Pos Y", "RNG State 1", "RNG State 2", "RNG State 3", "RNG State 4"};
+            char        props[512] = "";
+            int         pp         = 0;
+            const char* names[]    = {"Player Pos X", "Player Pos Y", "RNG State 1", "RNG State 2", "RNG State 3", "RNG State 4"};
             for (const auto* pn : names)
             {
               auto* prop = r.getGame()->findProperty(pn);
@@ -1441,7 +1507,7 @@ private:
       }
       // If this is a normal state, push into the state database
       JAFFAR_PROF_DECL(t8);
-      auto success = _stateDb->pushState(reward, r, newStateData);
+      auto success = _stateDb->pushState(reward, r, newStateData, threadId, r.getGame()->getCheckpointLevel());
       JAFFAR_PROF_ACC(acc.runnerStateSave, t8);
 
       // If pushing the state failed (e.g. serialization error), drop it and continue, keeping a counter
@@ -1455,29 +1521,6 @@ private:
         // Returning dropped result by failed serialization
         return inputResult_t::droppedFailedSerialization;
       }
-    }
-
-    // Checking for manual saved solution is required
-    const auto currentLastRuleIdx = r.getGame()->getSaveSolutionCurrentLastRuleIdx();
-    if (r.getGame()->isSaveSolution() && currentLastRuleIdx > _manualSaveSolutionActiveLastRuleId)
-    {
-      // Grab lock
-      _manualSaveSolutionLock.lock();
-
-      // Do this only if reward is better
-      if (reward > _manualSaveSolution.reward)
-      {
-        // Store path, data, and reward
-        _stateDb->saveStateFromRunner(r, _manualSaveSolution.stateData);
-        _manualSaveSolution.path             = r.getGame()->getSaveSolutionPath();
-        _manualSaveSolution.reward           = reward;
-        _manualSaveSolution.lastRuleIdx      = currentLastRuleIdx;
-        _manualSaveSolution.stepCount        = r.getStepCount(); // record depth (the count is not serialized per-state)
-        _manualSaveSolutionUpdatedLastRuleId = true;
-      }
-
-      // Release lock
-      _manualSaveSolutionLock.unlock();
     }
 
     // If store succeeded, return a normal execution
@@ -1537,9 +1580,11 @@ public:
       jaffarCommon::serializer::Contiguous ser(scratch.data(), scratch.size());
       r.serializeState(ser);
     }
-    const auto nullIdx = r.getGame()->getNullInputIndex();
+    const size_t stepCount = r.getStepCount();
+    const auto   nullIdx   = r.getGame()->getNullInputIndex();
     for (size_t i = 0; i < _hashLookahead; i++) r.advanceState(nullIdx);
     const auto h = r.computeHash();
+    r.setStepCount(stepCount);
     {
       jaffarCommon::deserializer::Contiguous des(scratch.data(), scratch.size());
       r.deserializeState(des);
@@ -1632,127 +1677,127 @@ private:
   std::atomic<size_t> _checkpointTolerance;    ///< Tolerance (in steps) associated with the current checkpoint level.
   std::atomic<size_t> _checkpointCutoff;       ///< Step index after which states below @ref _checkpointLevel are dropped.
   std::mutex          _checkpointMutex;        ///< Serializes checkpoint level rises (rare path).
-  size_t              _stepMaxLevelStored = 0; ///< States stored this step whose level >= the global checkpoint level (reduced from the per-thread accumulators).
+  size_t              _stepMaxLevelStored = 0; ///< States entering the database this step whose level >= the global checkpoint level (counted by StateDb::advanceStep).
 
   //////////////// Statistics
 
   /// @brief Counter for states dropped due to lack of free states.
-  std::atomic<size_t> _droppedStatesNoStorage;
+  std::atomic<size_t> _droppedStatesNoStorage{0};
 
   /// @brief Counter for states dropped due to failed serialization.
-  std::atomic<size_t> _droppedStatesFailedSerialization;
+  std::atomic<size_t> _droppedStatesFailedSerialization{0};
 
   /// @brief Counter for states dropped due to not meeting the checkpoint.
-  std::atomic<size_t> _droppedStatesCheckpoint;
+  std::atomic<size_t> _droppedStatesCheckpoint{0};
 
   /// @brief Number of states dropped for falling below the reference reward trace (reference pruning).
-  std::atomic<size_t> _droppedStatesBelowReference;
+  std::atomic<size_t> _droppedStatesBelowReference{0};
 
   /// @brief Counter for repeated states (detected via hash collision).
-  std::atomic<size_t> _repeatedStates;
+  std::atomic<size_t> _repeatedStates{0};
 
   /// @brief Counter for failed states (reached a point in the game considered a loss).
-  std::atomic<size_t> _failedStates;
+  std::atomic<size_t> _failedStates{0};
 
   /// @brief Counter for win states.
-  std::atomic<size_t> _winStates;
+  std::atomic<size_t> _winStates{0};
 
   /// @brief Counter for normal states.
-  std::atomic<size_t> _normalStates;
+  std::atomic<size_t> _normalStates{0};
 
-  std::atomic<size_t> _stepBaseStatesProcessed;  ///< Base states processed during the current step.
-  std::atomic<size_t> _totalBaseStatesProcessed; ///< Base states processed across all steps so far.
+  std::atomic<size_t> _stepBaseStatesProcessed{0};  ///< Base states processed during the current step.
+  std::atomic<size_t> _totalBaseStatesProcessed{0}; ///< Base states processed across all steps so far.
 
-  std::atomic<size_t> _stepNewStatesProcessed;  ///< New states processed during the current step.
-  std::atomic<size_t> _totalNewStatesProcessed; ///< New states processed across all steps so far.
+  std::atomic<size_t> _stepNewStatesProcessed{0};  ///< New states processed during the current step.
+  std::atomic<size_t> _totalNewStatesProcessed{0}; ///< New states processed across all steps so far.
 
   //////////////// Timing
 
   /// @brief Overall running time of the current step, in microseconds.
-  size_t _currentStepTime;
+  size_t _currentStepTime = 0;
 
-  std::vector<size_t> _threadStepTime;            ///< Per-thread running time of the current step, in microseconds.
-  size_t              _maxThreadStepTime;         ///< Maximum per-thread step time for the current step.
-  size_t              _maxThreadStepTimeThreadId; ///< Id of the thread with the maximum step time.
+  std::vector<size_t> _threadStepTime;                ///< Per-thread running time of the current step, in microseconds.
+  size_t              _maxThreadStepTime         = 0; ///< Maximum per-thread step time for the current step.
+  size_t              _maxThreadStepTimeThreadId = 0; ///< Id of the thread with the maximum step time.
 
   /// @brief Per-thread accumulators for hot-loop timing/counters, reduced once per step.
   std::vector<threadAccumulator_t> _threadAccumulators;
 
   /// @brief Total running time so far, in microseconds.
-  size_t _totalRunningTime;
+  size_t _totalRunningTime = 0;
 
   // Time spent advancing runner state per step
-  std::atomic<size_t> _runnerStateAdvanceThreadRawTime;         ///< Summed per-thread runner-advance time for the step.
-  std::atomic<size_t> _runnerStateAdvanceAverageTime;           ///< Per-thread-average runner-advance time for the step.
-  std::atomic<size_t> _runnerStateAdvanceAverageCumulativeTime; ///< Cumulative per-thread-average runner-advance time.
+  std::atomic<size_t> _runnerStateAdvanceThreadRawTime{0};         ///< Summed per-thread runner-advance time for the step.
+  std::atomic<size_t> _runnerStateAdvanceAverageTime{0};           ///< Per-thread-average runner-advance time for the step.
+  std::atomic<size_t> _runnerStateAdvanceAverageCumulativeTime{0}; ///< Cumulative per-thread-average runner-advance time.
 
   // Time spent loading states into the runner
-  std::atomic<size_t> _runnerStateLoadThreadRawTime;         ///< Summed per-thread state-load time for the step.
-  std::atomic<size_t> _runnerStateLoadAverageTime;           ///< Per-thread-average state-load time for the step.
-  std::atomic<size_t> _runnerStateLoadAverageCumulativeTime; ///< Cumulative per-thread-average state-load time.
+  std::atomic<size_t> _runnerStateLoadThreadRawTime{0};         ///< Summed per-thread state-load time for the step.
+  std::atomic<size_t> _runnerStateLoadAverageTime{0};           ///< Per-thread-average state-load time for the step.
+  std::atomic<size_t> _runnerStateLoadAverageCumulativeTime{0}; ///< Cumulative per-thread-average state-load time.
 
   // Time spent saving runner states into the state db
-  std::atomic<size_t> _runnerStateSaveThreadRawTime;         ///< Summed per-thread state-save time for the step.
-  std::atomic<size_t> _runnerStateSaveAverageTime;           ///< Per-thread-average state-save time for the step.
-  std::atomic<size_t> _runnerStateSaveAverageCumulativeTime; ///< Cumulative per-thread-average state-save time.
+  std::atomic<size_t> _runnerStateSaveThreadRawTime{0};         ///< Summed per-thread state-save time for the step.
+  std::atomic<size_t> _runnerStateSaveAverageTime{0};           ///< Per-thread-average state-save time for the step.
+  std::atomic<size_t> _runnerStateSaveAverageCumulativeTime{0}; ///< Cumulative per-thread-average state-save time.
 
   // Time spent calculating hash
-  std::atomic<size_t> _calculateHashThreadRawTime;         ///< Summed per-thread hash-calculation time for the step.
-  std::atomic<size_t> _calculateHashAverageTime;           ///< Per-thread-average hash-calculation time for the step.
-  std::atomic<size_t> _calculateHashAverageCumulativeTime; ///< Cumulative per-thread-average hash-calculation time.
+  std::atomic<size_t> _calculateHashThreadRawTime{0};         ///< Summed per-thread hash-calculation time for the step.
+  std::atomic<size_t> _calculateHashAverageTime{0};           ///< Per-thread-average hash-calculation time for the step.
+  std::atomic<size_t> _calculateHashAverageCumulativeTime{0}; ///< Cumulative per-thread-average hash-calculation time.
 
   // Time spent checking hash
-  std::atomic<size_t> _checkHashThreadRawTime;         ///< Summed per-thread hash-checking time for the step.
-  std::atomic<size_t> _checkHashAverageTime;           ///< Per-thread-average hash-checking time for the step.
-  std::atomic<size_t> _checkHashAverageCumulativeTime; ///< Cumulative per-thread-average hash-checking time.
+  std::atomic<size_t> _checkHashThreadRawTime{0};         ///< Summed per-thread hash-checking time for the step.
+  std::atomic<size_t> _checkHashAverageTime{0};           ///< Per-thread-average hash-checking time for the step.
+  std::atomic<size_t> _checkHashAverageCumulativeTime{0}; ///< Cumulative per-thread-average hash-checking time.
 
   // Rule checking time
-  std::atomic<size_t> _ruleCheckingThreadRawTime;         ///< Summed per-thread rule-checking time for the step.
-  std::atomic<size_t> _ruleCheckingAverageTime;           ///< Per-thread-average rule-checking time for the step.
-  std::atomic<size_t> _ruleCheckingAverageCumulativeTime; ///< Cumulative per-thread-average rule-checking time.
+  std::atomic<size_t> _ruleCheckingThreadRawTime{0};         ///< Summed per-thread rule-checking time for the step.
+  std::atomic<size_t> _ruleCheckingAverageTime{0};           ///< Per-thread-average rule-checking time for the step.
+  std::atomic<size_t> _ruleCheckingAverageCumulativeTime{0}; ///< Cumulative per-thread-average rule-checking time.
 
   // Get free state time
-  std::atomic<size_t> _getFreeStateThreadRawTime;         ///< Summed per-thread get-free-state time for the step.
-  std::atomic<size_t> _getFreeStateAverageTime;           ///< Per-thread-average get-free-state time for the step.
-  std::atomic<size_t> _getFreeStateAverageCumulativeTime; ///< Cumulative per-thread-average get-free-state time.
+  std::atomic<size_t> _getFreeStateThreadRawTime{0};         ///< Summed per-thread get-free-state time for the step.
+  std::atomic<size_t> _getFreeStateAverageTime{0};           ///< Per-thread-average get-free-state time for the step.
+  std::atomic<size_t> _getFreeStateAverageCumulativeTime{0}; ///< Cumulative per-thread-average get-free-state time.
 
   // Return free state time
-  std::atomic<size_t> _returnFreeStateThreadRawTime;         ///< Summed per-thread return-free-state time for the step.
-  std::atomic<size_t> _returnFreeStateAverageTime;           ///< Per-thread-average return-free-state time for the step.
-  std::atomic<size_t> _returnFreeStateAverageCumulativeTime; ///< Cumulative per-thread-average return-free-state time.
+  std::atomic<size_t> _returnFreeStateThreadRawTime{0};         ///< Summed per-thread return-free-state time for the step.
+  std::atomic<size_t> _returnFreeStateAverageTime{0};           ///< Per-thread-average return-free-state time for the step.
+  std::atomic<size_t> _returnFreeStateAverageCumulativeTime{0}; ///< Cumulative per-thread-average return-free-state time.
 
   // Reward calculation time
-  std::atomic<size_t> _calculateRewardThreadRawTime;         ///< Summed per-thread reward-calculation time for the step.
-  std::atomic<size_t> _calculateRewardAverageTime;           ///< Per-thread-average reward-calculation time for the step.
-  std::atomic<size_t> _calculateRewardAverageCumulativeTime; ///< Cumulative per-thread-average reward-calculation time.
+  std::atomic<size_t> _calculateRewardThreadRawTime{0};         ///< Summed per-thread reward-calculation time for the step.
+  std::atomic<size_t> _calculateRewardAverageTime{0};           ///< Per-thread-average reward-calculation time for the step.
+  std::atomic<size_t> _calculateRewardAverageCumulativeTime{0}; ///< Cumulative per-thread-average reward-calculation time.
 
   // Get allowed inputs time
-  std::atomic<size_t> _getAllowedInputsThreadRawTime;         ///< Summed per-thread get-allowed-inputs time for the step.
-  std::atomic<size_t> _getAllowedInputsAverageTime;           ///< Per-thread-average get-allowed-inputs time for the step.
-  std::atomic<size_t> _getAllowedInputsAverageCumulativeTime; ///< Cumulative per-thread-average get-allowed-inputs time.
+  std::atomic<size_t> _getAllowedInputsThreadRawTime{0};         ///< Summed per-thread get-allowed-inputs time for the step.
+  std::atomic<size_t> _getAllowedInputsAverageTime{0};           ///< Per-thread-average get-allowed-inputs time for the step.
+  std::atomic<size_t> _getAllowedInputsAverageCumulativeTime{0}; ///< Cumulative per-thread-average get-allowed-inputs time.
 
   // Get candidate inputs time
-  std::atomic<size_t> _getCandidateInputsThreadRawTime;         ///< Summed per-thread get-candidate-inputs time for the step.
-  std::atomic<size_t> _getCandidateInputsAverageTime;           ///< Per-thread-average get-candidate-inputs time for the step.
-  std::atomic<size_t> _getCandidateInputsAverageCumulativeTime; ///< Cumulative per-thread-average get-candidate-inputs time.
+  std::atomic<size_t> _getCandidateInputsThreadRawTime{0};         ///< Summed per-thread get-candidate-inputs time for the step.
+  std::atomic<size_t> _getCandidateInputsAverageTime{0};           ///< Per-thread-average get-candidate-inputs time for the step.
+  std::atomic<size_t> _getCandidateInputsAverageCumulativeTime{0}; ///< Cumulative per-thread-average get-candidate-inputs time.
 
   // Advance Hash DB time
-  std::atomic<size_t> _advanceHashDbThreadRawTime;         ///< Serially-measured hash-DB advance time for the step.
-  std::atomic<size_t> _advanceHashDbAverageTime;           ///< Hash-DB advance time reported for the step.
-  std::atomic<size_t> _advanceHashDbAverageCumulativeTime; ///< Cumulative hash-DB advance time.
+  std::atomic<size_t> _advanceHashDbThreadRawTime{0};         ///< Serially-measured hash-DB advance time for the step.
+  std::atomic<size_t> _advanceHashDbAverageTime{0};           ///< Hash-DB advance time reported for the step.
+  std::atomic<size_t> _advanceHashDbAverageCumulativeTime{0}; ///< Cumulative hash-DB advance time.
 
   // Advance State DB time
-  std::atomic<size_t> _advanceStateDbThreadRawTime;         ///< Serially-measured state-DB advance time for the step.
-  std::atomic<size_t> _advanceStateDbAverageTime;           ///< State-DB advance time reported for the step.
-  std::atomic<size_t> _advanceStateDbAverageCumulativeTime; ///< Cumulative state-DB advance time.
+  std::atomic<size_t> _advanceStateDbThreadRawTime{0};         ///< Serially-measured state-DB advance time for the step.
+  std::atomic<size_t> _advanceStateDbAverageTime{0};           ///< State-DB advance time reported for the step.
+  std::atomic<size_t> _advanceStateDbAverageCumulativeTime{0}; ///< Cumulative state-DB advance time.
 
   // Popping states from the State DB time
-  std::atomic<size_t> _popBaseStateDbThreadRawTime;         ///< Summed per-thread base-state pop time for the step.
-  std::atomic<size_t> _popBaseStateDbAverageTime;           ///< Per-thread-average base-state pop time for the step.
-  std::atomic<size_t> _popBaseStateDbAverageCumulativeTime; ///< Cumulative per-thread-average base-state pop time.
+  std::atomic<size_t> _popBaseStateDbThreadRawTime{0};         ///< Summed per-thread base-state pop time for the step.
+  std::atomic<size_t> _popBaseStateDbAverageTime{0};           ///< Per-thread-average base-state pop time for the step.
+  std::atomic<size_t> _popBaseStateDbAverageCumulativeTime{0}; ///< Cumulative per-thread-average base-state pop time.
 
-  size_t _subTotalAverageTime;           ///< Sum of all per-operation average times for the current step.
-  size_t _subTotalAverageCumulativeTime; ///< Sum of all per-operation cumulative average times.
+  size_t _subTotalAverageTime           = 0; ///< Sum of all per-operation average times for the current step.
+  size_t _subTotalAverageCumulativeTime = 0; ///< Sum of all per-operation cumulative average times.
 };
 
 } // namespace jaffarPlus

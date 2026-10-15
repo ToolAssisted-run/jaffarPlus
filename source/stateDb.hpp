@@ -8,6 +8,8 @@
 
 #include "inputHistory/inputHistory.hpp"
 #include "numa.hpp"
+#include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <jaffarCommon/bitwise.hpp>
 #include <jaffarCommon/concurrent.hpp>
@@ -16,8 +18,13 @@
 #include <jaffarCommon/logger.hpp>
 #include <jaffarCommon/parallel.hpp>
 #include <jaffarCommon/serializers/contiguous.hpp>
+#include <limits>
 #include <memory>
 #include <utmpx.h>
+#include <vector>
+#if defined(__GLIBCXX__) && defined(_OPENMP)
+#include <parallel/algorithm>
+#endif
 
 /// @brief Alignment boundary (in bytes) each stored state is padded up to, for vectorized access and false-sharing avoidance.
 #define _JAFFAR_STATE_PADDING_BYTES 16
@@ -30,14 +37,18 @@ namespace jaffarPlus
  *        search engine in reward-ordered, per-step batches.
  *
  * @details Each NUMA domain owns a contiguous slab of state slots (allocated on that node), a
- * free-slot queue of unused slots, a reward-ordered "next" queue that collects states produced
- * during a step, and a "current" queue that the workers drain during the following step. The queue
- * lifecycle is: workers @ref pushState into the next queue; @ref advanceStep moves the next queue's
- * pointers (best-reward first) into the current queue and clears the next queue; workers then
- * @ref popState / @ref popStates the current queue. Slots are obtained with @ref getFreeState and
- * recycled with @ref returnFreeState, both fronted by a per-thread free-slot cache. The per-domain
- * queues are only allocated for NUMA domains that own a delegate worker thread; other domains hold
- * null queue pointers, which the access paths skip.
+ * free-slot queue of unused slots and a "current" queue that the workers drain during a step. The
+ * states produced during a step are collected per worker thread, unordered, in a private "next"
+ * buffer of {reward, slot} entries. The lifecycle is: workers @ref pushState into their own next
+ * buffer; @ref advanceStep gathers all next entries by owning NUMA domain, sorts each domain's
+ * entries best-reward first in parallel, and lays the slot pointers into that domain's current
+ * queue; workers then @ref popState / @ref popStates the current queue. Slots are obtained with
+ * @ref getFreeState and recycled with @ref returnFreeState, both fronted by a per-thread free-slot
+ * cache. When no slot is free and no unexpanded current state is left to steal, a worker may
+ * replace the worst state of its OWN next buffer with a better new one (@ref evictWorseNextState);
+ * for that the buffer is turned into a private min-heap the first time it is needed in a step.
+ * The per-domain queues are only allocated for NUMA domains that own a delegate worker thread;
+ * other domains hold null queue pointers, which the access paths skip.
  */
 class StateDb
 {
@@ -68,17 +79,23 @@ public:
   __INLINE__ size_t getMaxBudgetBytes() const { return _maxSizeMb * 1024UL * 1024UL; }
 
   /**
-   * @brief Frees the per-NUMA current- and next-state queues allocated in @ref initialize().
+   * @brief Frees the per-NUMA state slabs, history slabs, current-state queues and next-state sort
+   *        buffers allocated in @ref initialize().
    *
-   * @details Iterates over both queue vectors and deletes each entry. Only delegate domains hold a
-   * non-null queue; the remaining entries are nullptr, which delete ignores.
+   * @details Only delegate domains hold slabs, a queue and a sort buffer; the remaining entries are
+   * nullptr and are skipped.
    */
   ~StateDb()
   {
     // Free the per-NUMA queues allocated with `new` in initialize() (one per delegate domain; the
     // other entries are nullptr, which delete safely ignores).
     for (auto* queue : _numaCurrentStateQueues) delete queue;
-    for (auto* queue : _numaNextStateQueues) delete queue;
+    for (size_t i = 0; i < _numaSortBuffers.size(); i++)
+      if (_numaSortBuffers[i] != nullptr) numa_free(_numaSortBuffers[i], _maxStatesPerNuma[i] * sizeof(nextEntry_t));
+    for (size_t i = 0; i < _internalBuffersStart.size(); i++)
+      if (_internalBuffersStart[i] != nullptr) numa_free(_internalBuffersStart[i], _allocableBytesPerNuma[i]);
+    for (size_t i = 0; i < _histBuffersStart.size(); i++)
+      if (_histBuffersStart[i] != nullptr) numa_free(_histBuffersStart[i], _maxStatesPerNuma[i] * _histSize);
   }
 
   /**
@@ -86,14 +103,16 @@ public:
    *
    * @details Queries the runner's state size and pads it up to @ref _JAFFAR_STATE_PADDING_BYTES.
    * Allocates per-thread statistics counters and free-slot caches. Splits the configured maximum
-   * size evenly across NUMA domains, verifies each domain has enough free memory (throwing
-   * otherwise), and derives the per-domain maximum state counts. For each NUMA domain that owns a
-   * delegate thread it creates the current-state DrainBuffer (reserved to the domain's state count)
-   * and the next-state reward-ordered multimap. It then allocates the per-domain contiguous state
-   * slab on that node, touches one byte per page to fault it in, and fills the domain's free-state
-   * queue with pointers to every slot.
+   * size evenly across the NUMA domains that own a worker (delegate) thread -- domains without one
+   * get no storage --, verifies each domain has enough free memory for its slabs and per-slot queue
+   * structures (throwing otherwise), and derives the per-domain maximum state counts. For each NUMA
+   * domain that owns a delegate thread it creates the current-state DrainBuffer (reserved to the
+   * domain's state count) and the next-state sort buffer (one entry per slot); it also creates the
+   * empty per-thread next-state buffers. It then allocates the per-domain contiguous state slab on
+   * that node, touches one byte per page of the slabs and sort buffers to fault them in, and fills
+   * the domain's free-state queue with pointers to every slot.
    * @throws A runtime error if a domain's requested memory exceeds its free space, if a domain's
-   *         state count exceeds the DrainBuffer's 32-bit capacity limit, or if a NUMA slab
+   *         state count exceeds the free-slot queue's capacity limit (2^30), or if a NUMA
    *         allocation fails.
    */
   __INLINE__ void initialize()
@@ -128,30 +147,35 @@ public:
     // Allocating/zeroing the per-thread free-slot caches (empty at start)
     _freeStateCache.assign(_threadCount, freeStateCache_t{});
 
-    // Splitting state database equally among numa domains
-    size_t stateDbSizePerNUMA = std::ceil((_maxSizeMb * 1024 * 1024) / _numaCount);
-    for (int i = 0; i < _numaCount; i++) _maxSizePerNuma.push_back(stateDbSizePerNUMA);
-
-    // Getting maximum allocatable memory in each NUMA domain
-    std::vector<size_t> maxFreeMemoryPerNuma(_numaCount);
+    // Splitting state database equally among the numa domains that have worker threads. The others are
+    // never written to (no thread allocates or pushes there), so they get no storage at all.
+    size_t activeNumaCount = 0;
     for (int i = 0; i < _numaCount; i++)
-    {
-      size_t freeMemory = 0;
-      numa_node_size64(i, (long long*)&freeMemory);
-      maxFreeMemoryPerNuma[i] = freeMemory;
-    }
-
-    // Checking if this is enough memory to satisfy requirement
+      if (isNumaDomainActive(i)) activeNumaCount++;
+    if (activeNumaCount == 0) JAFFAR_THROW_LOGIC("No NUMA domain has a worker thread. This must be a bug in Jaffar\n");
+    const size_t stateDbSizePerNUMA = (_maxSizeMb * 1024 * 1024) / activeNumaCount;
+    _maxSizePerNuma.assign(_numaCount, 0);
     for (int i = 0; i < _numaCount; i++)
-      if (_maxSizePerNuma[i] > (size_t)maxFreeMemoryPerNuma[i])
-        JAFFAR_THROW_RUNTIME("The requested memory (%lu) for NUMA domain %d exceeds its available free space (%lu)\n", _maxSizePerNuma[i], i, maxFreeMemoryPerNuma[i]);
+      if (isNumaDomainActive(i)) _maxSizePerNuma[i] = stateDbSizePerNUMA;
 
     // Getting maximum number of states for each NUMA domain
-    _maxStatesPerNuma.resize(_numaCount);
-    _currentStatesPerNuma.resize(_numaCount);
+    _maxStatesPerNuma.assign(_numaCount, 0);
+    _currentStatesPerNuma.assign(_numaCount, 0);
     // The per-state memory footprint is the padded hot slot plus its cold history slot, so the budget
     // covers both slabs and the state count stays ~unchanged versus storing them together.
-    for (int i = 0; i < _numaCount; i++) _maxStatesPerNuma[i] = std::max(_maxSizePerNuma[i] / (_stateSize + _histSize), 1ul);
+    for (int i = 0; i < _numaCount; i++)
+      if (isNumaDomainActive(i)) _maxStatesPerNuma[i] = std::max(_maxSizePerNuma[i] / (_stateSize + _histSize), 1ul);
+
+    // Checking that each domain's free memory holds its slabs plus the per-slot queue structures
+    // allocated on it (the next-state sort buffer and the current-state buffer)
+    for (int i = 0; i < _numaCount; i++)
+    {
+      if (_maxStatesPerNuma[i] == 0) continue;
+      long long freeMemory = 0;
+      numa_node_size64(i, &freeMemory);
+      const size_t required = _maxSizePerNuma[i] + _maxStatesPerNuma[i] * (sizeof(nextEntry_t) + sizeof(void*));
+      if (required > (size_t)freeMemory) JAFFAR_THROW_RUNTIME("The requested memory (%lu) for NUMA domain %d exceeds its available free space (%lld)\n", required, i, freeMemory);
+    }
 
     // Getting totals for statistics
     _maxSize   = 0;
@@ -163,36 +187,54 @@ public:
     }
 
     // Allocating state databases in the correponding NUMA domains
-    _numaCurrentStateQueues.resize(_numaCount);
-    _numaNextStateQueues.resize(_numaCount);
+    _numaCurrentStateQueues.assign(_numaCount, nullptr);
     // The current-state queue is a DrainBuffer: it is filled single-threaded in advanceStep() and
     // then drained concurrently from both ends by the workers, never both at once (the step barrier
     // separates the phases). Its capacity is the NUMA domain's full state count -- it can never hold
-    // more current states than that. The claim counters are 32-bit, so guard the capacity.
+    // more current states than that. Its claim counters are 32-bit, and the free-slot queue (atomic_queue's
+    // AtomicQueueB, which rounds its capacity up to a power of two and compares it as a signed 32-bit
+    // value) only works up to 2^30 elements, so guard the count.
+    constexpr size_t maxStatesPerNumaLimit = 1ul << 30;
     for (int i = 0; i < _numaCount; i++)
-      if (_maxStatesPerNuma[i] > (size_t)UINT32_MAX)
-        JAFFAR_THROW_RUNTIME("State count per NUMA domain (%lu) exceeds the DrainBuffer capacity limit (%u)\n", _maxStatesPerNuma[i], UINT32_MAX);
+      if (_maxStatesPerNuma[i] > maxStatesPerNumaLimit)
+        JAFFAR_THROW_RUNTIME("State count per NUMA domain (%lu) exceeds the free-slot queue limit (%lu). Reduce 'Max Size (Mb)' or use larger states\n", _maxStatesPerNuma[i],
+                             maxStatesPerNumaLimit);
 
     JAFFAR_PARALLEL
     {
-      if (_myThreadId == _numaDelegateThreadId[_preferredNumaDomain])
+      if ((ssize_t)jaffarCommon::parallel::getThreadId() == _numaDelegateThreadId[_preferredNumaDomain])
       {
         auto* currentQueue = new jaffarCommon::concurrent::DrainBuffer<void*>();
         currentQueue->reserve(_maxStatesPerNuma[_preferredNumaDomain]);
         _numaCurrentStateQueues[_preferredNumaDomain] = currentQueue;
-        _numaNextStateQueues[_preferredNumaDomain]    = new jaffarCommon::concurrent::concurrentMultimap_t<float, void*>();
       }
     }
+
+    // Per-thread next-state buffers (empty; they grow on demand and keep their capacity across steps)
+    _nextBuffers.clear();
+    _nextBuffers.resize(_threadCount);
+
+    // Per-domain sort buffers for advanceStep(): a domain can never hold more next states than slots,
+    // so its buffer is sized to the domain's slot count. Allocated on the domain's node (faulted in below,
+    // with the slabs). Only domains with a delegate thread ever hold slots in use.
+    _numaSortBuffers.assign(_numaCount, nullptr);
+    for (int i = 0; i < _numaCount; i++)
+      if (_numaCurrentStateQueues[i] != nullptr)
+      {
+        _numaSortBuffers[i] = (nextEntry_t*)numa_alloc_onnode(_maxStatesPerNuma[i] * sizeof(nextEntry_t), i);
+        if (_numaSortBuffers[i] == nullptr) JAFFAR_THROW_RUNTIME("Error trying to allocate the next-state sort buffer for numa domain %d\n", i);
+      }
 
     // Getting number of bytes to reserve for each NUMA domain
     _allocableBytesPerNuma.resize(_numaCount);
     for (int i = 0; i < _numaCount; i++) _allocableBytesPerNuma[i] = _maxStatesPerNuma[i] * _stateSize;
 
-    // Creating internal buffers, one per NUMA domain
-    _internalBuffersStart.resize(_numaCount);
-    _internalBuffersEnd.resize(_numaCount);
+    // Creating internal buffers, one per NUMA domain with worker threads (null for the others)
+    _internalBuffersStart.assign(_numaCount, nullptr);
+    _internalBuffersEnd.assign(_numaCount, nullptr);
     for (int i = 0; i < _numaCount; i++)
     {
+      if (_allocableBytesPerNuma[i] == 0) continue;
       _internalBuffersStart[i] = (uint8_t*)numa_alloc_onnode(_allocableBytesPerNuma[i], i);
       if (_internalBuffersStart[i] == NULL) JAFFAR_THROW_RUNTIME("Error trying to allocate memory for numa domain %d\n", i);
       _internalBuffersEnd[i] = &_internalBuffersStart[i][_allocableBytesPerNuma[i]];
@@ -202,10 +244,11 @@ public:
     // state-slab grid: the cold slot for state index i is at _histBuffersStart[numa] + i*_histSize.
     // _histSize is 0 for the "None" strategy (no path stored, and the step counter is now runner-owned, not
     // per-state): there is no cold slab to allocate, and all cold-slot ops are no-ops over 0 bytes.
-    _histBuffersStart.resize(_numaCount, nullptr);
+    _histBuffersStart.assign(_numaCount, nullptr);
     if (_histSize > 0)
       for (int i = 0; i < _numaCount; i++)
       {
+        if (_maxStatesPerNuma[i] == 0) continue;
         _histBuffersStart[i] = (uint8_t*)numa_alloc_onnode(_maxStatesPerNuma[i] * _histSize, i);
         if (_histBuffersStart[i] == NULL) JAFFAR_THROW_RUNTIME("Error trying to allocate history slab for numa domain %d\n", i);
       }
@@ -221,6 +264,16 @@ public:
     for (int numaNodeIdx = 0; numaNodeIdx < _numaCount; numaNodeIdx++) JAFFAR_PARALLEL_FOR
     for (size_t i = 0; i < _maxStatesPerNuma[numaNodeIdx] * _histSize; i += pageSize) _histBuffersStart[numaNodeIdx][i] = 1;
 
+    // And the sort buffers, so they are resident (and checked against the node's free memory above) from
+    // the start instead of being faulted in when the database first fills up.
+    for (int numaNodeIdx = 0; numaNodeIdx < _numaCount; numaNodeIdx++)
+      if (_numaSortBuffers[numaNodeIdx] != nullptr)
+      {
+        auto* const bytes = (uint8_t*)_numaSortBuffers[numaNodeIdx];
+        JAFFAR_PARALLEL_FOR
+        for (size_t i = 0; i < _maxStatesPerNuma[numaNodeIdx] * sizeof(nextEntry_t); i += pageSize) bytes[i] = 0;
+      }
+
     // Let the input-history strategy initialize each fresh cold slot (e.g. the trie marks its node id as
     // empty so a recycled slot is never mistaken for holding a node). No-op for raw/none. Skipped entirely
     // when there is no cold slab (_histSize == 0, the "None" strategy).
@@ -230,15 +283,17 @@ public:
 
     // Adding the state pointers to the free state queues
     _freeStateQueues.resize(_numaCount);
+    std::atomic<size_t> rejectedSlots{0};
     JAFFAR_PARALLEL
     {
-      if (_myThreadId == _numaDelegateThreadId[_preferredNumaDomain])
+      if ((ssize_t)jaffarCommon::parallel::getThreadId() == _numaDelegateThreadId[_preferredNumaDomain])
       {
         _freeStateQueues[_preferredNumaDomain] = std::make_unique<jaffarCommon::concurrent::atomicQueue_t<void*>>(_maxStatesPerNuma[_preferredNumaDomain]);
         for (size_t i = 0; i < _maxStatesPerNuma[_preferredNumaDomain]; i++)
-          _freeStateQueues[_preferredNumaDomain]->try_push((void*)&_internalBuffersStart[_preferredNumaDomain][i * _stateSize]);
+          if (_freeStateQueues[_preferredNumaDomain]->try_push((void*)&_internalBuffersStart[_preferredNumaDomain][i * _stateSize]) == false) rejectedSlots++;
       }
     }
+    if (rejectedSlots > 0) JAFFAR_THROW_RUNTIME("The free-slot queues rejected %lu state slots. This must be a bug in Jaffar\n", rejectedSlots.load());
   }
 
   /**
@@ -286,17 +341,23 @@ public:
   __INLINE__ size_t getFullStateSize() const { return _fullStateSizeBytes; }
 
   /**
-   * @brief Serializes the runner's state into the given slot and inserts it into the next-state queue.
-   * @param reward   The reward used to order the state within its NUMA domain's next-state queue.
+   * @brief Serializes the runner's state into the given slot and appends it to the calling thread's
+   *        next-state buffer.
+   * @param reward   The reward used to order the state at the next @ref advanceStep.
    * @param r        The runner whose state is serialized.
    * @param statePtr The slot to serialize into and insert; determines the target NUMA domain.
+   * @param threadId The calling thread's dense OpenMP id (selects its private next-state buffer).
+   * @param checkpointLevel The state's checkpoint level (counted by @ref advanceStep for the engine's
+   *        checkpoint cohort guard; saturates at 65535).
    * @return true if the state was serialized and inserted; false if serialization threw a runtime error.
    * @throws A runtime error if @p statePtr is null (interpreted as having run out of free states).
    *
-   * @details Determines the slot's owning NUMA domain via @ref getStateNumaDomain and inserts the
-   * {reward, statePtr} pair into that domain's next-state queue.
+   * @details Appends {reward, owning NUMA domain, checkpoint level, statePtr} to the thread's own
+   * buffer: no lock, no shared structure. A NaN reward is stored as -infinity so the ordering stays a strict weak order.
+   * Once the buffer has been turned into a min-heap in this step (see @ref evictWorseNextState), the
+   * heap property is maintained on every append.
    */
-  __INLINE__ bool pushState(const float reward, Runner& r, void* statePtr)
+  __INLINE__ bool pushState(const float reward, Runner& r, void* statePtr, const size_t threadId, const size_t checkpointLevel)
   {
     // Check that we got a free state (we did not overflow state memory)
     if (statePtr == nullptr) JAFFAR_THROW_RUNTIME("Provided a null state -- probably ran out of free states\n");
@@ -313,15 +374,52 @@ public:
       return false;
     }
 
-    // Inserting new state into the next state database
-    // Getting the corresponding numa domain for this state
-    int targetNumaIdx = getStateNumaDomain(statePtr);
-
-    // Inserting new state into the next state database
-    _numaNextStateQueues[targetNumaIdx]->insert({reward, statePtr});
+    // Appending the new state to this thread's private next-state buffer
+    auto&      nb    = _nextBuffers[threadId];
+    const auto level = (uint16_t)std::min(checkpointLevel, (size_t)std::numeric_limits<uint16_t>::max());
+    nb.entries.push_back({sanitizeReward(reward), (uint16_t)getStateNumaDomain(statePtr), level, statePtr});
+    if (nb.isHeap) std::push_heap(nb.entries.begin(), nb.entries.end(), isBetterEntry);
 
     // If succeeded, return true
     return true;
+  }
+
+  /**
+   * @brief Frees the slot of the worst state in the calling thread's next-state buffer, if that state
+   *        is worse than a new state of reward @p reward, so the new state can take its place.
+   * @param reward   The reward of the new state that found no free slot.
+   * @param threadId The calling thread's dense OpenMP id (selects its private next-state buffer).
+   * @return The freed slot (its input-history resources already released), or nullptr if the buffer
+   *         is empty or holds no state strictly worse than the new one.
+   *
+   * @details This is the last resort of a worker once no slot is free and no unexpanded state of the
+   * current step is left to steal: instead of dropping a better new state, it replaces its own worst
+   * one, so the database keeps (approximately, per worker) the best states produced in the step. The
+   * buffer is turned into a min-heap (worst first) on the first call of the step; later appends keep
+   * the heap property (see @ref pushState) until @ref advanceStep empties the buffer.
+   */
+  __INLINE__ void* evictWorseNextState(const float reward, const size_t threadId)
+  {
+    auto& nb = _nextBuffers[threadId];
+    if (nb.entries.empty()) return nullptr;
+
+    // First eviction attempt of the step: heapify (O(n) once); from now on appends are push_heap
+    if (nb.isHeap == false)
+    {
+      std::make_heap(nb.entries.begin(), nb.entries.end(), isBetterEntry);
+      nb.isHeap = true;
+    }
+
+    // The heap's front is this thread's worst next state; replace it only by a strictly better one
+    if ((sanitizeReward(reward) > nb.entries.front().reward) == false) return nullptr;
+    std::pop_heap(nb.entries.begin(), nb.entries.end(), isBetterEntry);
+    void* const slot = nb.entries.back().statePtr;
+    nb.entries.pop_back();
+
+    // The evicted state's path resources go (the trie releases its node); the slot is then rewritten
+    _ih->releaseColdSlot(getHistoryPtr(slot), threadId);
+    _statCounters[threadId].nextStateReplaced++;
+    return slot;
   }
 
   /**
@@ -390,7 +488,7 @@ public:
     size_t localDatabaseState = 0, nonLocalDatabaseState = 0, databaseStateNotFound = 0;
     size_t localFreeState = 0, nonLocalFreeState = 0, stealingFreeState = 0, freeStateNotFound = 0;
     size_t distanceAccumulator = 0;
-    size_t freeStateCacheHit = 0, freeStateCacheReturn = 0;
+    size_t freeStateCacheHit = 0, freeStateCacheReturn = 0, nextStateReplaced = 0;
     for (const auto& sc : _statCounters)
     {
       localDatabaseState += sc.localDatabaseState;
@@ -403,6 +501,7 @@ public:
       distanceAccumulator += sc.distanceAccumulator;
       freeStateCacheHit += sc.freeStateCacheHit;
       freeStateCacheReturn += sc.freeStateCacheReturn;
+      nextStateReplaced += sc.nextStateReplaced;
     }
 
     size_t totalDatabaseStatesRequested = nonLocalDatabaseState + localDatabaseState + databaseStateNotFound;
@@ -419,6 +518,7 @@ public:
     jaffarCommon::logger::log("[J+]  + Get Cache Hit Rate:                       %5.3f%% (%lu hits)\n",
                               totalGets == 0 ? 0.0 : 100.0 * (double)freeStateCacheHit / (double)totalGets, freeStateCacheHit);
     jaffarCommon::logger::log("[J+]  + Return Cache Absorb Count:                %lu\n", freeStateCacheReturn);
+    jaffarCommon::logger::log("[J+]  + Next States Replaced By Better Ones:      %lu\n", nextStateReplaced);
     (void)totalReturns;
 
     size_t totalFreeStatesRequested = nonLocalFreeState + localFreeState + freeStateNotFound + stealingFreeState;
@@ -440,8 +540,11 @@ public:
    *
    * @details First serves from this thread's free-slot cache (LIFO) when non-empty. Otherwise it
    * scans NUMA domains in this thread's preference order and tries to pop from each domain's
-   * free-state queue. If all free-state queues are empty, it scans again and steals a slot from the
-   * back (worst state) of each domain's current-state queue. Updates the thread's NUMA-distance and
+   * free-state queue. If all free-state queues are empty, it scans again and steals from the back
+   * (worst states) of the first non-empty current-state queue: up to @ref STEAL_BATCH_SIZE unexpanded
+   * states in one claim, whose input-history resources are released; the first slot is returned and
+   * the rest go to this thread's (then empty) free-slot cache, so the contended claim word is touched
+   * once per batch instead of once per slot. Updates the thread's NUMA-distance and
    * locality/stealing statistics on success.
    */
   __INLINE__ void* getFreeState(const size_t threadId)
@@ -490,14 +593,19 @@ public:
     {
       const auto numaIdx = _numaPreferenceMatrix[_preferredNumaDomain][i];
       if (_numaCurrentStateQueues[numaIdx] == nullptr) continue;
-      bool success = _numaCurrentStateQueues[numaIdx]->pop_back_get(stateSpace);
+      void*        stolen[STEAL_BATCH_SIZE];
+      const size_t stolenCount = _numaCurrentStateQueues[numaIdx]->pop_back_get_batch(stolen, STEAL_BATCH_SIZE);
 
-      // If successful, return the pointer immediately
-      if (success == true)
+      // If successful, return the first slot and keep the rest in this thread's cache
+      if (stolenCount > 0)
       {
-        sc.distanceAccumulator += _numaDistanceMatrix[_preferredNumaDomain][numaIdx];
-        sc.stealingFreeState++;
-        return stateSpace;
+        // The stolen states are discarded unexpanded: release their input-history resources (the trie
+        // frees their path nodes), exactly as returnFreeState does for an expanded base state.
+        for (size_t j = 0; j < stolenCount; j++) _ih->releaseColdSlot(getHistoryPtr(stolen[j]), threadId);
+        for (size_t j = 1; j < stolenCount; j++) cache.slots[cache.count++] = stolen[j];
+        sc.distanceAccumulator += _numaDistanceMatrix[_preferredNumaDomain][numaIdx] * stolenCount;
+        sc.stealingFreeState += stolenCount;
+        return stolen[0];
       }
     }
 
@@ -539,11 +647,15 @@ public:
    * @brief Tests whether a state slot lies within a given NUMA domain's slab.
    * @param statePtr     The state slot to test.
    * @param numaDomainId The NUMA domain whose slab is checked.
-   * @return true if the pointer falls within the domain's [start, end] slab range, false otherwise.
+   * @return true if the pointer falls within the domain's [start, end) slab range, false otherwise
+   *         (always false for a domain without a slab).
+   *
+   * @details The end is exclusive: slabs of different domains can be adjacent in the address space,
+   * and the end of one is then the first slot of the next.
    */
   __INLINE__ bool isStateInNumaDomain(void* const statePtr, const int numaDomainId)
   {
-    return statePtr >= _internalBuffersStart[numaDomainId] && statePtr <= _internalBuffersEnd[numaDomainId];
+    return statePtr >= _internalBuffersStart[numaDomainId] && statePtr < _internalBuffersEnd[numaDomainId];
   }
 
   /**
@@ -585,82 +697,130 @@ public:
   }
 
   /**
-   * @brief Moves each NUMA domain's next-state queue into its current-state queue, best reward first,
-   *        and clears the next-state queue.
+   * @brief Turns the states produced during the step (the per-thread next-state buffers) into the
+   *        next step's current-state queues, best reward first, and empties the next-state buffers.
+   * @param checkpointLevel The engine's global checkpoint level at the end of the step.
+   * @return The number of states that enter the database with a checkpoint level >= @p checkpointLevel.
+   *         They are counted here, from the entries that survived the step, because a state can be
+   *         evicted after it was produced (see @ref evictWorseNextState).
    *
-   * @details Runs in parallel; in each domain only the delegate thread acts. It records the domain's
-   * next-state count, clears the current-state buffer (drained during the previous step), then
-   * traverses the reward-ordered next-state map in descending-reward order, appending each pointer to
-   * the current-state buffer. After draining it clears (frees) the whole next-state map at once. It
-   * then updates the cross-NUMA best and worst state pointers under @ref _workMutex from the first
-   * (best) and last (worst) entries seen.
+   * @details Four phases, all but the prefix sums parallel: (1) every thread counts its own entries
+   * per owning NUMA domain; (2) per domain, exclusive prefix sums over the threads give each thread a
+   * disjoint destination range in the domain's sort buffer; (3) every thread scatters its entries into
+   * those ranges and empties its buffer (keeping its capacity); (4) each domain's entries are sorted
+   * by descending reward with a parallel sort, and then the domain's delegate thread lays the slot
+   * pointers into its current-state buffer in that order, so the first element popped is the best
+   * and the last (the first to be stolen) the worst. The cross-NUMA best and worst states are reset
+   * and then updated under @ref _workMutex from each domain's first and last entries (they stay null
+   * when no state was produced). The relative order of states with
+   * equal rewards is unspecified (it already depended on thread scheduling).
+   * @throws A runtime error if a domain received more next states than it has slots, or states for a
+   *         domain without a current-state queue (both would be bugs in Jaffar).
    */
-  __INLINE__ void advanceStep()
+  __INLINE__ size_t advanceStep(const size_t checkpointLevel)
   {
-    // // Resetting NUMA distance accumulator
-    // _numaDistanceAccumulator = 0;
+    const size_t numaCount = (size_t)_numaCount;
 
-    // Calculation of best and worst states
-    float bestStateReward  = std::numeric_limits<float>::lowest();
-    float worstStateReward = std::numeric_limits<float>::max();
-
-    // Copying state pointers into the numa-specific queues
+    // (1) Per-thread, per-domain entry counts, and the count of entries at the checkpoint level
+    std::vector<size_t> threadDomainOffset((size_t)_threadCount * numaCount, 0);
+    std::vector<size_t> threadAtLevel((size_t)_threadCount, 0);
     JAFFAR_PARALLEL
     {
-      // Only process if I am the delegate
-      if (_myThreadId == _numaDelegateThreadId[_preferredNumaDomain])
+      const size_t threadId = jaffarCommon::parallel::getThreadId();
+      if (threadId < (size_t)_threadCount)
       {
-        auto& nextMap    = *_numaNextStateQueues[_preferredNumaDomain];
-        auto* currentBuf = _numaCurrentStateQueues[_preferredNumaDomain];
+        size_t* const counts  = &threadDomainOffset[threadId * numaCount];
+        size_t        atLevel = 0;
+        for (const auto& e : _nextBuffers[threadId].entries)
+        {
+          counts[e.numaIdx]++;
+          if (e.level >= checkpointLevel) atLevel++;
+        }
+        threadAtLevel[threadId] = atLevel;
+      }
+    }
+    size_t statesAtCheckpointLevel = 0;
+    for (const auto c : threadAtLevel) statesAtCheckpointLevel += c;
+
+    // (2) Exclusive prefix sums per domain: thread t writes domain d's entries from threadDomainOffset[t][d]
+    std::vector<size_t> domainCount(numaCount, 0);
+    for (size_t d = 0; d < numaCount; d++)
+      for (size_t t = 0; t < (size_t)_threadCount; t++)
+      {
+        const size_t c                        = threadDomainOffset[t * numaCount + d];
+        threadDomainOffset[t * numaCount + d] = domainCount[d];
+        domainCount[d] += c;
+      }
+    for (size_t d = 0; d < numaCount; d++)
+    {
+      if (domainCount[d] > 0 && _numaSortBuffers[d] == nullptr)
+        JAFFAR_THROW_RUNTIME("Next states found for NUMA domain %lu, which has no state queues. This must be a bug in Jaffar\n", d);
+      if (domainCount[d] > _maxStatesPerNuma[d])
+        JAFFAR_THROW_RUNTIME("NUMA domain %lu received %lu next states for %lu slots. This must be a bug in Jaffar\n", d, domainCount[d], _maxStatesPerNuma[d]);
+    }
+
+    // (3) Scatter every thread's entries into the per-domain sort buffers, then empty the thread buffers
+    JAFFAR_PARALLEL
+    {
+      const size_t threadId = jaffarCommon::parallel::getThreadId();
+      if (threadId < (size_t)_threadCount)
+      {
+        auto&         nb      = _nextBuffers[threadId];
+        size_t* const offsets = &threadDomainOffset[threadId * numaCount];
+        for (const auto& e : nb.entries) _numaSortBuffers[e.numaIdx][offsets[e.numaIdx]++] = e;
+        nb.entries.clear();
+        nb.isHeap = false;
+      }
+    }
+
+    // (4a) Sort each domain's entries, best reward first (parallel sort over all threads)
+    for (size_t d = 0; d < numaCount; d++)
+      if (domainCount[d] > 1) sortEntries(_numaSortBuffers[d], _numaSortBuffers[d] + domainCount[d]);
+
+    // (4b) Each delegate fills its domain's current-state buffer in that order and reports best/worst.
+    // The first domain to report sets both unconditionally, so states with infinite rewards are
+    // reported too, and a step without states leaves both null (never a recycled slot).
+    _bestState             = nullptr;
+    _worstState            = nullptr;
+    float bestStateReward  = 0.0f;
+    float worstStateReward = 0.0f;
+    JAFFAR_PARALLEL
+    {
+      if ((ssize_t)jaffarCommon::parallel::getThreadId() == _numaDelegateThreadId[_preferredNumaDomain])
+      {
+        const size_t       d          = (size_t)_preferredNumaDomain;
+        auto* const        currentBuf = _numaCurrentStateQueues[d];
+        const size_t       n          = domainCount[d];
+        const nextEntry_t* entries    = _numaSortBuffers[d];
 
         // Updating state count per numa
-        _currentStatesPerNuma[_preferredNumaDomain] = nextMap.size();
+        _currentStatesPerNuma[d] = n;
 
         // Resetting the current-state buffer for this step's fill (it was drained by the workers in
         // the previous step; the step barrier guarantees no drain is in flight here)
         currentBuf->clear();
-
-        // Drain the (reward-ordered) next-state map into the current buffer in a single forward
-        // traversal, then free the whole map at once. This replaces the previous N-iteration loop of
-        // begin()+unsafe_extract (each of which unlinks and frees one node): a plain traversal is
-        // cheaper per element, and a single bulk clear() deallocates all nodes without the per-node
-        // extract bookkeeping. The map iterates in descending-reward order (std::greater), so the
-        // first element seen is the best and the last is the worst -- same ordering as before.
-        float firstReward = 0.0f, lastReward = 0.0f;
-        void *firstPtr = nullptr, *lastPtr = nullptr;
-        for (const auto& entry : nextMap)
-        {
-          if (firstPtr == nullptr)
-          {
-            firstReward = entry.first;
-            firstPtr    = entry.second;
-          }
-          currentBuf->push_back_no_lock(entry.second);
-          lastReward = entry.first;
-          lastPtr    = entry.second;
-        }
-
-        // Releasing all next-map nodes in one go
-        nextMap.clear();
+        for (size_t i = 0; i < n; i++) currentBuf->push_back_no_lock(entries[i].statePtr);
 
         // Updating the cross-NUMA best/worst states (shared, hence locked) once per domain
-        if (firstPtr != nullptr)
+        if (n > 0)
         {
           _workMutex.lock();
-          if (firstReward > bestStateReward)
+          if (_bestState == nullptr || entries[0].reward > bestStateReward)
           {
-            bestStateReward = firstReward;
-            _bestState      = firstPtr;
+            bestStateReward = entries[0].reward;
+            _bestState      = entries[0].statePtr;
           }
-          if (lastReward < worstStateReward)
+          if (_worstState == nullptr || entries[n - 1].reward < worstStateReward)
           {
-            worstStateReward = lastReward;
-            _worstState      = lastPtr;
+            worstStateReward = entries[n - 1].reward;
+            _worstState      = entries[n - 1].statePtr;
           }
           _workMutex.unlock();
         }
       }
     }
+
+    return statesAtCheckpointLevel;
   }
 
   /**
@@ -763,14 +923,20 @@ public:
     return stateCount;
   }
 
-  /** @brief Returns a pointer to the highest-reward state recorded by the last @ref advanceStep. */
+  /** @brief Returns a pointer to the highest-reward state recorded by the last @ref advanceStep (null if it produced none). */
   __INLINE__ void* getBestState() const { return _bestState; }
 
-  /** @brief Returns a pointer to the lowest-reward state recorded by the last @ref advanceStep. */
+  /** @brief Returns a pointer to the lowest-reward state recorded by the last @ref advanceStep (null if it produced none). */
   __INLINE__ void* getWorstState() const { return _worstState; }
 
   /** @brief Returns the per-state size (including padding) as stored in the database. */
   __INLINE__ size_t getStateSizeInDatabase() const { return _stateSize; }
+
+  /** @brief Returns the memory one state takes in the database: its padded hot slot plus its cold history slot. */
+  __INLINE__ size_t getSlotSize() const { return _stateSize + _histSize; }
+
+  /** @brief Returns the number of states the database can hold. */
+  __INLINE__ size_t getMaxStates() const { return _maxStates; }
 
 private:
   void* _bestState  = nullptr; ///< Pointer to the best (highest-reward) state from the last advanceStep().
@@ -811,6 +977,7 @@ private:
     size_t distanceAccumulator   = 0; ///< Sum of NUMA distances over all accesses, for the average-distance metric.
     size_t freeStateCacheHit     = 0; ///< getFreeState requests served from the thread-local free-slot cache.
     size_t freeStateCacheReturn  = 0; ///< returnFreeState calls absorbed by the thread-local free-slot cache.
+    size_t nextStateReplaced     = 0; ///< Next states evicted by evictWorseNextState for a better new state.
   };
   std::vector<statCounters_t> _statCounters; ///< Per-thread (OpenMP-thread-indexed) statistics counters.
 
@@ -821,6 +988,16 @@ private:
    * negligible fraction of the state database.
    */
   static constexpr size_t FREE_STATE_CACHE_CAPACITY = 32;
+
+  /**
+   * @brief Number of unexpanded current states a worker steals at once when no slot is free.
+   *
+   * @details One claim on the current-state queue per batch instead of per slot: with many threads per
+   * NUMA domain the per-slot claim serialized the full-database phase (measured 3.1x throughput with a
+   * near-free emulator, ~1% at 10 us per state). Must not exceed @ref FREE_STATE_CACHE_CAPACITY.
+   */
+  static constexpr size_t STEAL_BATCH_SIZE = 8;
+  static_assert(STEAL_BATCH_SIZE <= FREE_STATE_CACHE_CAPACITY, "Stolen slots must fit the (empty) free-slot cache");
 
   /**
    * @brief Per-thread (OpenMP-thread-indexed) cache of free state slots fronting the shared free-state queues.
@@ -852,8 +1029,47 @@ private:
   /// @brief Per-NUMA-domain current-state queues drained by the workers during a step (null for non-delegate domains).
   std::vector<jaffarCommon::concurrent::DrainBuffer<void*>*> _numaCurrentStateQueues;
 
-  /// @brief Per-NUMA-domain reward-ordered queues collecting the next step's states (null for non-delegate domains).
-  std::vector<jaffarCommon::concurrent::concurrentMultimap_t<float, void*>*> _numaNextStateQueues;
+  /// @brief One state produced during the current step: its ordering reward, owning NUMA domain,
+  /// checkpoint level and slot (16 bytes).
+  struct nextEntry_t
+  {
+    float    reward;   ///< Ordering reward (NaN stored as -infinity, see @ref sanitizeReward).
+    uint16_t numaIdx;  ///< NUMA domain owning the slot (decides which current-state queue receives it).
+    uint16_t level;    ///< The state's checkpoint level (saturated at 65535), counted by @ref advanceStep.
+    void*    statePtr; ///< The state slot.
+  };
+  static_assert(sizeof(nextEntry_t) == 16, "nextEntry_t is expected to take 16 bytes");
+
+  /// @brief A worker's private collection of the states it produced in the current step.
+  struct alignas(64) nextBuffer_t
+  {
+    std::vector<nextEntry_t> entries;        ///< Entries in push order, or a min-heap (worst first) when @ref isHeap.
+    bool                     isHeap = false; ///< Whether @ref entries was heapified by @ref evictWorseNextState this step.
+  };
+
+  /// @brief Per-thread (OpenMP-thread-indexed) next-state buffers, merged and sorted by @ref advanceStep.
+  std::vector<nextBuffer_t> _nextBuffers;
+
+  /// @brief Per-NUMA-domain scratch arrays (one entry per slot) where @ref advanceStep gathers and sorts
+  /// the domain's next states. Null for domains without a delegate thread.
+  std::vector<nextEntry_t*> _numaSortBuffers;
+
+  /// @brief Strict weak order "a is better than b" (higher reward first); also the heap comparator,
+  /// which makes the heap's front the worst entry.
+  static __INLINE__ bool isBetterEntry(const nextEntry_t& a, const nextEntry_t& b) { return a.reward > b.reward; }
+
+  /// @brief Maps NaN to -infinity so rewards always form a strict weak order (a NaN would break the sort).
+  static __INLINE__ float sanitizeReward(const float reward) { return std::isnan(reward) ? -std::numeric_limits<float>::infinity() : reward; }
+
+  /// @brief Sorts [first, last) best reward first: libstdc++'s OpenMP parallel sort when available.
+  static __INLINE__ void sortEntries(nextEntry_t* const first, nextEntry_t* const last)
+  {
+#if defined(__GLIBCXX__) && defined(_OPENMP)
+    __gnu_parallel::sort(first, last, isBetterEntry);
+#else
+    std::sort(first, last, isBetterEntry);
+#endif
+  }
 
   /// @brief Per-NUMA-domain queues holding pointers to all currently free state slots.
   std::vector<std::unique_ptr<jaffarCommon::concurrent::atomicQueue_t<void*>>> _freeStateQueues;

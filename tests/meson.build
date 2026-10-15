@@ -225,6 +225,16 @@ test('gridWalker_wincollect',
       args : [ 'checkWinCollect.sh', jaffar.full_path() ],
       suite : [ 'runs', 'TestEmulator', 'gridWalker' ])
 
+# Reference pinning with exact verification (the volatile mask must not cover the whole state), with
+# Hash Lookahead and an explicit no-op input, and a reference floor under frameskip (one trace entry per
+# search step).
+test('gridWalker_reference_pinning',
+      bash,
+      workdir : meson.current_source_dir() + '/testEmulator',
+      timeout: testTimeout,
+      args : [ 'checkReferencePinning.sh', jaffar.full_path(), jaffarPlayer.full_path() ],
+      suite : [ 'runs', 'TestEmulator', 'gridWalker' ])
+
 # Configuration errors are reported at load time with exit code 8 (zero modulo divisor, out-of-range
 # immediate, bad bit tests, Hash Lookahead without an input, unknown win-collection property), and
 # cyclic 'Satisfies', fractional integer bounds and an explicit 'Hash Lookahead Input' still solve.

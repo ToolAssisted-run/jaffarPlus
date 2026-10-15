@@ -134,6 +134,8 @@ private:
     _currentInputIdx = input;
   }
 
+  bool hasDirectStateHash() const override { return true; }
+
   __INLINE__ jaffarCommon::hash::hash_t getDirectStateHash() const override
   {
     // Serializing current state
@@ -388,7 +390,7 @@ private:
     if (players[0].mo != nullptr)
     {
       jaffarCommon::logger::log("[J+] Player 1 Coordinates:    (%f, %f, %f)\n", _playerPosX, _playerPosY, _playerPosZ);
-      jaffarCommon::logger::log("[J+] Player 1 Angle:           %lu (0x%08X)\n", players[0].mo->angle, players[0].mo->angle);
+      jaffarCommon::logger::log("[J+] Player 1 Angle:           %u (0x%08X)\n", players[0].mo->angle, players[0].mo->angle);
       jaffarCommon::logger::log("[J+] Player 1 Momentum:        %f (%f, %f, %f)\n", _totalMomentum, _playerMomentumX, _playerMomentumY, _playerMomentumZ);
       jaffarCommon::logger::log("[J+] Player 1 Health:          %d\n", players[0].mo->health);
     }

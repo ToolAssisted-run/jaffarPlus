@@ -126,6 +126,13 @@ public:
       _historyShardId = 0;
     }
     _inputHistory = inputHistory::create(_inputHistoryConfig, (uint32_t)_maxInputIndex, _historyNumShards, _historyShardId, _historyBacking);
+
+    // "Bypass Hash Calculation" takes the hash straight from the game, which must provide one (the default is
+    // a constant, which would make every state a duplicate of the first)
+    if (_bypassHashCalculation && _game->hasDirectStateHash() == false)
+      JAFFAR_THROW_LOGIC("[ERROR] 'Bypass Hash Calculation' is set, but game '%s' does not provide a direct state hash\n", _game->getName().c_str());
+
+    _isInitialized = true;
   }
 
   /// @brief Injects the shared input-history backing (e.g. the engine's one trie) plus this runner's
@@ -435,21 +442,33 @@ public:
   /**
    * @brief Computes a hash of the current runner state.
    *
-   * @details When "Bypass Hash Calculation" is enabled, returns the game's direct state hash.
-   * Otherwise, hashes the current hash-step-tolerance stage together with the game's hash
-   * contribution using MetroHash128.
+   * @details Hashes the hash-step-tolerance stage together with the game's hash contribution using
+   * MetroHash128. When "Bypass Hash Calculation" is enabled the game's direct state hash replaces the
+   * game's contribution (the stage is still mixed in when a Hash Step Tolerance is set).
+   * @param depthOffset Hash the state as if it were this many search steps deeper (only the stage
+   *        changes): used to compare with a reference state at a later depth.
    * @return The computed state hash.
    */
-  __INLINE__ jaffarCommon::hash::hash_t computeHash() const
+  __INLINE__ jaffarCommon::hash::hash_t computeHash(const size_t depthOffset = 0) const
   {
+    // Calculating hash tolerance stage
+    const uint32_t hashStepToleranceStage = getHashStepToleranceStage(depthOffset);
+
     // If normal hash calculation is to be bypassed, get it straight from the game
-    if (_bypassHashCalculation == true) return _game->getDirectStateHash();
+    if (_bypassHashCalculation == true)
+    {
+      const auto direct = _game->getDirectStateHash();
+      if (_hashStepTolerance == 0) return direct;
+      MetroHash128 stageEngine;
+      stageEngine.Update(hashStepToleranceStage);
+      stageEngine.Update(direct);
+      jaffarCommon::hash::hash_t staged;
+      stageEngine.Finalize(reinterpret_cast<uint8_t*>(&staged));
+      return staged;
+    }
 
     // Storage for hash calculation
     MetroHash128 hashEngine;
-
-    // Calculating hash tolerance stage
-    auto hashStepToleranceStage = getHashStepToleranceStage();
 
     // Hashing step tolerance stage
     hashEngine.Update(hashStepToleranceStage);
@@ -527,9 +546,33 @@ public:
     }
   }
 
-  /** @brief Returns the current hash-step-tolerance stage (current input count modulo tolerance + 1, in 64 bits so the
-   *         largest tolerance does not wrap to a division by zero). */
-  __INLINE__ uint32_t getHashStepToleranceStage() const { return (uint32_t)((uint64_t)_stepCount % ((uint64_t)_hashStepTolerance + 1)); }
+  /**
+   * @brief Returns the hash-step-tolerance stage: the search depth (input count over 1 + the frameskip rate)
+   *        modulo tolerance + 1, in 64 bits so the largest tolerance does not wrap to a division by zero.
+   * @param depthOffset Search steps to add to the current depth.
+   * @return The stage.
+   * @details Taken from the depth rather than the input count: with frameskip the input count at a step
+   * boundary is always a multiple of 1 + the rate, which aliased the stages (Rate 1 with tolerance 1 always
+   * gave stage 0).
+   */
+  __INLINE__ uint32_t getHashStepToleranceStage(const size_t depthOffset = 0) const
+  {
+    const uint64_t depth = (uint64_t)_stepCount / ((uint64_t)_frameskipRate + 1) + depthOffset;
+    return (uint32_t)(depth % ((uint64_t)_hashStepTolerance + 1));
+  }
+
+  /** @brief Returns the configured Hash Step Tolerance. */
+  __INLINE__ uint32_t getHashStepTolerance() const { return _hashStepTolerance; }
+
+  /** @brief Returns the frameskip rate (frames played after each chosen input). */
+  __INLINE__ size_t getFrameskipRate() const { return _frameskipRate; }
+
+  /**
+   * @brief Returns the input a skipped frame plays after @p inputIdx: the custom frameskip input, or the same input.
+   * @param inputIdx The chosen input.
+   * @return The input index of each skipped frame.
+   */
+  __INLINE__ InputSet::inputIndex_t getFrameskipInputIndex(const InputSet::inputIndex_t inputIdx) const { return _frameskipUseCustomInput ? _frameskipCustomInputIdx : inputIdx; }
   /** @brief Returns a pointer to the owned game instance. */
   __INLINE__ Game* getGame() const { return _game.get(); }
 

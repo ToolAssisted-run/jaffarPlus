@@ -763,10 +763,17 @@ public:
 
   /**
    * @brief Returns the state hash directly, without going through a hashing engine.
-   * @details Base implementation returns a default (empty) hash; games may override it.
+   * @details Base implementation returns a default (empty) hash; games that override it also override
+   * @ref hasDirectStateHash.
    * @return The direct state hash.
    */
   virtual jaffarCommon::hash::hash_t getDirectStateHash() const { return jaffarCommon::hash::hash_t(); }
+
+  /**
+   * @brief Tells whether the game provides @ref getDirectStateHash ("Bypass Hash Calculation" needs it).
+   * @return false in the base implementation.
+   */
+  virtual bool hasDirectStateHash() const { return false; }
 
 protected:
   /**

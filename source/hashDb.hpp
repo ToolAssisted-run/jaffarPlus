@@ -89,8 +89,8 @@ public:
     // The configured "Max Store Size" is the ABSOLUTE per-generation budget for the whole hash DB:
     // the global L2 plus all per-domain L1 caches combined never exceed it (so the total footprint is
     // Max Store Size x Max Store Count, independent of NUMA layout -- the tiering does not inflate it).
-    // Each generation is reserved up front at the largest table that fits its budget (see getRungSlots)
-    // and rolled before it would have to grow past it.
+    // Each generation grows on demand up to the largest table that fits its budget (see getRungSlots) and
+    // is rolled before it would have to grow past it.
     const size_t totalBudgetBytes = (size_t)(_maxStoreSizeMb * 1024.0 * 1024.0);
 
     // Only the domains with worker threads ever probe an L1
@@ -111,7 +111,7 @@ public:
       _l1RungSlots         = getRungSlots(_l1MaxStoreSizeBytes);
       _l1.assign(_numaCount, nullptr);
       for (int i = 0; i < _numaCount; i++)
-        if (isNumaDomainActive(i)) _l1[i] = makeStore(_l1RungSlots);
+        if (isNumaDomainActive(i)) _l1[i] = makeStore();
       _l1ActiveCount = activeNumaCount;
     }
     else
@@ -122,7 +122,7 @@ public:
 
     // The single global authoritative store (holds the complete dedup set)
     _l2RungSlots = getRungSlots(_maxStoreSizeBytes);
-    _l2          = makeStore(_l2RungSlots);
+    _l2          = makeStore();
   }
 
   /**
@@ -258,6 +258,18 @@ public:
   }
 
   /**
+   * @brief Removes a hash that @ref checkHashExists just registered as new, for a state that was then not kept.
+   * @param hash The state hash.
+   * @details Erases it from the current generation of the global L2 store and of the calling thread's
+   * domain-local L1 (where checkHashExists inserted it), so a later copy of the same state is new again.
+   */
+  __INLINE__ void eraseHash(const jaffarCommon::hash::hash_t hash)
+  {
+    if (_l1.empty() == false) _l1[_preferredNumaDomain]->_hashStores.rbegin()->hashSet.erase(hash);
+    _l2->_hashStores.rbegin()->hashSet.erase(hash);
+  }
+
+  /**
    * @brief Inserts a hash into the current (newest) store(s) without checking for collisions.
    *
    * @details On a two-tier run the hash is inserted into the calling thread's domain-local L1 current
@@ -275,7 +287,7 @@ public:
    *
    * @details A store rolls (creates a fresh current generation, discarding the oldest when the window
    * is at capacity) when its current generation could not take another step like the last one without
-   * growing past its reserved table. The global L2 rolls on its own; each per-domain L1 rolls on its
+   * growing past the largest table within its budget. The global L2 rolls on its own; each per-domain L1 rolls on its
    * own and also whenever L2 rolls, so an L1 never remembers a hash longer than L2 (otherwise its
    * verdicts would depend on which domain probes). Every store's age is advanced.
    */
@@ -392,27 +404,29 @@ private:
 
   /**
    * @brief Creates a fresh store with a single (empty) hash set generation and per-thread counters.
-   * @param rungSlots Slots per submap to reserve for each generation (see @ref getRungSlots).
    * @return A pointer to the newly allocated store (owned by the caller).
    */
-  __INLINE__ NUMAStore_t* makeStore(const size_t rungSlots)
+  __INLINE__ NUMAStore_t* makeStore()
   {
     auto* s = new NUMAStore_t;
-    pushGeneration(s, rungSlots);
+    pushGeneration(s);
     s->_threadQueryCount.resize(_threadCount);
     s->_threadCollisionCount.resize(_threadCount);
     return s;
   }
 
   /**
-   * @brief Appends a new, empty current generation to a store, with its table reserved up front.
-   * @param s         The store.
-   * @param rungSlots Slots per submap to reserve (0: none; the table then grows on demand).
+   * @brief Appends a new, empty current generation to a store.
+   * @param s The store.
+   *
+   * @details The table grows on demand (doubling), which keeps it compact while it fills; the store rolls
+   * before it would have to grow past the largest table within the budget (see @ref rollStore). Reserving
+   * that table up front instead made every insert touch a fresh page of a budget-sized table: measured
+   * 7-10% slower on a light core at 256 threads.
    */
-  __INLINE__ void pushGeneration(NUMAStore_t* const s, const size_t rungSlots)
+  __INLINE__ void pushGeneration(NUMAStore_t* const s)
   {
     s->_hashStores.push_back(hashStore_t({.id = s->_currentHashStoreId++, .age = s->_currentAge, .queryCount = 0, .collisionCount = 0}));
-    if (rungSlots > 0) s->_hashStores.back().hashSet.rehash(rungSlots * _submapCount);
     s->_sizeAtLastStep = 0;
   }
 
@@ -424,8 +438,8 @@ private:
    *
    * @details A phmap table only grows by doubling, so a generation sized by its measured memory (as it
    * once was) stopped at the first doubling past the budget -- up to 1.9x over it, at 45-50% load.
-   * Reserving the largest table within the budget and rolling before it must grow keeps the memory
-   * within the budget at a load of up to 7/8.
+   * Rolling before the table must grow past this size keeps the memory within the budget at a load of
+   * up to 7/8.
    */
   __INLINE__ size_t getRungSlots(const size_t budgetBytes) const
   {
@@ -436,10 +450,10 @@ private:
     return slots;
   }
 
-  /// @brief Entries a generation reserved at @p rungSlots holds before a submap must grow (7/8 load).
+  /// @brief Entries a generation with @p rungSlots slots per submap holds before a submap must grow (7/8 load).
   __INLINE__ size_t rungEntries(const size_t rungSlots) const { return _submapCount * (rungSlots - rungSlots / 8); }
 
-  /// @brief Memory of a generation reserved at @p rungSlots slots per submap.
+  /// @brief Memory of a generation with @p rungSlots slots per submap.
   __INLINE__ size_t rungBytes(const size_t rungSlots) const { return _submapCount * rungSlots * _bytesPerSlot + _hashStoreFixedOverhead; }
 
   /**
@@ -474,15 +488,15 @@ private:
    * @brief Rolls a single store if needed and advances its age.
    *
    * @details The current (newest) generation rolls when another step inserting as many hashes as the
-   * last one would take it past the entries its reserved table holds (or when it already outgrew its
-   * budget), or when @p force is set. Rolling snapshots the per-thread counters into the current
-   * generation and resets them, discards the oldest generation if the window is already at
-   * @ref _maxStoreCount, and pushes a fresh, reserved current generation. The store's age is then
+   * last one would take it past the entries the largest table within its budget holds (or when it
+   * already outgrew its budget), or when @p force is set. Rolling snapshots the per-thread counters into
+   * the current generation and resets them, discards the oldest generation if the window is already at
+   * @ref _maxStoreCount, and pushes a fresh current generation. The store's age is then
    * advanced in all cases. A single step that inserts more hashes than a whole generation holds
    * overshoots the budget (the generation's table grows); this is reported once.
    * @param g         The store to roll.
    * @param maxBytes  The per-generation memory budget.
-   * @param rungSlots The slots per submap each generation is reserved at.
+   * @param rungSlots The slots per submap of the largest table within the budget.
    * @param force     Roll regardless of the fill (L1 follows L2).
    * @return true if the store rolled.
    */
@@ -522,7 +536,7 @@ private:
       if (g->_hashStores.size() == _maxStoreCount) g->_hashStores.pop_front();
 
       // Now create the new one, by pushing it from the back
-      pushGeneration(g, rungSlots);
+      pushGeneration(g);
     }
 
     // Increasing age
@@ -555,9 +569,9 @@ private:
 
   bool _overflowReported = false; ///< Whether the one-step overflow warning was printed (once per run).
 
-  size_t _l2RungSlots = 0; ///< Slots per submap each L2 generation is reserved at.
+  size_t _l2RungSlots = 0; ///< Slots per submap of the largest L2 table within its budget.
 
-  size_t _l1RungSlots = 0; ///< Slots per submap each L1 generation is reserved at.
+  size_t _l1RungSlots = 0; ///< Slots per submap of the largest L1 table within its budget.
 
   size_t _maxStoreCount; ///< Maximum number of store generations to keep at any time.
 

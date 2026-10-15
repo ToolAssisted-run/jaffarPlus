@@ -275,7 +275,28 @@ public:
       std::string solutionString;
       if (jaffarCommon::file::loadStringFromFile(solutionString, _referenceSolutionPath) == false)
         JAFFAR_THROW_RUNTIME("[ERROR] Could not open 'Reference Reward Floor' > 'Solution File': '%s'\n", _referenceSolutionPath.c_str());
-      const auto referenceInputs = jaffarCommon::string::split(solutionString, '\0');
+
+      // A solution has one line per frame; with frameskip a search step plays 1 + Rate frames, so the trace,
+      // the states and the frame cap are per step: the first line of each group of 1 + Rate lines is the
+      // step's input, and the runner plays the rest (the same input, or the custom frameskip input).
+      std::vector<std::string> referenceInputs;
+      {
+        std::vector<std::string> frames;
+        for (const auto& line : jaffarCommon::string::split(solutionString, '\0'))
+          if (line.empty() == false) frames.push_back(line);
+        const size_t framesPerStep = _runner->getFrameskipRate() + 1;
+        if (frames.size() % framesPerStep != 0)
+          JAFFAR_THROW_RUNTIME("[ERROR] 'Reference Reward Floor' > 'Solution File' has %lu frames, not a multiple of 1 + the frameskip rate (%lu)\n", frames.size(), framesPerStep);
+        for (size_t i = 0; i < frames.size(); i += framesPerStep)
+        {
+          const auto stepInput = _runner->getGame()->getEmulator()->registerInput(frames[i]);
+          for (size_t j = 1; j < framesPerStep; j++)
+            if (_runner->getGame()->getEmulator()->registerInput(frames[i + j]) != _runner->getFrameskipInputIndex(stepInput))
+              JAFFAR_THROW_RUNTIME("[ERROR] 'Reference Reward Floor' > 'Solution File' frame %lu ('%s') is not the frameskip input that follows frame %lu\n", i + j,
+                                   frames[i + j].c_str(), i);
+          referenceInputs.push_back(frames[i]);
+        }
+      }
 
       // Snapshot the runner's initial (post-initial-sequence) state so we can restore it after the replay. The
       // engine already captured the root from this same state above, so the replay only borrows the runner.

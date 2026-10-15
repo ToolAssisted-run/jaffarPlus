@@ -79,6 +79,8 @@ private:
   // verbatim instead of running its MetroHash pass over the registered Hash Properties. It must be a
   // faithful dedup key, so -- like the normal hash -- it is keyed on the cursor position; otherwise
   // distinct cells would collapse into one state and BFS would not return a shortest path.
+  bool hasDirectStateHash() const override { return true; }
+
   __INLINE__ jaffarCommon::hash::hash_t getDirectStateHash() const override
   {
     const uint8_t pos[2] = {*_posX, *_posY};

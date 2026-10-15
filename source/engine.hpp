@@ -167,6 +167,9 @@ public:
       // hash-only pinning is sound and a tolerance-0 reference floor acts as the tripwire.
       _refPinExactVerify = pinJs.contains("Exact Verification") ? jaffarCommon::json::popBoolean(pinJs, "Exact Verification") : true;
       jaffarCommon::json::checkEmpty(pinJs, "Engine Configuration > Reference Pinning");
+      // The per-depth hash file comes from jaffar-player --dumpHashes, which replays frame by frame (frameskip off)
+      if (_refPinEnabled && _runners[0]->getFrameskipRate() > 0)
+        JAFFAR_THROW_LOGIC("[ERROR] 'Reference Pinning' does not support 'Frameskip' > 'Rate' > 0 (its hash file is written per frame, the search hashes per step)\n");
       if (_refPinEnabled && std::getenv("JAFFAR_IS_DRY_RUN") == nullptr)
       {
         std::ifstream f(pinPath);
@@ -290,6 +293,9 @@ public:
           r->initialize();
         });
 
+    // Whether the hash depends on the depth (reference pins at a later depth are then hashed with its stage)
+    _hashStepToleranceActive = _runners[0]->getHashStepTolerance() > 0;
+
     // Resolving the Hash Lookahead input (every runner registers the same inputs, so one index serves all)
     if (_hashLookahead > 0) _hashLookaheadInput = _runners[0]->getHashLookaheadInputIndex(_hashLookaheadInputString);
 
@@ -306,11 +312,11 @@ public:
       const size_t stateBudget = _stateDb->getMaxBudgetBytes();
       const size_t hashBudget  = (_hashDbEnabled == true) ? _hashDb->getMaxBudgetBytes() : 0;
       // The state DB is a fixed pool (1x; full slots are scavenged from the current step, never doubled).
-      // Each hash DB generation is reserved within its budget (see HashDb::getRungSlots), but malloc may
-      // keep a discarded generation's tables resident for the next one, and a step inserting more hashes
-      // than a generation holds grows it past the budget (HashDb warns): reserve 2x the hash budget.
-      // (Before generations were reserved, a 270 GB state+hash config peaked at ~520 GB RSS = state +
-      // ~2*hash + trie and was OOM-killed mid-run.)
+      // Each hash DB generation stays within its budget (it rolls before outgrowing it, see
+      // HashDb::getRungSlots), but malloc keeps tables freed while the generations grow and roll resident
+      // for later ones, and a step inserting more hashes than a generation holds grows it past the budget
+      // (HashDb warns): reserve 2x the hash budget. (Before generations rolled by their size limit, a
+      // 270 GB state+hash config peaked at ~520 GB RSS = state + ~2*hash + trie and was OOM-killed.)
       const size_t hashPeak = hashBudget * 2;
       size_t       freeRam  = 0;
       for (int i = 0; i < _numaCount; i++)
@@ -1295,15 +1301,20 @@ private:
     // waited until after the dedup check the reference lineage would be deduped away before it could be
     // pinned. The single claimed copy bypasses dedup so it is always anchored; all later duplicates are
     // dropped normally. Only the DB-ordering reward is affected (the floor uses the unbiased reward).
-    float pinBonus = 0.0f;
-    bool  isRefPin = false;
+    float  pinBonus     = 0.0f;
+    bool   isRefPin     = false;
+    size_t pinDepth     = 0;     // the reference depth claimed for this copy (when isRefPin)
+    bool   isPlainChild = false; // whether the runner already holds the plain child (base + input), not the lookahead posture
     if (_refPinEnabled)
     {
       const size_t newDepth = _currentStep + 1;
       for (size_t k = 0; k <= _refPinLookahead; k++)
       {
         const size_t idx = newDepth + k;
-        if (idx < _refPinHashes.size() && hash == _refPinHashes[idx])
+        if (idx >= _refPinHashes.size()) break;
+        // The reference hash at depth idx carries idx's hash-step-tolerance stage: hash this child with it
+        const auto candidateHash = (k == 0 || _hashStepToleranceActive == false) ? hash : r.computeHash(k);
+        if (candidateHash == _refPinHashes[idx])
         {
           _refPinSeenPreDedup.fetch_add(1, std::memory_order_relaxed);
           // Hash equality is only a PRE-FILTER: under a quantized dedup hash a whole cell of states
@@ -1312,6 +1323,19 @@ private:
           bool verified = true;
           if (_refPinExactVerify && idx < _refStates.size() && _refStates[idx].size() > 0)
           {
+            // The reference states are plain (no lookahead advances) and were captured with their rules
+            // evaluated: compare the plain child in the same posture (re-evaluating the rules later, as
+            // every child does, gives the same result)
+            if (_hashLookahead > 0 && isPlainChild == false)
+            {
+              _stateDb->loadStateFromSlot(r, baseStateData);
+              r.setSearchStep(_currentStep);
+              r.advanceState(input);
+              isPlainChild = true;
+            }
+            r.getGame()->evaluateRules();
+            r.getGame()->updateGameStateType();
+            r.getGame()->updateReward();
             thread_local std::vector<uint8_t> scratch;
             scratch.resize(_refStates[idx].size());
             jaffarCommon::serializer::Contiguous s(scratch.data(), scratch.size());
@@ -1338,6 +1362,7 @@ private:
             {
               pinBonus = _refPinBonus + (float)k * _refPinLookaheadBonus;
               isRefPin = true;
+              pinDepth = idx;
               _refPinHits.fetch_add(1, std::memory_order_relaxed);
               _refPinMaxDepthHit.store(std::max(_refPinMaxDepthHit.load(std::memory_order_relaxed), idx), std::memory_order_relaxed);
             }
@@ -1353,8 +1378,18 @@ private:
     // posture -- no restore needed, per the discard-without-restore optimization.)
     if (hashExists == true && isRefPin == false) return inputResult_t::repeated;
 
+    // A state that turns out not to be kept gives back what it took: its hash (so a later copy of the same
+    // state is not mistaken for a repeat; only a hash this state registered, not a pinned copy's existing
+    // one) and its claim on the reference depth (so a later copy can still be pinned)
+    const auto discard = [&](const inputResult_t result, const bool releaseHash)
+    {
+      if (releaseHash && hashExists == false && _hashDbEnabled) _hashDb->eraseHash(hash);
+      if (isRefPin) _refPinnedAtDepth[pinDepth].store(0, std::memory_order_relaxed);
+      return result;
+    };
+
     // Survivor: rebuild the pristine child (base + input) before rules/serialization see it.
-    if (_hashLookahead > 0)
+    if (_hashLookahead > 0 && isPlainChild == false)
     {
       _stateDb->loadStateFromSlot(r, baseStateData);
       r.setSearchStep(_currentStep);
@@ -1381,12 +1416,12 @@ private:
       const auto stateCheckpointLevel  = r.getGame()->getCheckpointLevel();
 
       // If state does not meet checkpoint past the cutoff, then do not process it further
-      if (stateCheckpointLevel < globalCheckpointLevel && _currentStep > _checkpointCutoff.load(std::memory_order_relaxed)) return inputResult_t::droppedCheckpoint;
+      if (stateCheckpointLevel < globalCheckpointLevel && _currentStep > _checkpointCutoff.load(std::memory_order_relaxed)) return discard(inputResult_t::droppedCheckpoint, true);
     }
     JAFFAR_PROF_ACC(acc.ruleChecking, t4);
 
     // Now we have determined the state is not repeated, check if it's not a failed state
-    if (stateType == Game::stateType_t::fail) return inputResult_t::failed;
+    if (stateType == Game::stateType_t::fail) return discard(inputResult_t::failed, false);
 
     // Updating state reward
     JAFFAR_PROF_DECL(t6);
@@ -1513,7 +1548,7 @@ private:
       void* newStateData = _stateDb->getFreeState(threadId);
       if (newStateData == nullptr) newStateData = _stateDb->evictWorseNextState(reward, threadId);
       JAFFAR_PROF_ACC(acc.getFreeState, t5);
-      if (newStateData == nullptr) return inputResult_t::droppedNoStorage;
+      if (newStateData == nullptr) return discard(inputResult_t::droppedNoStorage, true);
 
       // Debug probe (JAFFAR_DEBUG_SAMPLE_RATE=N): log every Nth stored state's identity (depth,
       // floor reward, key game properties) and hard-check the reference-prune invariant on it.
@@ -1565,7 +1600,7 @@ private:
         JAFFAR_PROF_ACC(acc.returnFreeState, t9);
 
         // Returning dropped result by failed serialization
-        return inputResult_t::droppedFailedSerialization;
+        return discard(inputResult_t::droppedFailedSerialization, true);
       }
     }
 
@@ -1596,21 +1631,22 @@ private:
 
   // Reference pinning + lookahead (see constructor). Anchors a reference lineage in the frontier and
   // rewards being 1..Lookahead frames ahead of it.
-  size_t                                  _hashLookahead = 0;            ///< N null-advances before hashing (see "Hash Lookahead"); 0 = hash the current state.
-  std::string                             _hashLookaheadInputString;     ///< "Hash Lookahead Input" (empty: the game's null input).
-  InputSet::inputIndex_t                  _hashLookaheadInput   = 0;     ///< The input index the Hash Lookahead advances with (resolved in initialize()).
-  bool                                    _refPinEnabled        = false; ///< Whether reference pinning is active.
-  bool                                    _refPinExactVerify    = true;  ///< Whether hash-matched pin candidates are byte-verified against captured reference states.
-  float                                   _refPinBonus          = 0.0f;  ///< Reward bonus for matching the reference at the state's own depth.
-  size_t                                  _refPinLookahead      = 0;     ///< How many future depths to also match (being ahead).
-  float                                   _refPinLookaheadBonus = 0.0f;  ///< Extra bonus per frame ahead of the reference.
-  std::vector<jaffarCommon::hash::hash_t> _refPinHashes;                 ///< Reference state hash at each search depth.
-  std::atomic<size_t>                     _refPinHits{0};                ///< Cumulative reference-pin hits (diagnostic).
-  bool                                    _compactLog = false;           ///< "Log Verbosity": "Compact" collapses the per-step engine block to essentials.
-  std::atomic<size_t>                     _refPinMaxDepthHit{0};         ///< Deepest reference depth a pin matched (diagnostic).
-  std::vector<std::vector<uint8_t>>       _refStates;                    ///< Per-depth serialized reference states for EXACT pin verification (empty = hash-only pinning).
-  std::atomic<size_t>                     _refPinSeenPreDedup{0};        ///< Reference-depth matches seen (diagnostic).
-  std::unique_ptr<std::atomic<uint8_t>[]> _refPinnedAtDepth;             ///< Per reference depth: claimed(1)/unclaimed(0), so exactly one copy is pinned.
+  size_t                                  _hashLookahead = 0;               ///< N null-advances before hashing (see "Hash Lookahead"); 0 = hash the current state.
+  std::string                             _hashLookaheadInputString;        ///< "Hash Lookahead Input" (empty: the game's null input).
+  InputSet::inputIndex_t                  _hashLookaheadInput   = 0;        ///< The input index the Hash Lookahead advances with (resolved in initialize()).
+  bool                                    _refPinEnabled        = false;    ///< Whether reference pinning is active.
+  bool                                    _refPinExactVerify    = true;     ///< Whether hash-matched pin candidates are byte-verified against captured reference states.
+  float                                   _refPinBonus          = 0.0f;     ///< Reward bonus for matching the reference at the state's own depth.
+  size_t                                  _refPinLookahead      = 0;        ///< How many future depths to also match (being ahead).
+  float                                   _refPinLookaheadBonus = 0.0f;     ///< Extra bonus per frame ahead of the reference.
+  std::vector<jaffarCommon::hash::hash_t> _refPinHashes;                    ///< Reference state hash at each search depth.
+  std::atomic<size_t>                     _refPinHits{0};                   ///< Cumulative reference-pin hits (diagnostic).
+  bool                                    _compactLog = false;              ///< "Log Verbosity": "Compact" collapses the per-step engine block to essentials.
+  std::atomic<size_t>                     _refPinMaxDepthHit{0};            ///< Deepest reference depth a pin matched (diagnostic).
+  std::vector<std::vector<uint8_t>>       _refStates;                       ///< Per-depth serialized reference states for EXACT pin verification (empty = hash-only pinning).
+  std::atomic<size_t>                     _refPinSeenPreDedup{0};           ///< Reference-depth matches seen (diagnostic).
+  std::unique_ptr<std::atomic<uint8_t>[]> _refPinnedAtDepth;                ///< Per reference depth: claimed(1)/unclaimed(0), so exactly one copy is pinned.
+  bool                                    _hashStepToleranceActive = false; ///< Whether the runners use a Hash Step Tolerance (the hash then depends on the depth).
 
 public:
   /// @brief Supplies per-depth serialized reference states for exact pin verification, and computes the
@@ -1671,11 +1707,18 @@ public:
         auto&        r = *_runners[ri];
         const size_t k = (pi * maxDepth) / probeCount;
         if (refInputs[k].empty()) continue;
+        // The step counter is not part of the state: give the probe the reference depth, as the search
+        // has it (otherwise the input history lands elsewhere and every byte looks volatile)
+        r.setSearchStep(k);
         {
           jaffarCommon::deserializer::Contiguous d(_refStates[k].data(), _refStates[k].size());
           r.deserializeState(d);
         }
+        // Produce the state as the search's exact verification serializes it: advanced, rules evaluated
         r.advanceState(r.getGame()->getEmulator()->registerInput(refInputs[k]));
+        r.getGame()->evaluateRules();
+        r.getGame()->updateGameStateType();
+        r.getGame()->updateReward();
         {
           jaffarCommon::serializer::Contiguous s(scratch.data(), scratch.size());
           r.serializeState(s);

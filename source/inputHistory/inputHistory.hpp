@@ -58,10 +58,12 @@ public:
   virtual void pushInput(const size_t stepCount, const InputSet::inputIndex_t input) = 0;
 
   /// @brief Writes the compact "cold" path representation (stored in each StateDb slot), excluding the count.
+  /// @param s The serializer to write into.
   /// @param stepCount The path length: a strategy may write only the part it uses (raw writes the used
   ///        prefix of its buffer); the default writes the whole representation.
   virtual void serializeCold(jaffarCommon::serializer::Base& s, const size_t stepCount = SIZE_MAX) const = 0;
   /// @brief Restores the cursor from a "cold" representation (the count is set by the runner).
+  /// @param d The deserializer to read from.
   /// @param stepCount The path length (as given to serializeCold); the default reads the whole representation.
   virtual void deserializeCold(jaffarCommon::deserializer::Base& d, const size_t stepCount = SIZE_MAX) = 0;
 

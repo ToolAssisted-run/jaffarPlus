@@ -132,15 +132,6 @@ public:
   }
 
   /**
-   * @brief Reads the property's value at its memory address as type @p T, applying endianness conversion.
-   *
-   * When the property is little endian the bytes are returned as-is. When it is big endian the bytes
-   * are reversed into the returned value.
-   * @tparam T The type to read the value as; its size must match the property's datatype size.
-   * @return The value at the property's pointer, interpreted as @p T.
-   * @throws A logic error if sizeof(T) does not match the property's datatype size.
-   */
-  /**
    * @brief Reads the property's value as a long double, whatever its datatype (exact for every
    *        integer type up to 64 bits). Used by conditions whose operands have different datatypes.
    * @return The property's current value.
@@ -171,6 +162,15 @@ public:
    */
   static __INLINE__ bool isIntegerDatatype(const datatype_t datatype) { return datatype != dt_bool && datatype != dt_float32 && datatype != dt_float64; }
 
+  /**
+   * @brief Reads the property's value at its memory address as type @p T, applying endianness conversion.
+   *
+   * When the property is little endian the bytes are returned as-is. When it is big endian the bytes
+   * are reversed into the returned value.
+   * @tparam T The type to read the value as; its size must match the property's datatype size.
+   * @return The value at the property's pointer, interpreted as @p T.
+   * @throws A logic error if sizeof(T) does not match the property's datatype size.
+   */
   template <typename T>
   __INLINE__ T getValue() const
   {

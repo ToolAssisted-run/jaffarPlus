@@ -1043,6 +1043,9 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
   return true;
 }
 
+// The player proper, documented at its definition below
+int run(int argc, char* argv[]);
+
 /**
  * @brief Entry point for the jaffar-player (jaffar-tester) executable.
  *
@@ -1059,14 +1062,6 @@ bool mainCycle(jaffarPlus::Runner& r, const std::string& solutionFile, bool disa
  * @param argc Argument count.
  * @param argv Argument vector.
  * @return 0 on normal exit, or @ref errorExitCode if an error was raised (its message goes to stderr).
- */
-int run(int argc, char* argv[]);
-
-/**
- * @brief Runs the player and reports any error with its message.
- * @param argc Argument count.
- * @param argv Argument vector.
- * @return The player's exit code (see @ref run).
  */
 int main(int argc, char* argv[])
 {

@@ -425,9 +425,10 @@ public:
 
   /// @brief Serializes only the cold input-history "path" (written once at state creation, read at
   /// solution time) into @p serializer.
-  __INLINE__ void serializeHistory(jaffarCommon::serializer::Base& serializer) const { _inputHistory->serializeCold(serializer); }
+  __INLINE__ void serializeHistory(jaffarCommon::serializer::Base& serializer) const { _inputHistory->serializeCold(serializer, _stepCount); }
   /// @brief Restores only the cold input-history "path" from @p deserializer.
-  __INLINE__ void deserializeHistory(jaffarCommon::deserializer::Base& deserializer) { _inputHistory->deserializeCold(deserializer); }
+  /// The step counter must already be set (see @ref setSearchStep): the strategy reads only the part of the path it covers.
+  __INLINE__ void deserializeHistory(jaffarCommon::deserializer::Base& deserializer) { _inputHistory->deserializeCold(deserializer, _stepCount); }
 
   /// @brief Returns the serialized size of the hot game+emulator state, in bytes.
   __INLINE__ size_t getHotStateSize() const

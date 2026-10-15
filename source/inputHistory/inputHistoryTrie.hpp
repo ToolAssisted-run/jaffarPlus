@@ -82,7 +82,7 @@ public:
     _ownNode = true;
   }
 
-  void serializeCold(jaffarCommon::serializer::Base& s) const override
+  void serializeCold(jaffarCommon::serializer::Base& s, const size_t /*stepCount*/ = SIZE_MAX) const override
   {
     // _node may be NONE if the trie hit its capacity ceiling (extend returned NONE); acquiring NONE would
     // index out of bounds. Skip it -- releaseColdSlot() already skips NONE too, so the refcount stays
@@ -90,7 +90,7 @@ public:
     if (_node != SequenceInputTrie::NONE) _trie->acquire(_node); // the destination slot becomes a holder of this path node
     s.pushContiguous(&_node, sizeof(_node));
   }
-  void deserializeCold(jaffarCommon::deserializer::Base& d) override
+  void deserializeCold(jaffarCommon::deserializer::Base& d, const size_t /*stepCount*/ = SIZE_MAX) override
   {
     if (_ownNode) _trie->release(_node, _shardId); // drop a just-discarded candidate node, if any
     d.popContiguous(&_node, sizeof(_node));
@@ -139,7 +139,7 @@ public:
     }
   }
 
-  void captureColdToFull(const void* cold, void* full) const override
+  void captureColdToFull(const void* cold, void* full, const size_t /*stepCount*/ = SIZE_MAX) const override
   {
     // Cold path = [node id]; full path = [bit-packed history]. Reconstruct the node's path into the full
     // buffer so the snapshot is self-contained (no later reference into the trie). The runner's step-count

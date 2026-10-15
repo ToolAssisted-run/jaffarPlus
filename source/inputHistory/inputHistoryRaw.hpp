@@ -8,6 +8,7 @@
  */
 
 #include "inputHistory.hpp"
+#include <algorithm>
 #include <atomic>
 #include <cstring>
 #include <jaffarCommon/bitwise.hpp>
@@ -33,20 +34,41 @@ public:
     _buffer.resize(bytes, 0);
   }
 
-  void reset() override { std::memset(_buffer.data(), 0, _buffer.size()); }
+  void reset() override
+  {
+    std::memset(_buffer.data(), 0, _buffer.size());
+    _usedBytes = 0;
+  }
 
   void pushInput(const size_t stepCount, const InputSet::inputIndex_t input) override
   {
     if (stepCount < _maxSize)
+    {
       setInput(stepCount, input);
+      _usedBytes = std::max(_usedBytes, getPrefixBytes(stepCount + 1));
+    }
     else if (_truncationWarned.exchange(true) == false)
       jaffarCommon::logger::log("[J+] Warning: input history exceeded its maximum size (%u). Longer solutions are truncated; raise 'Store Input History / Max Size'.\n", _maxSize);
   }
 
-  void serializeCold(jaffarCommon::serializer::Base& s) const override { s.pushContiguous(_buffer.data(), _buffer.size()); }
-  void deserializeCold(jaffarCommon::deserializer::Base& d) override { d.popContiguous(_buffer.data(), _buffer.size()); }
-  void serializeFull(jaffarCommon::serializer::Base& s) const override { serializeCold(s); }
-  void deserializeFull(jaffarCommon::deserializer::Base& d, const size_t /*stepCount*/) override { deserializeCold(d); }
+  // A state of depth n uses only the first getPrefixBytes(n) bytes of the buffer (the rest is zero), so
+  // the cold form moves just that prefix: the bytes beyond it in a slot are left over from earlier states
+  // and never read. The cursor's own buffer is kept zero beyond its used bytes, so the full form (and with
+  // it every serialized state) stays exactly the zero-padded buffer.
+  void serializeCold(jaffarCommon::serializer::Base& s, const size_t stepCount = SIZE_MAX) const override { s.pushContiguous(_buffer.data(), getPrefixBytes(stepCount)); }
+  void deserializeCold(jaffarCommon::deserializer::Base& d, const size_t stepCount = SIZE_MAX) override
+  {
+    const size_t prefix = getPrefixBytes(stepCount);
+    d.popContiguous(_buffer.data(), prefix);
+    if (_usedBytes > prefix) std::memset(_buffer.data() + prefix, 0, _usedBytes - prefix);
+    _usedBytes = prefix;
+  }
+  void serializeFull(jaffarCommon::serializer::Base& s) const override { s.pushContiguous(_buffer.data(), _buffer.size()); }
+  void deserializeFull(jaffarCommon::deserializer::Base& d, const size_t /*stepCount*/) override
+  {
+    d.popContiguous(_buffer.data(), _buffer.size());
+    _usedBytes = _buffer.size();
+  }
 
   std::string toString(const std::map<InputSet::inputIndex_t, std::string>& inputStringMap, const size_t stepCount) const override
   {
@@ -63,9 +85,17 @@ public:
   size_t getColdSize() const override { return _buffer.size(); }
   size_t getFullSize() const override { return _buffer.size(); }
 
-  void captureColdToFull(const void* cold, void* full) const override { memcpy(full, cold, _buffer.size()); }
+  void captureColdToFull(const void* cold, void* full, const size_t stepCount = SIZE_MAX) const override
+  {
+    const size_t prefix = getPrefixBytes(stepCount);
+    memcpy(full, cold, prefix);
+    std::memset((uint8_t*)full + prefix, 0, _buffer.size() - prefix);
+  }
 
 private:
+  /// @brief Bytes of the buffer that a path of @p stepCount inputs uses (the whole buffer from Max Size on).
+  __INLINE__ size_t getPrefixBytes(const size_t stepCount) const { return stepCount >= _maxSize ? _buffer.size() : std::min(_buffer.size(), (stepCount * _bits + 7) / 8); }
+
   /// @brief Writes the input index for @p step into the bit-packed buffer.
   __INLINE__ void setInput(const size_t step, const InputSet::inputIndex_t input)
   {
@@ -82,6 +112,7 @@ private:
   const uint32_t                  _maxSize;                  ///< Maximum number of steps recorded.
   size_t                          _bits = 0;                 ///< Bits used to encode one input index.
   std::vector<uint8_t>            _buffer;                   ///< Bit-packed input sequence.
+  size_t                          _usedBytes        = 0;     ///< Leading bytes of _buffer that may be nonzero (the rest is zero).
   static inline std::atomic<bool> _truncationWarned = false; ///< Set once after the first over-Max-Size push.
 };
 

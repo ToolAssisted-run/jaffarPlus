@@ -1127,8 +1127,8 @@ private:
 
       // Load state into runner via the state database (base states are slab slots: hot slot + cold path)
       JAFFAR_PROF_DECL(t0);
+      r->setSearchStep(_currentStep); // base state's depth = current search step (count is not stored per-state; set before loading)
       _stateDb->loadStateFromSlot(*r, baseStateData, _runRuleActionsOnReload);
-      r->setSearchStep(_currentStep); // base state's depth = current search step (count is not stored per-state)
       JAFFAR_PROF_ACC(acc.runnerStateLoad, t0);
 
       // Getting allowed inputs
@@ -1224,8 +1224,8 @@ private:
     if (reloadBase)
     {
       JAFFAR_PROF_DECL(t0);
+      r.setSearchStep(_currentStep); // base state's depth = current search step (count is not stored per-state; set before loading)
       _stateDb->loadStateFromSlot(r, baseStateData, _runRuleActionsOnReload);
-      r.setSearchStep(_currentStep); // base state's depth = current search step (count is not stored per-state)
       JAFFAR_PROF_ACC(acc.runnerStateLoad, t0);
     }
 
@@ -1343,8 +1343,8 @@ private:
             // every child does, gives the same result)
             if (_hashLookahead > 0 && isPlainChild == false)
             {
-              _stateDb->loadStateFromSlot(r, baseStateData, _runRuleActionsOnReload);
               r.setSearchStep(_currentStep);
+              _stateDb->loadStateFromSlot(r, baseStateData, _runRuleActionsOnReload);
               r.advanceState(input);
               isPlainChild = true;
             }
@@ -1406,8 +1406,8 @@ private:
     // Survivor: rebuild the pristine child (base + input) before rules/serialization see it.
     if (_hashLookahead > 0 && isPlainChild == false)
     {
-      _stateDb->loadStateFromSlot(r, baseStateData, _runRuleActionsOnReload);
       r.setSearchStep(_currentStep);
+      _stateDb->loadStateFromSlot(r, baseStateData, _runRuleActionsOnReload);
       r.advanceState(input);
     }
 

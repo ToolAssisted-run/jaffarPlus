@@ -778,12 +778,12 @@ public:
       return;
     }
 
-    // Saving worst state into the storage (gather hot slab slot + its cold history into the full buffer)
-    _engine->getStateDb()->captureSlotToBuffer(worstState, _worstStateStorage.data());
-
     // The worst state belongs to the current frontier, so its depth is the current search step (the step
-    // counter is not stored per-state). Set it before loading so the solution renders to the right length.
+    // counter is not stored per-state). Set it before capturing and loading so the path has the right length.
     _runner->setSearchStep(_currentStep);
+
+    // Saving worst state into the storage (gather hot slab slot + its cold history into the full buffer)
+    _engine->getStateDb()->captureSlotToBuffer(worstState, _worstStateStorage.data(), _runner->getStepCount());
     _engine->getStateDb()->loadStateIntoRunner(*_runner, _worstStateStorage.data());
 
     // Saving worst solution into storage
@@ -824,8 +824,10 @@ public:
         return;
       }
 
-      // Saving best state into the storage (gather hot slab slot + its cold history into the full buffer)
-      _engine->getStateDb()->captureSlotToBuffer(bestState, _bestStateStorage.data());
+      // Saving best state into the storage (gather hot slab slot + its cold history into the full buffer;
+      // it belongs to the current frontier, so its depth is the current search step)
+      _runner->setSearchStep(_currentStep);
+      _engine->getStateDb()->captureSlotToBuffer(bestState, _bestStateStorage.data(), _runner->getStepCount());
     }
 
     // If we have found a winning state in this step that improves on the current best, save it now

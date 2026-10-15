@@ -15,11 +15,12 @@
  *
  * Cold vs full: the StateDb stores a compact "cold" representation in each state slot; standalone
  * snapshot buffers (best/worst/win, player initial state) hold a self-contained "full" representation.
- * For raw/none the two coincide; for the trie the cold form is a 4-byte node id while the full form is a
+ * For raw/none the two coincide; for the trie the cold form is an 8-byte node id while the full form is a
  * reconstructed, self-contained copy.
  */
 
 #include "../inputSet.hpp"
+#include <cstdint>
 #include <jaffarCommon/deserializers/base.hpp>
 #include <jaffarCommon/json.hpp>
 #include <jaffarCommon/serializers/base.hpp>
@@ -45,9 +46,10 @@ public:
   // ---- per-runner cursor ---------------------------------------------------------------------------
   //
   // NOTE: the step counter is NOT owned here. The Runner owns the count (it is what implements Hash Step
-  // Tolerance) and is the sole party that serializes/deserializes it, prepending it to the cold/full blob.
-  // Strategies that need the current step (raw's write position, the trie's reconstruction length) receive
-  // it as a parameter; they never store or serialize it themselves.
+  // Tolerance); it is not serialized at all: whoever restores a state sets it first (every state of a search
+  // step has the same depth, so the engine sets it from the step number; snapshots record it). Strategies
+  // that need the current step (raw's write position and used length, the trie's reconstruction length)
+  // receive it as a parameter; they never store or serialize it themselves.
 
   /// @brief Resets the cursor to the empty path.
   virtual void reset() = 0;
@@ -56,9 +58,12 @@ public:
   virtual void pushInput(const size_t stepCount, const InputSet::inputIndex_t input) = 0;
 
   /// @brief Writes the compact "cold" path representation (stored in each StateDb slot), excluding the count.
-  virtual void serializeCold(jaffarCommon::serializer::Base& s) const = 0;
-  /// @brief Restores the cursor from a "cold" representation (the count is restored by the runner).
-  virtual void deserializeCold(jaffarCommon::deserializer::Base& d) = 0;
+  /// @param stepCount The path length: a strategy may write only the part it uses (raw writes the used
+  ///        prefix of its buffer); the default writes the whole representation.
+  virtual void serializeCold(jaffarCommon::serializer::Base& s, const size_t stepCount = SIZE_MAX) const = 0;
+  /// @brief Restores the cursor from a "cold" representation (the count is set by the runner).
+  /// @param stepCount The path length (as given to serializeCold); the default reads the whole representation.
+  virtual void deserializeCold(jaffarCommon::deserializer::Base& d, const size_t stepCount = SIZE_MAX) = 0;
 
   /// @brief Writes the self-contained "full" path representation (for standalone snapshot buffers), excluding the count.
   virtual void serializeFull(jaffarCommon::serializer::Base& s) const = 0;
@@ -87,8 +92,8 @@ public:
     (void)shard;
   }
   /// @brief Converts a stored cold path into a self-contained full one (best/worst snapshot). Operates on the
-  /// path only; the runner's count prefix is copied separately by the StateDb.
-  virtual void captureColdToFull(const void* cold, void* full) const = 0;
+  /// path only. @p stepCount is the path length (as given to serializeCold; the default: the whole cold form).
+  virtual void captureColdToFull(const void* cold, void* full, const size_t stepCount = SIZE_MAX) const = 0;
 
   /// @brief Approximate resident memory of any shared structure (e.g. the trie), in bytes. Default: 0.
   virtual size_t getApproxMemoryBytes() const { return 0; }

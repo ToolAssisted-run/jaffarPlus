@@ -330,13 +330,16 @@ public:
    * @brief Gathers a slab slot's hot state and its cold history mirror into a contiguous full-state
    * buffer ([hot][history], matching @ref saveStateFromRunner's layout). Used to snapshot the best/worst
    * state out of the slabs into standalone storage that @ref loadStateIntoRunner can later restore.
+   * @param slotPtr   The slab slot.
+   * @param buffer    The destination buffer (@ref getFullStateSize bytes).
+   * @param stepCount The state's depth in inputs (its path length).
    */
-  __INLINE__ void captureSlotToBuffer(const void* slotPtr, void* buffer)
+  __INLINE__ void captureSlotToBuffer(const void* slotPtr, void* buffer, const size_t stepCount)
   {
     // Hot state copies verbatim; the input-history strategy converts its cold slot into the buffer's
     // self-contained full history region (raw/none: copy; trie: reconstruct the path from its node id).
     memcpy(buffer, slotPtr, _stateSizeRaw);
-    _ih->captureColdToFull(getHistoryPtr(const_cast<void*>(slotPtr)), (uint8_t*)buffer + _stateSizeRaw);
+    _ih->captureColdToFull(getHistoryPtr(const_cast<void*>(slotPtr)), (uint8_t*)buffer + _stateSizeRaw, stepCount);
   }
 
   /// @brief Full self-contained serialized state size ([hot][history]); for standalone state buffers.

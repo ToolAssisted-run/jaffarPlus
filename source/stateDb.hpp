@@ -247,6 +247,12 @@ public:
     _allocableBytesPerNuma.resize(_numaCount);
     for (int i = 0; i < _numaCount; i++) _allocableBytesPerNuma[i] = _maxStatesPerNuma[i] * _stateSize;
 
+    // The domain holding every slot, when only one does (getStateNumaDomain needs no search then)
+    _singleSlabDomain = -1;
+    for (int i = 0; i < _numaCount; i++)
+      if (_maxStatesPerNuma[i] > 0) _singleSlabDomain = (_singleSlabDomain == -1) ? i : -2;
+    if (_singleSlabDomain < 0) _singleSlabDomain = -1;
+
     // Creating internal buffers, one per NUMA domain with worker threads (null for the others)
     _internalBuffersStart.assign(_numaCount, nullptr);
     _internalBuffersEnd.assign(_numaCount, nullptr);
@@ -649,6 +655,9 @@ public:
    */
   __INLINE__ int getStateNumaDomain(void* const statePtr)
   {
+    // With a single domain holding slots (all threads on one node, or a single node) there is nothing to search
+    if (_singleSlabDomain >= 0) return _singleSlabDomain;
+
     for (int i = 0; i < _numaCount; i++)
       if (isStateInNumaDomain(statePtr, i)) return i;
 
@@ -665,6 +674,8 @@ public:
    */
   __INLINE__ void* getHistoryPtr(const void* const statePtr)
   {
+    // No cold slab (the "None" history): nothing to point at (all cold-slot operations are no-ops then)
+    if (_histSize == 0) return nullptr;
     const int    numa = getStateNumaDomain(const_cast<void*>(statePtr));
     const size_t idx  = ((const uint8_t*)statePtr - _internalBuffersStart[numa]) / _stateSize;
     return _histBuffersStart[numa] + idx * _histSize;
@@ -1106,6 +1117,9 @@ private:
 
   /// @brief End pointer of each NUMA domain's contiguous state slab.
   std::vector<uint8_t*> _internalBuffersEnd;
+
+  /// @brief The only NUMA domain holding slots, or -1 if several do.
+  int _singleSlabDomain = -1;
 
   /// @brief Number of bytes allocated for the state slab in each NUMA domain.
   std::vector<size_t> _allocableBytesPerNuma;

@@ -225,6 +225,32 @@ test('gridWalker_wincollect',
       args : [ 'checkWinCollect.sh', jaffar.full_path() ],
       suite : [ 'runs', 'TestEmulator', 'gridWalker' ])
 
+# The full-database and multi-thread paths: stealing, replacing a worker's worst new state, the
+# checkpoint cohort guard, periodic saves, Raw and Trie histories, and an explicit batch size.
+test('gridWalker_full_database',
+      bash,
+      workdir : meson.current_source_dir() + '/testEmulator',
+      timeout: testTimeout,
+      args : [ 'checkFullDatabase.sh', jaffar.full_path(), jaffarPlayer.full_path() ],
+      suite : [ 'runs', 'TestEmulator', 'gridWalker' ])
+
+# Win collection and candidate inputs with several worker threads (their maps and locks are shared)
+test('gridWalker_wincollect_threads',
+      bash,
+      workdir : meson.current_source_dir() + '/testEmulator',
+      timeout: testTimeout,
+      env : [ 'OMP_NUM_THREADS=4' ],
+      args : [ 'checkWinCollect.sh', jaffar.full_path() ],
+      suite : [ 'runs', 'TestEmulator', 'gridWalker' ])
+
+test('gridWalker_candidate_inputs_threads',
+      bash,
+      workdir : meson.current_source_dir() + '/testEmulator',
+      timeout: testTimeout,
+      env : [ 'OMP_NUM_THREADS=4' ],
+      args : [ 'checkCandidate.sh', jaffar.full_path() ],
+      suite : [ 'runs', 'TestEmulator', 'gridWalker' ])
+
 # Reference pinning with exact verification (the volatile mask must not cover the whole state), with
 # Hash Lookahead and an explicit no-op input, and a reference floor under frameskip (one trace entry per
 # search step).

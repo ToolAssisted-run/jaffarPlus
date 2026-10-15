@@ -8,9 +8,13 @@ set -uo pipefail
 
 JAFFAR="${1:?usage: checkCandidate.sh <jaffar binary>}"
 
-CONFIG_ON="gridWalker.candidate.jaffar"
-CONFIG_OFF="gridWalker.candidate_off.jaffar"
-SOL_ON="/tmp/jaffar.gw.candidate.best.sol"
+# Private output files (concurrent runs of this test must not share them)
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+mkdir -p "$TMP/on" "$TMP/off"
+CONFIG_ON="$(python3 privateConfig.py gridWalker.candidate.jaffar "$TMP/on")"
+CONFIG_OFF="$(python3 privateConfig.py gridWalker.candidate_off.jaffar "$TMP/off")"
+SOL_ON="$TMP/on/jaffar.gw.candidate.best.sol"
 
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
 export JAFFAR_ENGINE_OVERRIDE_MAX_STATEDB_SIZE_MB="${JAFFAR_ENGINE_OVERRIDE_MAX_STATEDB_SIZE_MB:-10}"
@@ -24,7 +28,7 @@ fail()   { echo "FAIL: $1"; exit 1; }
 # `set -o pipefail`, races -- grep -q closes the pipe on first match and the upstream writer gets
 # SIGPIPE, which pipefail then reports as a spurious failure on large output.)
 rm -f "$SOL_ON"
-out="$(OMP_NUM_THREADS=1 "$JAFFAR" "$CONFIG_ON" 2>&1)"
+out="$("$JAFFAR" "$CONFIG_ON" 2>&1)"
 [[ "$out" == *"Solution found"* ]] || { printf '%s\n' "$out" | tail -n 20; fail "candidates ON: no solution -- candidate inputs are not being probed/applied"; }
 [[ "$(solLen "$SOL_ON")" -eq 8 ]] || fail "candidates ON: solution length $(solLen "$SOL_ON") != optimal 8"
 
@@ -33,7 +37,7 @@ out="$(OMP_NUM_THREADS=1 "$JAFFAR" "$CONFIG_ON" 2>&1)"
 [[ "$out" =~ \+[[:space:]]+[0-9]+[[:space:]]\|D\| ]] || fail "candidates ON: |D| was not reported as a detected candidate input"
 
 # Candidates OFF: the identical puzzle with candidate testing disabled is right-only and unsolvable.
-outOff="$(OMP_NUM_THREADS=1 "$JAFFAR" "$CONFIG_OFF" 2>&1)"
+outOff="$("$JAFFAR" "$CONFIG_OFF" 2>&1)"
 if [[ "$outOff" == *"Solution found"* ]]; then
   printf '%s\n' "$outOff" | tail -n 20
   fail "candidates OFF: unexpectedly solved (right-only must not reach the goal)"

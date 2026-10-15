@@ -20,11 +20,14 @@ export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
 export JAFFAR_ENGINE_OVERRIDE_MAX_STATEDB_SIZE_MB="${JAFFAR_ENGINE_OVERRIDE_MAX_STATEDB_SIZE_MB:-10}"
 export JAFFAR_ENGINE_OVERRIDE_MAX_HASHDB_SIZE_MB="${JAFFAR_ENGINE_OVERRIDE_MAX_HASHDB_SIZE_MB:-100}"
 
-PREFIX=/tmp/jaffar.gw.wincollect_
-rm -f "${PREFIX}"*
+# Private output files (concurrent runs of this test must not share them)
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+PREFIX="$TMP/jaffar.gw.wincollect_"
+config="$(python3 privateConfig.py gridWalker.wincollect.jaffar "$TMP")"
 
 # --- Run 1: harvest window ---
-out="$("$JAFFAR" gridWalker.wincollect.jaffar 2>&1)"
+out="$("$JAFFAR" "$config" 2>&1)"
 
 [[ "$out" == *"Solution found"* ]] || { printf '%s\n' "$out" | tail -n 20; echo "FAIL: window run expected 'Solution found'"; exit 1; }
 [[ "$out" == *"Win States Collected:"* ]] || { echo "FAIL: 'Win States Collected:' counter line missing"; exit 1; }
@@ -44,8 +47,9 @@ echo "PASS: window run collected $nFiles distinct win solutions"
 
 # --- Run 2: Max Files cap terminates the run ---
 rm -f "${PREFIX}"*
-capConfig=/tmp/jaffar.gw.wincollectcap.jaffar
-sed 's/"Max Files": 100/"Max Files": 1/' gridWalker.wincollect.jaffar > "$capConfig"
+mkdir -p "$TMP/cap"
+capConfig="$(python3 privateConfig.py gridWalker.wincollect.jaffar "$TMP/cap" 'Driver Configuration/Win State Collection/Max Files=1' \
+  "Driver Configuration/Win State Collection/Path Prefix=\"$PREFIX\"")"
 
 out="$("$JAFFAR" "$capConfig" 2>&1)"
 

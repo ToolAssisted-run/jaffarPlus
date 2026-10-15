@@ -120,7 +120,7 @@ public:
 
     // Base-state pull batch size (per-worker queue-pull granularity). Optional: an explicit value
     // always wins; otherwise 0 here means "auto-tune", resolved in initialize() from the measured
-    // per-state cost (light cores -> larger batch to amortize the queue lock; heavy/variable cores
+    // per-state cost (light cores -> larger batch to amortize the queue claim; heavy/variable cores
     // -> small batch for load balance).
     _baseStateBatch = engineConfigRemaining.contains("Base State Batch Size") ? jaffarCommon::json::popNumber<size_t>(engineConfigRemaining, "Base State Batch Size") : 0;
     if (_baseStateBatch > BASE_STATE_BATCH_MAX) _baseStateBatch = BASE_STATE_BATCH_MAX;
@@ -313,7 +313,8 @@ public:
     // Size. Summing both against total free RAM here catches a silent overcommit that the OS would
     // otherwise resolve by OOM-killing the process mid-run (hours in). Done before any DB allocates.
     {
-      const size_t stateBudget = _stateDb->getMaxBudgetBytes();
+      // The state DB's slabs plus its per-state queue structures (sort, next-state and current-state buffers)
+      const size_t stateBudget = _stateDb->getMaxBudgetBytes() + _stateDb->getQueueOverheadBytes();
       const size_t hashBudget  = (_hashDbEnabled == true) ? _hashDb->getMaxBudgetBytes() : 0;
       // The state DB is a fixed pool (1x; full slots are scavenged from the current step, never doubled).
       // Each hash DB generation stays within its budget (it rolls before outgrowing it, see
@@ -349,7 +350,7 @@ public:
       {
         const double GB = 1024.0 * 1024.0 * 1024.0;
         JAFFAR_THROW_RUNTIME("Configured database budget exceeds available memory:\n"
-                             "  State DB ('Max Size (Mb)', fixed pool)                       = %.1f GB\n"
+                             "  State DB ('Max Size (Mb)' + per-state queues)                = %.1f GB\n"
                              "  Hash DB peak (2 x 'Max Store Size' x 'Max Store Count')      = %.1f GB\n"
                              "  Input-history trie (node-storage cap)                        = %.1f GB\n"
                              "  TOTAL                                                        = %.1f GB\n"
@@ -373,7 +374,7 @@ public:
     // Auto-tune the base-state pull batch (when "Base State Batch Size" was not set in the config).
     // We time a burst of state advances on the (just-loaded) initial state -- which is representative
     // of the core's per-state cost -- then choose a batch so each batch is ~TARGET_BATCH_NS of work:
-    // enough to amortize the per-NUMA queue lock on cheap cores (large batch) while keeping a small
+    // enough to amortize the per-NUMA queue claim on cheap cores (large batch) while keeping a small
     // batch on heavy/variable cores so end-of-step load imbalance stays low. The measurement state is
     // saved and restored so the search still starts from the exact initial state. Batch size never
     // affects which states are explored, only the work distribution.
@@ -761,17 +762,16 @@ public:
     // Compact mode: the handful of lines observers actually use, then out. Grep-stable labels.
     if (_compactLog)
     {
-      jaffarCommon::logger::log("[J+]  + Elapsed Time (Step/Total):                   %9.3fs / %9.3fs\n", 1.0e-6 * (double)(_currentStepTime),
-                                1.0e-6 * (double)(_totalRunningTime));
+      jaffarCommon::logger::log("[J+]  + Elapsed Time (Step/Total):                   %9.3fs / %9.3fs\n", 1.0e-6 * (double)_currentStepTime, 1.0e-6 * (double)_totalRunningTime);
       jaffarCommon::logger::log("[J+]  + Checkpoint (Level/Tolerance/Cutoff):         %lu / %lu / %lu\n", _checkpointLevel.load(), _checkpointTolerance.load(),
                                 _checkpointCutoff.load());
       jaffarCommon::logger::log("[J+]  + New States Processed:                        %.3f Mstates (Total: %.3f Mstates) @ %.3f Mstates/s\n",
                                 1.0e-6 * (double)_stepNewStatesProcessed, 1.0e-6 * (double)_totalNewStatesProcessed,
-                                1.0e-6 * (double)_stepNewStatesProcessed / (1.0e-6 * (double)_currentStepTime));
+                                1.0e-6 * (double)_stepNewStatesProcessed / (1.0e-6 * std::max(1.0, (double)_currentStepTime)));
       jaffarCommon::logger::log("[J+]  + States (fail/rep/drop cumulative):           %lu / %lu / %lu\n", _failedStates.load(), _repeatedStates.load(),
                                 _droppedStatesNoStorage.load() + _droppedStatesFailedSerialization.load() + _droppedStatesCheckpoint.load() + _droppedStatesBelowReference.load());
       jaffarCommon::logger::log("[J+]  + Win States:                                  %lu (%5.3f%% of New States Processed) \n", _winStates.load(),
-                                100.0 * (double)_winStates.load() / (double)_totalNewStatesProcessed);
+                                100.0 * (double)_winStates.load() / std::max(1.0, (double)_totalNewStatesProcessed));
       if (_winCollectEnabled)
         jaffarCommon::logger::log("[J+]  + Win States Collected:                        %lu/%lu\n", (unsigned long)getWinCollectedCount(), (unsigned long)_winCollectMax);
       if (_refPruneEnabled)
@@ -788,107 +788,109 @@ public:
     // Printing information
     jaffarCommon::logger::log("[J+] Thread Count / NUMA Domains:                 %3d / %d\n", _threadCount, _numaCount);
 #ifdef JAFFARPLUS_DETAILED_PROFILING
-    jaffarCommon::logger::log("[J+] Elapsed Time (Step/Total):                   %9.3fs (%7.3f%%) / %9.3fs (%3.3f%%)\n", 1.0e-6 * (double)(_currentStepTime),
-                              100.0 * ((double)(_subTotalAverageTime) / (double)(_currentStepTime)), 1.0e-6 * (double)(_totalRunningTime),
-                              100.0 * ((double)_subTotalAverageCumulativeTime) / (double)(_totalRunningTime));
+    jaffarCommon::logger::log("[J+] Elapsed Time (Step/Total):                   %9.3fs (%7.3f%%) / %9.3fs (%3.3f%%)\n", 1.0e-6 * (double)_currentStepTime,
+                              100.0 * ((double)(_subTotalAverageTime) / std::max(1.0, (double)_currentStepTime)), 1.0e-6 * (double)_totalRunningTime,
+                              100.0 * ((double)_subTotalAverageCumulativeTime) / std::max(1.0, (double)_totalRunningTime));
 
     jaffarCommon::logger::log("[J+]  + Runner State Avance (Step/Total):         %9.3fs (%7.3f%%) / %9.3fs (%3.3f%%)\n", 1.0e-6 * (double)(_runnerStateAdvanceAverageTime),
-                              100.0 * ((double)(_runnerStateAdvanceAverageTime) / (double)(_currentStepTime)), 1.0e-6 * (double)(_runnerStateAdvanceAverageCumulativeTime),
-                              100.0 * ((double)_runnerStateAdvanceAverageCumulativeTime) / (double)(_totalRunningTime));
+                              100.0 * ((double)(_runnerStateAdvanceAverageTime) / std::max(1.0, (double)_currentStepTime)),
+                              1.0e-6 * (double)(_runnerStateAdvanceAverageCumulativeTime),
+                              100.0 * ((double)_runnerStateAdvanceAverageCumulativeTime) / std::max(1.0, (double)_totalRunningTime));
 
     jaffarCommon::logger::log("[J+]  + Runner State Load (Step/Total):           %9.3fs (%7.3f%%) / %9.3fs (%3.3f%%)\n", 1.0e-6 * (double)(_runnerStateLoadAverageTime),
-                              100.0 * ((double)(_runnerStateLoadAverageTime) / (double)(_currentStepTime)), 1.0e-6 * (double)(_runnerStateLoadAverageCumulativeTime),
-                              100.0 * ((double)_runnerStateLoadAverageCumulativeTime) / (double)(_totalRunningTime));
+                              100.0 * ((double)(_runnerStateLoadAverageTime) / std::max(1.0, (double)_currentStepTime)), 1.0e-6 * (double)(_runnerStateLoadAverageCumulativeTime),
+                              100.0 * ((double)_runnerStateLoadAverageCumulativeTime) / std::max(1.0, (double)_totalRunningTime));
 
     jaffarCommon::logger::log("[J+]  + Runner State Save (Step/Total):           %9.3fs (%7.3f%%) / %9.3fs (%3.3f%%)\n", 1.0e-6 * (double)(_runnerStateSaveAverageTime),
-                              100.0 * ((double)(_runnerStateSaveAverageTime) / (double)(_currentStepTime)), 1.0e-6 * (double)(_runnerStateSaveAverageCumulativeTime),
-                              100.0 * ((double)_runnerStateSaveAverageCumulativeTime) / (double)(_totalRunningTime));
+                              100.0 * ((double)(_runnerStateSaveAverageTime) / std::max(1.0, (double)_currentStepTime)), 1.0e-6 * (double)(_runnerStateSaveAverageCumulativeTime),
+                              100.0 * ((double)_runnerStateSaveAverageCumulativeTime) / std::max(1.0, (double)_totalRunningTime));
 
     jaffarCommon::logger::log("[J+]  + Hash Calculation (Step/Total):            %9.3fs (%7.3f%%) / %9.3fs (%3.3f%%)\n", 1.0e-6 * (double)(_calculateHashAverageTime),
-                              100.0 * ((double)(_calculateHashAverageTime) / (double)(_currentStepTime)), 1.0e-6 * (double)(_calculateHashAverageCumulativeTime),
-                              100.0 * ((double)_calculateHashAverageCumulativeTime) / (double)(_totalRunningTime));
+                              100.0 * ((double)(_calculateHashAverageTime) / std::max(1.0, (double)_currentStepTime)), 1.0e-6 * (double)(_calculateHashAverageCumulativeTime),
+                              100.0 * ((double)_calculateHashAverageCumulativeTime) / std::max(1.0, (double)_totalRunningTime));
 
     jaffarCommon::logger::log("[J+]  + Hash Checking (Step/Total):               %9.3fs (%7.3f%%) / %9.3fs (%3.3f%%)\n", 1.0e-6 * (double)(_checkHashAverageTime),
-                              100.0 * ((double)(_checkHashAverageTime) / (double)(_currentStepTime)), 1.0e-6 * (double)(_checkHashAverageCumulativeTime),
-                              100.0 * ((double)_checkHashAverageCumulativeTime) / (double)(_totalRunningTime));
+                              100.0 * ((double)(_checkHashAverageTime) / std::max(1.0, (double)_currentStepTime)), 1.0e-6 * (double)(_checkHashAverageCumulativeTime),
+                              100.0 * ((double)_checkHashAverageCumulativeTime) / std::max(1.0, (double)_totalRunningTime));
 
     jaffarCommon::logger::log("[J+]  + Rule Checking (Step/Total):               %9.3fs (%7.3f%%) / %9.3fs (%3.3f%%)\n", 1.0e-6 * (double)(_ruleCheckingAverageTime),
-                              100.0 * ((double)(_ruleCheckingAverageTime) / (double)(_currentStepTime)), 1.0e-6 * (double)(_ruleCheckingAverageCumulativeTime),
-                              100.0 * ((double)_ruleCheckingAverageCumulativeTime) / (double)(_totalRunningTime));
+                              100.0 * ((double)(_ruleCheckingAverageTime) / std::max(1.0, (double)_currentStepTime)), 1.0e-6 * (double)(_ruleCheckingAverageCumulativeTime),
+                              100.0 * ((double)_ruleCheckingAverageCumulativeTime) / std::max(1.0, (double)_totalRunningTime));
 
     jaffarCommon::logger::log("[J+]  + Get Free State (Step/Total):              %9.3fs (%7.3f%%) / %9.3fs (%3.3f%%)\n", 1.0e-6 * (double)(_getFreeStateAverageTime),
-                              100.0 * ((double)(_getFreeStateAverageTime) / (double)(_currentStepTime)), 1.0e-6 * (double)(_getFreeStateAverageCumulativeTime),
-                              100.0 * ((double)_getFreeStateAverageCumulativeTime) / (double)(_totalRunningTime));
+                              100.0 * ((double)(_getFreeStateAverageTime) / std::max(1.0, (double)_currentStepTime)), 1.0e-6 * (double)(_getFreeStateAverageCumulativeTime),
+                              100.0 * ((double)_getFreeStateAverageCumulativeTime) / std::max(1.0, (double)_totalRunningTime));
 
     jaffarCommon::logger::log("[J+]  + Return Free State (Step/Total):           %9.3fs (%7.3f%%) / %9.3fs (%3.3f%%)\n", 1.0e-6 * (double)(_returnFreeStateAverageTime),
-                              100.0 * ((double)(_returnFreeStateAverageTime) / (double)(_currentStepTime)), 1.0e-6 * (double)(_returnFreeStateAverageCumulativeTime),
-                              100.0 * ((double)_returnFreeStateAverageCumulativeTime) / (double)(_totalRunningTime));
+                              100.0 * ((double)(_returnFreeStateAverageTime) / std::max(1.0, (double)_currentStepTime)), 1.0e-6 * (double)(_returnFreeStateAverageCumulativeTime),
+                              100.0 * ((double)_returnFreeStateAverageCumulativeTime) / std::max(1.0, (double)_totalRunningTime));
 
     jaffarCommon::logger::log("[J+]  + Calculate Reward (Step/Total):            %9.3fs (%7.3f%%) / %9.3fs (%3.3f%%)\n", 1.0e-6 * (double)(_calculateRewardAverageTime),
-                              100.0 * ((double)(_calculateRewardAverageTime) / (double)(_currentStepTime)), 1.0e-6 * (double)(_calculateRewardAverageCumulativeTime),
-                              100.0 * ((double)_calculateRewardAverageCumulativeTime) / (double)(_totalRunningTime));
+                              100.0 * ((double)(_calculateRewardAverageTime) / std::max(1.0, (double)_currentStepTime)), 1.0e-6 * (double)(_calculateRewardAverageCumulativeTime),
+                              100.0 * ((double)_calculateRewardAverageCumulativeTime) / std::max(1.0, (double)_totalRunningTime));
 
     jaffarCommon::logger::log("[J+]  + Popping Base State (Step/Total):          %9.3fs (%7.3f%%) / %9.3fs (%3.3f%%)\n", 1.0e-6 * (double)(_popBaseStateDbAverageTime),
-                              100.0 * ((double)(_popBaseStateDbAverageTime) / (double)(_currentStepTime)), 1.0e-6 * (double)(_popBaseStateDbAverageCumulativeTime),
-                              100.0 * ((double)_popBaseStateDbAverageCumulativeTime) / (double)(_totalRunningTime));
+                              100.0 * ((double)(_popBaseStateDbAverageTime) / std::max(1.0, (double)_currentStepTime)), 1.0e-6 * (double)(_popBaseStateDbAverageCumulativeTime),
+                              100.0 * ((double)_popBaseStateDbAverageCumulativeTime) / std::max(1.0, (double)_totalRunningTime));
 
     jaffarCommon::logger::log("[J+]  + Get Allowed Inputs (Step/Total):          %9.3fs (%7.3f%%) / %9.3fs (%3.3f%%)\n", 1.0e-6 * (double)(_getAllowedInputsAverageTime),
-                              100.0 * ((double)(_getAllowedInputsAverageTime) / (double)(_currentStepTime)), 1.0e-6 * (double)(_getAllowedInputsAverageCumulativeTime),
-                              100.0 * ((double)_getAllowedInputsAverageCumulativeTime) / (double)(_totalRunningTime));
+                              100.0 * ((double)(_getAllowedInputsAverageTime) / std::max(1.0, (double)_currentStepTime)), 1.0e-6 * (double)(_getAllowedInputsAverageCumulativeTime),
+                              100.0 * ((double)_getAllowedInputsAverageCumulativeTime) / std::max(1.0, (double)_totalRunningTime));
 
     jaffarCommon::logger::log("[J+]  + Get Candidate Inputs (Step/Total):        %9.3fs (%7.3f%%) / %9.3fs (%3.3f%%)\n", 1.0e-6 * (double)(_getCandidateInputsAverageTime),
-                              100.0 * ((double)(_getCandidateInputsAverageTime) / (double)(_currentStepTime)), 1.0e-6 * (double)(_getCandidateInputsAverageCumulativeTime),
-                              100.0 * ((double)_getCandidateInputsAverageCumulativeTime) / (double)(_totalRunningTime));
+                              100.0 * ((double)(_getCandidateInputsAverageTime) / std::max(1.0, (double)_currentStepTime)),
+                              1.0e-6 * (double)(_getCandidateInputsAverageCumulativeTime),
+                              100.0 * ((double)_getCandidateInputsAverageCumulativeTime) / std::max(1.0, (double)_totalRunningTime));
 #else
     // Detailed per-operation profiling is compiled out (default). Only the coarse step wall time and
     // the serially-measured DB-advance stages below are available; build -DdetailedProfiling=true for
     // the full per-operation breakdown.
     jaffarCommon::logger::log("[J+] Elapsed Time (Step/Total):                   %9.3fs / %9.3fs   (per-operation breakdown disabled; build -DdetailedProfiling=true)\n",
-                              1.0e-6 * (double)(_currentStepTime), 1.0e-6 * (double)(_totalRunningTime));
+                              1.0e-6 * (double)_currentStepTime, 1.0e-6 * (double)_totalRunningTime);
 #endif
 
     jaffarCommon::logger::log("[J+]  + Advance Hash Db (Step/Total):             %9.3fs (%7.3f%%) / %9.3fs (%3.3f%%)\n", 1.0e-6 * (double)(_advanceHashDbAverageTime),
-                              100.0 * ((double)(_advanceHashDbAverageTime) / (double)(_currentStepTime)), 1.0e-6 * (double)(_advanceHashDbAverageCumulativeTime),
-                              100.0 * ((double)_advanceHashDbAverageCumulativeTime) / (double)(_totalRunningTime));
+                              100.0 * ((double)(_advanceHashDbAverageTime) / std::max(1.0, (double)_currentStepTime)), 1.0e-6 * (double)(_advanceHashDbAverageCumulativeTime),
+                              100.0 * ((double)_advanceHashDbAverageCumulativeTime) / std::max(1.0, (double)_totalRunningTime));
 
     jaffarCommon::logger::log("[J+]  + Advance State Db (Step/Total):            %9.3fs (%7.3f%%) / %9.3fs (%3.3f%%)\n", 1.0e-6 * (double)(_advanceStateDbAverageTime),
-                              100.0 * ((double)(_advanceStateDbAverageTime) / (double)(_currentStepTime)), 1.0e-6 * (double)(_advanceStateDbAverageCumulativeTime),
-                              100.0 * ((double)_advanceStateDbAverageCumulativeTime) / (double)(_totalRunningTime));
+                              100.0 * ((double)(_advanceStateDbAverageTime) / std::max(1.0, (double)_currentStepTime)), 1.0e-6 * (double)(_advanceStateDbAverageCumulativeTime),
+                              100.0 * ((double)_advanceStateDbAverageCumulativeTime) / std::max(1.0, (double)_totalRunningTime));
 
     jaffarCommon::logger::log("[J+] Checkpoint (Level/Tolerance/Cutoff):         %lu / %lu / %lu\n", _checkpointLevel.load(), _checkpointTolerance.load(),
                               _checkpointCutoff.load());
     jaffarCommon::logger::log("[J+] Base States Processed:                       %.3f Mstates (Total: %.3f Mstates)\n", 1.0e-6 * (double)_stepBaseStatesProcessed,
                               1.0e-6 * (double)_totalBaseStatesProcessed);
     jaffarCommon::logger::log("[J+] New States Processed:                        %.3f Mstates (Total: %.3f Mstates)\n", 1.0e-6 * (double)_stepNewStatesProcessed,
-                              1.0e-6 * (double)_totalNewStatesProcessed);
+                              1.0e-6 * std::max(1.0, (double)_totalNewStatesProcessed));
     if (_refPinEnabled)
       jaffarCommon::logger::log("[J+] Reference Pin Hits (cumulative):             %lu (deepest %lu / %lu; ref-depth matches seen %lu)\n", _refPinHits.load(),
                                 _refPinMaxDepthHit.load(), _refPinHashes.size(), _refPinSeenPreDedup.load());
 
     jaffarCommon::logger::log("[J+] Base States Performance:                     %.3f Mstates/s (Average: %.3f Mstates/s)\n",
-                              1.0e-6 * (double)_stepBaseStatesProcessed / (1.0e-6 * (double)_currentStepTime),
-                              1.0e-6 * (double)_totalBaseStatesProcessed / (1.0e-6 * (double)_totalRunningTime));
+                              1.0e-6 * (double)_stepBaseStatesProcessed / (1.0e-6 * std::max(1.0, (double)_currentStepTime)),
+                              1.0e-6 * (double)_totalBaseStatesProcessed / (1.0e-6 * std::max(1.0, (double)_totalRunningTime)));
     jaffarCommon::logger::log("[J+] New States Performance:                      %.3f Mstates/s (Average: %.3f Mstates/s)\n",
-                              1.0e-6 * (double)_stepNewStatesProcessed / (1.0e-6 * (double)_currentStepTime),
-                              1.0e-6 * (double)_totalNewStatesProcessed / (1.0e-6 * (double)_totalRunningTime));
+                              1.0e-6 * (double)_stepNewStatesProcessed / (1.0e-6 * std::max(1.0, (double)_currentStepTime)),
+                              1.0e-6 * (double)_totalNewStatesProcessed / (1.0e-6 * std::max(1.0, (double)_totalRunningTime)));
 
     jaffarCommon::logger::log("[J+] Dropped States (No Storage Available):       %lu (%5.3f%% of New States Processed) \n", _droppedStatesNoStorage.load(),
-                              100.0 * (double)_droppedStatesNoStorage.load() / (double)_totalNewStatesProcessed);
+                              100.0 * (double)_droppedStatesNoStorage.load() / std::max(1.0, (double)_totalNewStatesProcessed));
     jaffarCommon::logger::log("[J+] Dropped States (Failed Serialization):       %lu (%5.3f%% of New States Processed) \n", _droppedStatesFailedSerialization.load(),
-                              100.0 * (double)_droppedStatesFailedSerialization.load() / (double)_totalNewStatesProcessed);
+                              100.0 * (double)_droppedStatesFailedSerialization.load() / std::max(1.0, (double)_totalNewStatesProcessed));
     jaffarCommon::logger::log("[J+] Dropped States (Checkpoint):                 %lu (%5.3f%% of New States Processed) \n", _droppedStatesCheckpoint.load(),
-                              100.0 * (double)_droppedStatesCheckpoint.load() / (double)_totalNewStatesProcessed);
+                              100.0 * (double)_droppedStatesCheckpoint.load() / std::max(1.0, (double)_totalNewStatesProcessed));
     if (_refPruneEnabled)
       jaffarCommon::logger::log("[J+] Dropped States (Below Reference):            %lu (%5.3f%% of New States Processed, prune tol %.1f) \n", _droppedStatesBelowReference.load(),
                                 100.0 * (double)_droppedStatesBelowReference.load() / (double)_totalNewStatesProcessed, _refPruneTolerance);
     jaffarCommon::logger::log("[J+] Failed States:                               %lu (%5.3f%% of New States Processed) \n", _failedStates.load(),
-                              100.0 * (double)_failedStates.load() / (double)_totalNewStatesProcessed);
+                              100.0 * (double)_failedStates.load() / std::max(1.0, (double)_totalNewStatesProcessed));
     jaffarCommon::logger::log("[J+] Repeated States:                             %lu (%5.3f%% of New States Processed) \n", _repeatedStates.load(),
-                              100.0 * (double)_repeatedStates.load() / (double)_totalNewStatesProcessed);
+                              100.0 * (double)_repeatedStates.load() / std::max(1.0, (double)_totalNewStatesProcessed));
     jaffarCommon::logger::log("[J+] Normal States:                               %lu (%5.3f%% of New States Processed) \n", _normalStates.load(),
-                              100.0 * (double)_normalStates.load() / (double)_totalNewStatesProcessed);
+                              100.0 * (double)_normalStates.load() / std::max(1.0, (double)_totalNewStatesProcessed));
     jaffarCommon::logger::log("[J+] Win States:                                  %lu (%5.3f%% of New States Processed) \n", _winStates.load(),
-                              100.0 * (double)_winStates.load() / (double)_totalNewStatesProcessed);
+                              100.0 * (double)_winStates.load() / std::max(1.0, (double)_totalNewStatesProcessed));
 
     if (_winCollectEnabled)
       jaffarCommon::logger::log("[J+] Win States Collected:                        %lu/%lu\n", (unsigned long)getWinCollectedCount(), (unsigned long)_winCollectMax);
@@ -962,23 +964,23 @@ private:
   float  _refPruneTolerance = 0.0f;
   size_t _refPruneStepGrace = 0; ///< Prune each state vs the reference this many steps earlier (transient-wait allowance)
 
-  /// @brief Number of base states a worker pulls from the state-DB queue per lock acquisition (batch size).
-  // Number of base states a worker pulls from the shared per-NUMA state-DB queue per lock
-  // acquisition (into a thread-local buffer), instead of locking once per state. On a light
-  // emulator with dozens of worker threads per NUMA domain, that single-state lock/unlock was the
-  // dominant cost ("Popping Base State" ~37% of wall time); batching collapses it to <0.5%.
+  /// @brief Most base states a worker pulls from the state-DB queue per claim (batch size).
+  // Number of base states a worker pulls from the shared per-NUMA state-DB queue per claim (one CAS
+  // on the queue's claim word, into a thread-local buffer), instead of once per state. On a light
+  // emulator with dozens of worker threads per NUMA domain, the per-state pull (then a lock/unlock)
+  // was the dominant cost ("Popping Base State" ~37% of wall time); batching collapses it to <0.5%.
   //
   // The value is empirically tuned (EPYC 9755, 256 threads, SDLPoP lvl01): throughput is flat-
   // optimal across 4-16 and falls off above it (32 ~ -4%, 64 ~ -10%, 512 ~ -9%). The reason is that
-  // once the lock contention is gone, the dominant effect is intra-step load balancing across 256
+  // once the claim contention is gone, the dominant effect is intra-step load balancing across 256
   // threads -- a larger batch lets one straggler hold many states while others see the queue drain
   // and go idle. 16 sits at the top of the flat region while keeping enough amortization headroom to
   // stay robust for workloads with cheaper per-state work or higher thread counts. (A page-sized
   // batch of 512 pointers was tried, on the theory the buffer would be cache/TLB friendly, but the
   // buffer is tiny and L1-resident at any of these sizes, so the load-imbalance cost dominated.)
-  // The batch size is configurable ("Base State Batch Size"); when unset it comes from the
-  // emulator's getSuggestedStateBatchSize() (heavy cores 1 for load balance, light cores ~16 to
-  // amortize the queue lock). BASE_STATE_BATCH_MAX bounds the thread-local pull buffer; the active
+  // The batch size is configurable ("Base State Batch Size"); when unset it is auto-tuned in
+  // initialize() from the measured per-state cost (heavy cores 1 for load balance, light cores up to
+  // 16 to amortize the claim). BASE_STATE_BATCH_MAX bounds the thread-local pull buffer; the active
   // count is _baseStateBatch (clamped to [1, MAX]).
   static constexpr size_t BASE_STATE_BATCH_MAX = 16;
 
@@ -1107,9 +1109,9 @@ private:
     auto& r = _runners[threadId];
 
     // Base states are pulled from the database in batches into this thread-local buffer, so the
-    // shared per-NUMA queue lock is acquired once per BASE_STATE_BATCH states instead of once per
-    // state. With many worker threads per NUMA domain and cheap per-state work, the single-state
-    // lock/unlock dominates wall time ("Popping Base State"); batching amortizes it away.
+    // shared per-NUMA queue is claimed once per batch instead of once per state. With many worker
+    // threads per NUMA domain and cheap per-state work, the per-state claim dominates wall time
+    // ("Popping Base State"); batching amortizes it away.
     void* baseStateBatch[BASE_STATE_BATCH_MAX];
     JAFFAR_PROF_DECL(t);
     size_t batchCount = _stateDb->popStates(baseStateBatch, _baseStateBatch, threadId);

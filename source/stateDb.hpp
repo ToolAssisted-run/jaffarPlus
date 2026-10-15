@@ -81,6 +81,22 @@ public:
   __INLINE__ size_t getMaxBudgetBytes() const { return _maxSizeMb * 1024UL * 1024UL; }
 
   /**
+   * @brief Memory the per-state queue structures can take on top of the slabs, in bytes (used by the
+   *        engine's combined RAM guard, which runs before @ref initialize).
+   * @return The estimated state count times the queue bytes per state: one entry in the domain sort
+   *         buffer, up to two in the per-thread next-state buffers (vectors grow by doubling), one in the
+   *         parallel sort's temporary, and one pointer in the current-state buffer.
+   */
+  __INLINE__ size_t getQueueOverheadBytes() const
+  {
+    size_t slotSize = _runner->getHotStateSize();
+    if (slotSize % _JAFFAR_STATE_PADDING_BYTES != 0) slotSize = (slotSize / _JAFFAR_STATE_PADDING_BYTES + 1) * _JAFFAR_STATE_PADDING_BYTES;
+    slotSize += _runner->getHistorySize();
+    const size_t states = getMaxBudgetBytes() / std::max(slotSize, (size_t)1);
+    return states * (4 * sizeof(nextEntry_t) + sizeof(void*));
+  }
+
+  /**
    * @brief Frees the per-NUMA state slabs, history slabs, current-state queues and next-state sort
    *        buffers allocated in @ref initialize().
    *
@@ -469,7 +485,7 @@ public:
     const size_t currentStateBytes = currentStateCount * (_stateSize + _histSize); // hot slab + cold history slab
 
     jaffarCommon::logger::log("[J+]  + Current State Count:                      %lu (%f Mstates) /  %lu (%f Mstates) Max / %5.2f%% Full\n", currentStateCount,
-                              (double)currentStateCount * 1.0e-6, _maxStates, (double)_maxStates * 1.0e-6, 100.0 * (double)currentStateCount / (double)_maxStates);
+                              (double)currentStateCount * 1.0e-6, _maxStates, (double)_maxStates * 1.0e-6, 100.0 * (double)currentStateCount / std::max(1.0, (double)_maxStates));
     jaffarCommon::logger::log("[J+]  + Current State Size:                       %.3f Mb (%.6f Gb) / %.3f Mb (%.6f Gb) Max\n", (double)currentStateBytes / (1024.0 * 1024.0),
                               (double)currentStateBytes / (1024.0 * 1024.0 * 1024.0), (double)_maxSize / (1024.0 * 1024.0), (double)_maxSize / (1024.0 * 1024.0 * 1024.0));
     jaffarCommon::logger::log("[J+]  + State Size Raw:                           %lu bytes (hot %lu + cold/history %lu)\n", _stateSizeRaw + _histSize, _stateSizeRaw, _histSize);
@@ -514,9 +530,12 @@ public:
 
     size_t totalDatabaseStatesRequested = nonLocalDatabaseState + localDatabaseState + databaseStateNotFound;
     jaffarCommon::logger::log("[J+] + Database Popping State Rates:\n");
-    jaffarCommon::logger::log("[J+]  + Numa Locality Success Rate:               %5.3f%%\n", 100.0 * (double)localDatabaseState / (double)totalDatabaseStatesRequested);
-    jaffarCommon::logger::log("[J+]  + Numa Locality Fail Rate:                  %5.3f%%\n", 100.0 * (double)nonLocalDatabaseState / (double)totalDatabaseStatesRequested);
-    jaffarCommon::logger::log("[J+]  + Numa No DB State Found Rate:              %5.3f%%\n", 100.0 * (double)databaseStateNotFound / (double)totalDatabaseStatesRequested);
+    jaffarCommon::logger::log("[J+]  + Numa Locality Success Rate:               %5.3f%%\n",
+                              100.0 * (double)localDatabaseState / std::max(1.0, (double)totalDatabaseStatesRequested));
+    jaffarCommon::logger::log("[J+]  + Numa Locality Fail Rate:                  %5.3f%%\n",
+                              100.0 * (double)nonLocalDatabaseState / std::max(1.0, (double)totalDatabaseStatesRequested));
+    jaffarCommon::logger::log("[J+]  + Numa No DB State Found Rate:              %5.3f%%\n",
+                              100.0 * (double)databaseStateNotFound / std::max(1.0, (double)totalDatabaseStatesRequested));
 
     // Thread-local free-slot cache effectiveness: fraction of all getFreeState / returnFreeState
     // calls served locally (and thus kept off the shared free-state queue).
@@ -531,14 +550,14 @@ public:
 
     size_t totalFreeStatesRequested = nonLocalFreeState + localFreeState + freeStateNotFound + stealingFreeState;
     jaffarCommon::logger::log("[J+] + Get Free State Rates (shared-queue only):\n");
-    jaffarCommon::logger::log("[J+]  + Numa Locality Success Rate:               %5.3f%%\n", 100.0 * (double)localFreeState / (double)totalFreeStatesRequested);
-    jaffarCommon::logger::log("[J+]  + Numa Locality Fail Rate:                  %5.3f%%\n", 100.0 * (double)nonLocalFreeState / (double)totalFreeStatesRequested);
-    jaffarCommon::logger::log("[J+]  + State DB Stealing Rate:                   %5.3f%%\n", 100.0 * (double)stealingFreeState / (double)totalFreeStatesRequested);
-    jaffarCommon::logger::log("[J+]  + Numa No Free State Found Rate:            %5.3f%%\n", 100.0 * (double)freeStateNotFound / (double)totalFreeStatesRequested);
+    jaffarCommon::logger::log("[J+]  + Numa Locality Success Rate:               %5.3f%%\n", 100.0 * (double)localFreeState / std::max(1.0, (double)totalFreeStatesRequested));
+    jaffarCommon::logger::log("[J+]  + Numa Locality Fail Rate:                  %5.3f%%\n", 100.0 * (double)nonLocalFreeState / std::max(1.0, (double)totalFreeStatesRequested));
+    jaffarCommon::logger::log("[J+]  + State DB Stealing Rate:                   %5.3f%%\n", 100.0 * (double)stealingFreeState / std::max(1.0, (double)totalFreeStatesRequested));
+    jaffarCommon::logger::log("[J+]  + Numa No Free State Found Rate:            %5.3f%%\n", 100.0 * (double)freeStateNotFound / std::max(1.0, (double)totalFreeStatesRequested));
 
     size_t NUMAAccessCount = nonLocalDatabaseState + localDatabaseState + nonLocalFreeState + localFreeState + stealingFreeState;
     jaffarCommon::logger::log("[J+]  + Average NUMA Distance:                    %lu / %lu = %5.3f\n", distanceAccumulator, NUMAAccessCount,
-                              (double)distanceAccumulator / (double)NUMAAccessCount);
+                              (double)distanceAccumulator / std::max(1.0, (double)NUMAAccessCount));
   }
 
   /**
@@ -880,7 +899,7 @@ public:
    *
    * @details Batched counterpart of @ref popState that scans NUMA domains in the calling thread's
    * preference order (skipping unallocated null queues) and takes the whole batch from the first
-   * non-empty current-state queue under a single lock acquisition. Accumulates NUMA-distance and
+   * non-empty current-state queue with a single lock-free claim. Accumulates NUMA-distance and
    * locality statistics once per batch.
    */
   __INLINE__ size_t popStates(void** elements, const size_t maxCount, const size_t threadId)

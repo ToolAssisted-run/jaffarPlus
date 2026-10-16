@@ -376,7 +376,6 @@
                     },
                     {
                         "Type": "Set Lester Gun Load Magnet",
-                        "Room": 37,
                         "Intensity": 100.0
                     }
                 ]
@@ -412,7 +411,6 @@
                     },
                     {
                         "Type": "Set Lester Gun Load Magnet",
-                        "Room": 36,
                         "Intensity": 100.0
                     }
                 ]

@@ -609,7 +609,6 @@
                     },
                     {
                         "Type": "Set Player Direction Magnet",
-                        "Room": 4,
                         "Intensity": -5.0
                     }
                 ]
@@ -748,7 +747,6 @@
                     },
                     {
                         "Type": "Set Level Door Open Magnet",
-                        "Room": 16,
                         "Intensity": 100.0
                     }
                 ]

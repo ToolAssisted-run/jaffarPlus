@@ -661,6 +661,70 @@ public:
     return std::make_unique<_vCondition<T>>(opType, property1, nullptr, 0, immediate);
   }
 
+  /**
+   * @brief Checks the rules as far as possible without the emulator: run at construction (so --dryRun
+   *        covers it), long before @ref initialize parses them for real.
+   *
+   * @details Every rule must be an object with a unique numeric "Label" and the arrays "Conditions",
+   * "Actions" and "Satisfies" (plus an optional "Description"); every "Satisfies" label must exist. Every
+   * condition needs "Property", a known "Op" and a "Value" of a valid kind. Every action goes through the
+   * real action parser (the built-in actions and the game's own @ref parseRuleActionImpl, which only read
+   * the JSON at this point), so an unknown action type or a missing key fails here; a key the parser never
+   * reads (e.g. a renamed one) fails as well. Condition property names need the game's properties, which
+   * exist only after initialization, so they are checked then.
+   * @throws A logic error naming the rule and the problem.
+   */
+  void validateRules()
+  {
+    std::set<Rule::label_t> labels;
+    for (size_t idx = 0; idx < _rulesJs.size(); idx++)
+    {
+      const auto& ruleJs = _rulesJs[idx];
+      if (ruleJs.is_object() == false) JAFFAR_THROW_LOGIC("[ERROR] Rule #%lu is not a JSON object\n", idx);
+      const auto label = jaffarCommon::json::getNumber<Rule::label_t>(ruleJs, "Label");
+      if (labels.insert(label).second == false) JAFFAR_THROW_LOGIC("[ERROR] Rule label %lu is used by more than one rule\n", label);
+    }
+
+    for (const auto& ruleJs : _rulesJs)
+    {
+      const auto label = jaffarCommon::json::getNumber<Rule::label_t>(ruleJs, "Label");
+      for (const auto& [key, value] : ruleJs.items())
+        if (key != "Label" && key != "Conditions" && key != "Actions" && key != "Satisfies" && key != "Description")
+          JAFFAR_THROW_LOGIC("[ERROR] Rule %lu has an unrecognized key '%s'\n", label, key.c_str());
+
+      for (const auto& conditionJs : jaffarCommon::json::getArray<nlohmann::json>(ruleJs, "Conditions"))
+      {
+        if (conditionJs.is_object() == false) JAFFAR_THROW_LOGIC("[ERROR] Rule %lu has a condition that is not a JSON object\n", label);
+        Condition::getOperatorType(jaffarCommon::json::getString(conditionJs, "Op"));
+        jaffarCommon::json::getString(conditionJs, "Property");
+        if (conditionJs.contains("Value") == false) JAFFAR_THROW_LOGIC("[ERROR] Rule %lu has a condition without 'Value'\n", label);
+        const auto& value = conditionJs["Value"];
+        if (value.is_number() == false && value.is_string() == false && value.is_boolean() == false)
+          JAFFAR_THROW_LOGIC("[ERROR] Rule %lu has a condition whose 'Value' is not a number, boolean or property name\n", label);
+        for (const auto& [key, v] : conditionJs.items())
+          if (key != "Property" && key != "Op" && key != "Value" && key != "Description")
+            JAFFAR_THROW_LOGIC("[ERROR] Rule %lu has a condition with an unrecognized key '%s'\n", label, key.c_str());
+      }
+
+      for (const auto& actionJs : jaffarCommon::json::getArray<nlohmann::json>(ruleJs, "Actions"))
+      {
+        if (actionJs.is_object() == false) JAFFAR_THROW_LOGIC("[ERROR] Rule %lu has an action that is not a JSON object\n", label);
+        Rule                                scratch(0, label);
+        jaffarCommon::json::KeyReadRecorder recorder(actionJs);
+        parseRuleAction(scratch, actionJs);
+        for (const auto& [key, value] : actionJs.items())
+          if (key != "Description" && recorder.getKeys().contains(key) == false)
+            JAFFAR_THROW_LOGIC("[ERROR] Rule %lu action '%s' has a key its parser does not read: '%s'\n", label, actionJs.value("Type", std::string("")).c_str(), key.c_str());
+      }
+
+      for (const auto& s : jaffarCommon::json::getArray<nlohmann::json>(ruleJs, "Satisfies"))
+      {
+        if (s.is_number_unsigned() == false) JAFFAR_THROW_LOGIC("[ERROR] Rule %lu has a 'Satisfies' entry that is not a label\n", label);
+        if (labels.contains(s.get<Rule::label_t>()) == false) JAFFAR_THROW_LOGIC("[ERROR] Rule %lu 'Satisfies' label %lu, which no rule has\n", label, s.get<Rule::label_t>());
+      }
+    }
+  }
+
   /** @brief Returns a pointer to the internal emulator. */
   __INLINE__ Emulator* getEmulator() const { return _emulator.get(); }
 

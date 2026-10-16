@@ -461,8 +461,7 @@
                     },
                     {
                         "Type": "Set Last Input Magnet",
-                        "Intensity": -1.0,
-                        "Pos": 0
+                        "Intensity": -1.0
                     },
                     {
                         "Type": "Trigger Win"

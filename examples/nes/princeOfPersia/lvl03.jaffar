@@ -851,8 +851,7 @@
           },
           {
             "Type": "Set Player Direction Magnet",
-            "Intensity": 5.0,
-            "Room": 5
+            "Intensity": 5.0
           }
         ]
       },
@@ -896,8 +895,7 @@
           },
           {
             "Type": "Set Player Direction Magnet",
-            "Intensity": 0.0,
-            "Room": 5
+            "Intensity": 0.0
           },
           {
             "Type": "Set Player Horizontal Magnet",

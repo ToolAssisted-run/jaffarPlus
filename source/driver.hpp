@@ -211,6 +211,9 @@ public:
     // Creating runner from the configuration
     _runner = jaffarPlus::Runner::getRunner(emulatorConfig, gameConfig, runnerConfig);
 
+    // Checking the rules now (the dry run stops before they are parsed for real at initialization)
+    _runner->getGame()->validateRules();
+
     // Creating engine from the configuration
     _engine = std::make_unique<Engine>(emulatorConfig, gameConfig, runnerConfig, engineConfig);
     if (_winCollectArm) _engine->setWinStateCollection(_winCollectProps, _winCollectPrefix, _winCollectMax);

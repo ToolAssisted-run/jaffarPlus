@@ -888,7 +888,6 @@
                     },
                     {
                         "Type": "Set United With Shadow Magnet",
-                        "Room": 15,
                         "Intensity": -10.0
                     }
                 ]
@@ -923,7 +922,6 @@
                     },
                     {
                         "Type": "Set United With Shadow Magnet",
-                        "Room": 15,
                         "Intensity": -10.0
                     }
                 ]

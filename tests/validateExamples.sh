@@ -1,6 +1,6 @@
 #!/bin/bash
 
-scriptFiles=`find ../examples -name "*.jaffar"`
+scriptFiles=`find ../examples -path ../examples/archive -prune -o -name "*.jaffar" -print`
 
 set -e
 

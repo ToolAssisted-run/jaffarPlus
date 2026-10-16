@@ -193,7 +193,7 @@
                 ]
             },
             {
-                "Label": 1004,
+                "Label": 1007,
                 "Conditions": [
                     {
                         "Property": "Current Screen",

@@ -415,7 +415,6 @@
                         "Value": 1
                     }
                 ],
-                "Dependencies": [],
                 "Satisfies": [],
                 "Actions": [
                     {
@@ -461,7 +460,6 @@
                         "Value": 8
                     }
                 ],
-                "Dependencies": [],
                 "Satisfies": [
                     10008
                 ],
@@ -492,7 +490,6 @@
                         "Value": 0
                     }
                 ],
-                "Dependencies": [],
                 "Satisfies": [
                     10009
                 ],

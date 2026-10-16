@@ -20,7 +20,7 @@ jaffar <configFile> [--dryRun]
 | Argument | Description |
 |----------|-------------|
 | `configFile` | Path to the `.jaffar` configuration to run. Required. |
-| `--dryRun` | Load and validate the entire configuration (driver, emulator, game, rules, inputs) **without** loading data files (traces, reference solutions and hashes) or running the search. Prints `Finished dry run successfully.` on success. |
+| `--dryRun` | Load and validate the entire configuration (driver, emulator, game, rules, inputs) **without** loading data files (traces, reference solutions and hashes) or running the search. Rules are checked through the game's own action parser: an unknown action, a missing key, a key the parser does not read, a duplicate rule label or a `Satisfies` label no rule has is an error. Condition property names need the emulator, so they are checked when the run starts. Prints `Finished dry run successfully.` on success. |
 
 `--dryRun` is the recommended first step on any new or edited configuration — it catches missing,
 mistyped, and **unrecognized** keys quickly and host-independently (it constructs the driver, game,
@@ -118,7 +118,7 @@ For testing and benchmarking without editing the config:
 | Variable | Effect |
 |----------|--------|
 | `OMP_NUM_THREADS` | Number of OpenMP worker threads. |
-| `OMP_PROC_BIND` / `taskset` | Pin threads to cores (recommended for production and reproducibility). |
+| `OMP_PROC_BIND` / `taskset` | Choose the thread placement yourself (e.g. pin to single cores). Without `OMP_PROC_BIND`, the engine binds each thread to one NUMA node, spread over the nodes. |
 | `JAFFAR_ENGINE_OVERRIDE_MAX_THREAD_COUNT` | Override the worker thread count. |
 | `JAFFAR_DRIVER_OVERRIDE_DRIVER_MAX_STEP` | Override `Driver` > `Max Steps`. |
 | `JAFFAR_ENGINE_OVERRIDE_MAX_STATEDB_SIZE_MB` | Override the state-database size budget. |

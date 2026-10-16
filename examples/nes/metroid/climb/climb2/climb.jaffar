@@ -378,7 +378,7 @@
                 ]
             },
             {
-                "Label": 1106,
+                "Label": 1999,
                 "Conditions": [
                     {
                         "Property": "Enemy 1 State",

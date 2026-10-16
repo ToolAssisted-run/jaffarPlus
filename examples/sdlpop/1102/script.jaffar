@@ -579,7 +579,6 @@
                     },
                     {
                         "Type": "Set Player Direction Magnet",
-                        "Room": 13,
                         "Intensity": -1.0
                     }
                 ]

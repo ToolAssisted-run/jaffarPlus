@@ -455,7 +455,6 @@
                     },
                     {
                         "Type": "Set Player Direction Magnet",
-                        "Room": 12,
                         "Intensity": -5.0
                     }
                 ]
@@ -1062,7 +1061,6 @@
                     },
                     {
                         "Type": "Set Player Direction Magnet",
-                        "Room": 5,
                         "Intensity": -5.0
                     }
                 ]
@@ -1108,7 +1106,6 @@
                     },
                     {
                         "Type": "Set Player Direction Magnet",
-                        "Room": 5,
                         "Intensity": 5.0
                     }
                 ]

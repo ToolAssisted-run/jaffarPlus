@@ -90,7 +90,6 @@
                 "Actions": [
                     {
                         "Type": "Set Angular Momentum Magnet",
-                        "Room": 0,
                         "Intensity": 1.0
                     }
                 ]

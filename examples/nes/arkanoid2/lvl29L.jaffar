@@ -280,8 +280,7 @@
                 "Satisfies": [],
                 "Actions": [
                     {
-                        "Type": "Trigger Fail",
-                        "Value": 1.0
+                        "Type": "Trigger Fail"
                     }
                 ]
             },

@@ -688,7 +688,7 @@
                         "Property": "Background Element[18][10]",
                         "Op": ">",
                         "Value": 0,
-                        "Comment": "Gate Open"
+                        "Description": "Gate Open"
                     }
                 ],
                 "Satisfies": [
@@ -780,7 +780,7 @@
                         "Property": "Background Element[7][10]",
                         "Op": ">",
                         "Value": 0,
-                        "Comment": "Gate Open"
+                        "Description": "Gate Open"
                     }
                 ],
                 "Satisfies": [

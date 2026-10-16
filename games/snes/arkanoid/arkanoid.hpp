@@ -742,7 +742,7 @@ private:
       if (*_shot1State > 0) jaffarCommon::logger::log("[J+]  + Shot 1 Pos: (%u, %u)\n", *_shot1PosX, *_shot1PosY);
       if (*_shot2State > 0) jaffarCommon::logger::log("[J+]  + Shot 2 Pos: (%u, %u)\n", *_shot2PosX, *_shot2PosY);
 
-      jaffarCommon::logger::log("[J+]  + Column Tile Target:              [ ", _activeShots);
+      jaffarCommon::logger::log("[J+]  + Column Tile Target:              [ ");
       for (int i = 0; i < _ARKANOID_COLUMN_COUNT; i++)
       {
         std::string symbol = "-";
@@ -752,7 +752,7 @@ private:
       }
       jaffarCommon::logger::log(" ]\n");
 
-      jaffarCommon::logger::log("[J+]  + Column Tile Row:              [ ", _activeShots);
+      jaffarCommon::logger::log("[J+]  + Column Tile Row:              [ ");
       for (int i = 0; i < _ARKANOID_COLUMN_COUNT; i++) jaffarCommon::logger::log("%u ", columnTileRow[i]);
       jaffarCommon::logger::log(" ]\n");
 

@@ -40,7 +40,7 @@ def make(name, history, checkpoint=False, big=True, batch=None, steps=40):
         c['Game Configuration']['Goal X'] = 249
         c['Game Configuration']['Goal Y'] = 249
         c['Engine Configuration']['State Database']['Max Size (Mb)'] = 1
-    c['Runner Configuration']['Store Input History'] = {'Type': history, 'Max Size': 256}
+    c['Runner Configuration']['Store Input History'] = {'Type': history, 'Max Size': max(256, steps)}
     rules = c['Game Configuration']['Rules']
     for r in rules:
         for cond in r['Conditions']:
@@ -52,7 +52,9 @@ def make(name, history, checkpoint=False, big=True, batch=None, steps=40):
                       'Actions': [{'Type': 'Add Reward', 'Value': -1000.0}, {'Type': 'Trigger Checkpoint', 'Tolerance': 0}]})
     if batch is not None: c['Engine Configuration']['Base State Batch Size'] = batch
     json.dump(c, open(t + '/' + name + '.jaffar', 'w'), indent=1)
-make('raw', 'Raw', steps=200)
+# Long enough (0.16 s with 8 threads on a fast machine) to outlast the saver thread's first 0.1 s wake,
+# and short of the 498 steps a win takes, so it ends at Max Steps
+make('raw', 'Raw', steps=450)
 make('trie', 'Trie')
 make('checkpoint', 'Raw', checkpoint=True)
 make('batch', 'Raw', big=False, batch=3)
@@ -61,7 +63,7 @@ PY
 
 for v in raw trie; do
   steps=40
-  [[ "$v" == raw ]] && steps=200
+  [[ "$v" == raw ]] && steps=450
   out="$(OMP_NUM_THREADS=8 "$JAFFAR" "$TMP/$v.jaffar" 2>&1)"
   [[ "$out" == *"Step $steps - Exit Reason: Maximum step count reached."* ]] || { printf '%s\n' "$out" | tail -n 15; fail "$v: expected to reach Max Steps $steps"; }
   # A state replaced by a better one means the database was full (its count stays just below 100%: the

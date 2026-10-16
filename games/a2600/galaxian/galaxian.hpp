@@ -212,7 +212,7 @@ private:
 
     for (size_t i = 0; i < ENEMY_ROWS; i++)
     {
-      jaffarCommon::logger::log("[J+]  + Row %u:  ", i);
+      jaffarCommon::logger::log("[J+]  + Row %lu:  ", i);
       for (size_t j = 0; j < ENEMY_COLS; j++) jaffarCommon::logger::log(" %1u", _enemyMatrix[i][j]);
       jaffarCommon::logger::log("\n");
     }

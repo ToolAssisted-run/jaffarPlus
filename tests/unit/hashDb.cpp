@@ -186,7 +186,7 @@ TEST(HashDbTwoTier, L1ForgetsWithL2)
   simulateTopology(4);
   nlohmann::json cfg;
   cfg["Max Store Count"]     = 2;
-  cfg["Max Store Size (Mb)"] = 8.0;
+  cfg["Max Store Size (Mb)"] = 1.0;
   HashDb db(cfg);
   db.initialize();
 
@@ -200,7 +200,7 @@ TEST(HashDbTwoTier, L1ForgetsWithL2)
   for (int step = 0; step < 12; step++)
   {
     _preferredNumaDomain = 0;
-    for (int i = 0; i < 200000; i++) db.checkHashExists(H(next++));
+    for (int i = 0; i < 20000; i++) db.checkHashExists(H(next++));
     db.advanceStep();
   }
 

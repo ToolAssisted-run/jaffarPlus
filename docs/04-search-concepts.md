@@ -161,10 +161,11 @@ Practical consequences:
 - **Thread count** comes from OpenMP (`OMP_NUM_THREADS`), or can be overridden with the
   `JAFFAR_ENGINE_OVERRIDE_MAX_THREAD_COUNT` environment variable. With one thread the engine
   collapses to a single NUMA domain.
-- **Pin your threads** on production runs (`OMP_PROC_BIND=true`/`close`, or `taskset`). Unpinned or
-  oversubscribed threads can share cores; the engine identifies domains by the OpenMP thread id
-  (dense and unique) precisely so that core-sharing does not corrupt domain assignment, but pinning
-  still gives the best and most reproducible performance.
+- **Threads are bound to NUMA nodes.** Unless `OMP_PROC_BIND` (or `GOMP_CPU_AFFINITY`) is set, the
+  engine binds each worker thread to the CPUs of one node, spreading the threads over the nodes in
+  proportion to the CPUs the process may use there (it stays within `numactl`/`taskset` limits), so
+  threads do not migrate away from the node their states live on. Set `OMP_PROC_BIND` (e.g.
+  `spread` with `OMP_PLACES=cores`) to choose the placement yourself, down to single cores.
 - **Determinism of depth, not path.** More threads can surface a different optimal path, but
   best-first search guarantees the same optimal *depth*.
 

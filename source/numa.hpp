@@ -8,6 +8,7 @@
  */
 
 #include "environment.hpp"
+#include <algorithm>
 #include <cstdlib>
 #include <jaffarCommon/exceptions.hpp>
 #include <jaffarCommon/logger.hpp>
@@ -50,8 +51,10 @@ __INLINE__ bool isNumaDomainActive(const int numaDomain) { return _numaDelegateT
  * variable (if set), fixes the OpenMP team size (dynamic adjustment off, so every parallel region runs
  * exactly the same threads and the thread-local identities below stay valid), then detects the thread
  * count and NUMA domain count, builds the NUMA distance and preference matrices, and selects one
- * delegate thread per NUMA domain that has worker threads. Each worker identifies itself by its OpenMP
- * thread id and derives its preferred NUMA domain from the CPU it runs on.
+ * delegate thread per NUMA domain that has worker threads. Unless OMP_PROC_BIND or GOMP_CPU_AFFINITY is
+ * set, each worker is bound to the (allowed) CPUs of one node, the threads spread over the nodes in
+ * proportion to their CPUs. Each worker identifies itself by its OpenMP thread id; its preferred NUMA
+ * domain is the node it is bound to, or else the node of the CPU it runs on.
  * @throws A runtime error if the system does not provide NUMA detection support, or if the thread
  *         count override is not a positive number.
  */
@@ -108,10 +111,65 @@ __INLINE__ void initializeNUMA()
   // Initializing numa delegate thread storage
   _numaDelegateThreadId.assign(_numaCount, -1);
 
+  // Unless the user chose a placement (OMP_PROC_BIND / GOMP_CPU_AFFINITY), bind each worker thread to the
+  // CPUs of one NUMA node -- spreading the threads over the nodes in proportion to the CPUs the process may
+  // use on each -- so threads stay on the node their states live on instead of migrating (measured: ~20% of
+  // thread time on another node unpinned). The process's own CPU set (numactl, taskset) is respected.
+  const bool             userPlacement = std::getenv("OMP_PROC_BIND") != nullptr || std::getenv("GOMP_CPU_AFFINITY") != nullptr;
+  std::vector<cpu_set_t> nodeCpus;   // allowed CPUs of each node
+  std::vector<size_t>    threadNode; // node assigned to each thread
+  if (userPlacement == false && _numaCount > 1)
+  {
+    cpu_set_t allowed;
+    CPU_ZERO(&allowed);
+    if (sched_getaffinity(0, sizeof(allowed), &allowed) == 0)
+    {
+      nodeCpus.resize(_numaCount);
+      for (auto& set : nodeCpus) CPU_ZERO(&set);
+      std::vector<size_t> nodeCpuCount(_numaCount, 0);
+      size_t              totalCpus = 0;
+      for (int cpu = 0; cpu < CPU_SETSIZE; cpu++)
+        if (CPU_ISSET(cpu, &allowed))
+        {
+          const int node = numa_node_of_cpu(cpu);
+          if (node < 0 || node >= _numaCount) continue;
+          CPU_SET(cpu, &nodeCpus[node]);
+          nodeCpuCount[node]++;
+          totalCpus++;
+        }
+      // Thread t goes to the node whose share of the CPUs covers position (t + 1/2) / threadCount
+      if (totalCpus > 0)
+      {
+        threadNode.resize(_threadCount);
+        for (int t = 0; t < _threadCount; t++)
+        {
+          const double position   = ((double)t + 0.5) / (double)_threadCount * (double)totalCpus;
+          size_t       cumulative = 0, node = 0;
+          for (node = 0; node < (size_t)_numaCount; node++)
+          {
+            cumulative += nodeCpuCount[node];
+            if (position < (double)cumulative) break;
+          }
+          threadNode[t] = std::min(node, (size_t)_numaCount - 1);
+        }
+      }
+    }
+  }
+  const bool bindThreads = threadNode.empty() == false;
+
   // Detecting thread-specific NUMA information
   std::mutex workMutex;
   JAFFAR_PARALLEL
   {
+    // Binding this thread to its assigned node (it may still be running elsewhere until rescheduled, so
+    // its domain below is the assigned node, not the CPU it is on right now)
+    int boundNode = -1;
+    if (bindThreads)
+    {
+      const auto t = jaffarCommon::parallel::getThreadId();
+      if (sched_setaffinity(0, sizeof(cpu_set_t), &nodeCpus[threadNode[t]]) == 0) boundNode = (int)threadNode[t];
+    }
+
     // Identify this worker by its dense OpenMP thread id (unique 0..N-1), NOT sched_getcpu(): the CPU
     // id collides whenever threads share a core -- under oversubscription, or simply unpinned
     // scheduling on CI runners that don't set OMP_PROC_BIND. A colliding id corrupts the per-NUMA
@@ -119,7 +177,7 @@ __INLINE__ void initializeNUMA()
     // no queues so the search immediately "runs out of states". The preferred NUMA domain still comes
     // from the actual CPU the thread is currently on (node 0 if the kernel cannot tell).
     _myThreadId          = jaffarCommon::parallel::getThreadId();
-    const int node       = numa_node_of_cpu(sched_getcpu());
+    const int node       = boundNode >= 0 ? boundNode : numa_node_of_cpu(sched_getcpu());
     _preferredNumaDomain = (node >= 0 && node < _numaCount) ? node : 0;
 
     // Setting myself as numa delegate, if I'm the first thread seen in this numa domain
@@ -128,9 +186,8 @@ __INLINE__ void initializeNUMA()
     workMutex.unlock();
   }
 
-  // Unpinned threads migrate between nodes, which makes the NUMA placement above approximate
-  if (_numaCount > 1 && std::getenv("OMP_PROC_BIND") == nullptr && std::getenv("GOMP_CPU_AFFINITY") == nullptr)
-    jaffarCommon::logger::log("[J+] Note: OMP_PROC_BIND is not set, so worker threads may migrate between NUMA nodes (e.g. OMP_PROC_BIND=spread OMP_PLACES=cores pins them)\n");
+  // Reporting the placement
+  if (bindThreads) jaffarCommon::logger::log("[J+] Worker threads bound to their NUMA node, spread over the nodes (set OMP_PROC_BIND to choose the placement yourself)\n");
 }
 
 } // namespace jaffarPlus

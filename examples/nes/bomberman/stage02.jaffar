@@ -379,6 +379,16 @@
     "Satisfies": [],
     "Conditions": [
      {
+      "Property": "Current Step",
+      "Op": ">",
+      "Value": 50
+     },
+     {
+      "Property": "Loading",
+      "Op": "==",
+      "Value": false
+     },
+     {
       "Property": "Game End Status",
       "Op": "==",
       "Value": 1
@@ -400,6 +410,11 @@
     "Description": "Tripwire: impossible state (corruption canary)",
     "Satisfies": [],
     "Conditions": [
+     {
+      "Property": "Current Step",
+      "Op": ">",
+      "Value": 50
+     },
      {
       "Property": "Loading",
       "Op": "==",

@@ -445,7 +445,13 @@ public:
 
         // Winning in the same rule superseeds checkpoint, and failing superseed everything
         if (rule->isWinRule()) _stateType = stateType_t::win;
-        if (rule->isFailRule()) _stateType = stateType_t::fail;
+        if (rule->isFailRule())
+        {
+          _stateType = stateType_t::fail;
+          // Env-gated fail-attribution tracer (debug): report which fail rule executed the state.
+          static const char* failTraceEnv = std::getenv("JAFFAR_DEBUG_FAIL_TRACE");
+          if (failTraceEnv != nullptr) fprintf(stderr, "FAILTRACE rule %lu\n", rule->getLabel());
+        }
       }
     }
   }

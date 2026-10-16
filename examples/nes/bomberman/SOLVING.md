@@ -157,6 +157,117 @@ greedy — make every stage faster than both v1 and the reference segment.
 |-------|----------|---------|-------------|-------|
 | 01 | 1167 (win 857 post-arm, arm 311) | 1390 | 2051 (invest) | 50 GB DB re-run |
 | 02 | 2815 (win 1290 post-arm, arm 1526) | ~3700 | 1899/floor | 10 GB; 50 GB re-run pending |
+| 03 | 4932 (win 1759 post-arm, arm 3174) | — | — | 60GB + Hash Lookahead 1 direct run (1763), then −4 via cut-750 reseed of the SAME ending (e62e00ae — RNG-preserving polish). Stage04 board: pu(27,1) ex(29,9) est 2978 (vs staged ending's 3703); stage04 arm 2118 post-arm03. Ending survey: all reseeds canalize onto e62e00ae — no third ending found |
+| 04 | 6456 (win 1166 post-arm, arm 5291) | — | — | first solved arm-to-win in ONE 60GB+lookahead run (1198, ending 8cf166cb), then REBANKED onto ending 49446bcb via the stage05 board hunt: −32 frames AND a far better stage05 board. Stage05 arm 6820 (was 6855). Transition slack sweep (358 A-press variants): zero gains |
+
+### At-will (Detonator) mode: every fuse-weighted term needs a special case
+
+Reward terms that scale with fuse progress are meaningless once the Detonator is held — bombs never
+tick, so `$3D2` stays ~0. The pending/threat terms already special-cased this (`progress = atWill ?
+1.0f : elapsed/160`), but the **blast-escape danger did not**: it weighted by the raw fuse timer, so
+standing ON a live bomb scored a −2.8 penalty while the head-approach penalty and the (9b)
+next-brick pull — both maximal at zero distance — paid hundreds to hug the brick. The search parked
+on its own bomb for 600+ steps on stage05, never escaping and therefore never detonating.
+
+A second trap sat behind it: the head-approach pull uses PATH distance, and a bomb tile costs 144px
+vs 16px of floor, so stepping off your own bomb swings that term from −80 to −800 — more than the
+danger fix pays. The approach pull is now **suspended while the head is committed** (a ticking cross
+reaches it); once the bomb is set, distance to that brick is meaningless and the job is
+escape-then-detonate. It re-engages for the next head automatically.
+
+Fixed in `bomberman.hpp` block "(10) Blast-line escape danger" (at-will ⇒ progress 1.0): the same
+state now scores −450 (danger 3.00), so escape-then-detonate outranks hugging. Fuse-mode stages are
+unchanged. **If a Detonator stage stalls, audit the fuse-weighted terms first.**
+
+Debug recipe: seed a 2-step probe from the live `/tmp/jaffar.best.sol` with
+`Runner Configuration/"Show Allowed Inputs": true` (Driver rejects unknown keys) and a tiny DB, then
+re-evaluate the module's gate conditions from `--dumpRam` in python — that distinguishes "input not
+offered" from "offered but not rewarded".
+
+### Counter power-up stats are CUMULATIVE — set the threshold per stage
+
+`Powerup Obtained` for the Bombs stat is `$74 >= "Powerup Bombs Threshold"` (default 1), and `$74`
+persists across stages. Stage05 is the second Bombs stage ($74 already 1 from stage02), so with the
+default it reported the power-up as grabbed on frame one: power-up magnets zeroed, the +100000 grab
+bonus pre-paid, fail rule 1997 (power-up destroyed) disarmed, and the win rule's
+`Powerup Obtained` term pre-satisfied. The run churned 1630 steps with zero kills at a flat ~102.5k.
+
+Set `"Powerup Bombs Threshold": <$74 at this stage's arm> + 1` (stage05 = 2, stage06 = 3, ...), and
+measure $74 at the arm rather than assuming. Same for Flames stages via `Powerup Flame Threshold`.
+Boolean stats (Detonator/Speed/Bombpass/Wallpass/Flamepass) need nothing.
+
+### Win rules need a `Current Step > 50` guard (stale clear-latch insta-win)
+
+`Game End Status` ($5E) is the stage-clear latch, and on some boundaries it stays set through the
+ENTIRE transition, clearing one frame into the next load — while $58 (Level) increments *before*
+the load. A seed cut at arm−1 can therefore land on a state that reads `Level = N, cleared,
+not loading, powerup held`: rule 1999 fires immediately and the search exits at step 1 with a
+1-input "win" (observed at stage04→05; frames 6805-6820 latched, cleared 6821).
+
+`Loading == False`, `Level`, `Enemies Alive`, `Time Left` and `Bricks Left` CANNOT distinguish this
+state — they all read the previous stage's values. The fix, now applied to every v2 stage config:
+prepend `{"Property": "Current Step", "Op": ">", "Value": 50}` to every win rule (1999 and the 6666
+canary). `Current Step` starts at 0 for the search (the seed replays below the game layer), and no
+real stage win happens under ~850 steps.
+
+When a win looks wrong, decode the log's `Rule Status` bitstring against the config's rule ORDER
+before theorising — that is how this was pinned on 1999 rather than the 6666 corruption canary.
+
+### Boot Start press is board manipulation — do NOT "optimize" it
+
+The boot holds Start until frame ~141 (stage01 board loads at 311). That delay is deliberate: the
+title-screen duration determines the RNG state at board generation, so the Start frame *picks*
+stage01's layout (and, through the ending chain, every later board). `scoreBoards.score(board, K)`
+exists for this sweep and charges every delayed frame against the board 1:1.
+
+A naive sweep looks like free money — Start registers from frame 12, and Start@14 loads the board
+at 181 (~130 earlier than ours, 17 ahead of the reference's 198) — but the campaign already tested
+earlier presses: `kSweep.results` records `P=141 -> win 1016 (abs 1330)` while `P=017/022/037/143`
+produced **no win at all** within the step cap. Their boards were not merely slower, they were
+unsolvable at that budget. `stage01.k00..k44.*` are the follow-up sweep of extra delay on top.
+
+Revisiting the boot re-rolls the entire campaign (all boards change, every stage re-solves), so it
+needs a full scored sweep, not a frame-count argument.
+
+### Stage05 board hunt (2026-08-13) — the ending-diversity method pays off
+
+Unlike stages 03/04 (which canalized onto a single ending), a cut-500 reseed of stage04 (before
+the 561 double-kill, 5 enemies still drawing RNG) yielded **4 distinct endings**:
+
+| ending | stage05 board | board est | notes |
+|---|---|---|---|
+| **49446bcb** | pu(13,4) exit(24,7) | **2856** | ADOPTED |
+| 8cf166cb | pu(24,7) exit(3,8) | 4074 | the original banked ending — powerup and exit at OPPOSITE ends |
+| 4df867cb | pu(29,8) exit(1,10) | 4209 | |
+| 882d6acb | pu(19,1) exit(17,6) | 4432 | |
+
+The winner initially looked like a 254-frame trade (the cheap 6GB reseed clears stage04 late).
+**RNG-safe polish erased it**: the stream freezes at the last kill, so re-searching only the
+post-last-kill exit walk (20GB + lookahead, seed cut at the kill) provably preserves the ending
+key -- 417-frame walk -> 133, making the whole line 1166 vs the old 1198. Strictly better on both
+axes. Method to reuse: cut at the last kill, re-search the walk, verify the collected key matches.
+
+Two tooling bugs fixed while running this (both would corrupt any future hunt):
+- `scoreBoards.extract` read enemy records at +4 offsets with 10 iterations -- it dropped slot 3
+  (the 7th enemy of stages 5/6/11+) and invented phantoms past the state array. Now reads the true
+  array bases; validated against the stage table (6 for stage04, 7 for stage05).
+- `reseedBoundary.py` detected the clear via `$5E`, which reads 0 for entire v2 movies, and had no
+  validity guard: its first stage05 sweep ranked three DEATHS (player dies -> stage restarts ->
+  "new board") above every real candidate. Now uses the last screen-off+board-regen transition and
+  requires deathless + stage-advanced.
+
+### Hash Lookahead verdict (stage03 A/B, 2026-08-12)
+
+Engine `"Hash Lookahead": 1` hashes each child after +1 null advance — splits states that
+differ only in latched pending inputs (hidden lag frames, e.g. during explosions; same
+developer pattern as Lode Runner). Results on the stage03 funnel:
+- 2 GB DB: catastrophic — productive lineages evicted (the lookahead multiplies distinct
+  states; small DBs can't hold them), best collapsed to the floor band by step 600.
+- 60 GB DB: transformative — break-cohorts formed every 1-2 steps (vs one per ~150 without
+  lookahead), detonator grabbed at step 688 directly from the arm (first large-DB run ever
+  to clear the funnel), win at 1763 tying the staged line in ONE clean run.
+- Template guidance: funnel-heavy boards -> Hash Lookahead 1 + LARGE state DB (60 GB);
+  never pair lookahead with a small DB. Costs ~2x emulation per child (~32 s/step at 80%).
 
 ### The per-boundary procedure (now routine — repeat for every stage N → N+1)
 

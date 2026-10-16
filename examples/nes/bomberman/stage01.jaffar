@@ -293,6 +293,16 @@
     "Satisfies": [],
     "Conditions": [
      {
+      "Property": "Current Step",
+      "Op": ">",
+      "Value": 50
+     },
+     {
+      "Property": "Loading",
+      "Op": "==",
+      "Value": false
+     },
+     {
       "Property": "Game End Status",
       "Op": "==",
       "Value": 1
@@ -314,6 +324,11 @@
     "Description": "TRIPWIRE: physically impossible state (all enemies gone with bricks intact before 4 elapsed seconds) -- halts the run loudly if engine-level state corruption reappears",
     "Satisfies": [],
     "Conditions": [
+     {
+      "Property": "Current Step",
+      "Op": ">",
+      "Value": 50
+     },
      {
       "Property": "Loading",
       "Op": "==",

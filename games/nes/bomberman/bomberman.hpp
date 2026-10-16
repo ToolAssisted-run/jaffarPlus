@@ -863,6 +863,12 @@ private:
       }
     }
 
+    // Env-gated fuse-lineage tracer (debug): report every evaluation whose powerup-chain-head fuse
+    // exceeds the threshold, to establish whether mature-fuse states are still being advanced.
+    static const char* fuseTraceEnv = std::getenv("JAFFAR_DEBUG_FUSE_TRACE");
+    if (fuseTraceEnv != nullptr && _headFuseProgress > 0.5f)
+      fprintf(stderr, "FUSETRACE step %u fuse %.3f pos %u,%u\n", _currentStep, _headFuseProgress, *_playerTileX, *_playerTileY);
+
     // (9) Anticipatory gains (threatened bricks + bombs treated as clearing), clamped to dist
     _chainHeadGain     = 0.0f;
     _exitChainHeadGain = 0.0f;
@@ -981,11 +987,19 @@ private:
     // (10) Blast-line escape danger
     _bombEscapeDanger = 0.0f;
     {
-      const int r = (int)(_lowMem[0x0073] >> 4);
+      const int  r      = (int)(_lowMem[0x0073] >> 4);
+      // At-will (Detonator) mode: bombs never tick, so the fuse timer $3D2 stays at ~0 and a raw
+      // elapsed/160 weighting collapses the danger to nil -- standing ON a live bomb scored a -2.8
+      // penalty while the head-approach and next-brick pulls (both maximal at zero distance) paid
+      // hundreds to hug the brick. Net effect: the search parked on its own bomb and never escaped,
+      // so it never detonated and never broke the head (observed on stage05, 620+ steps). A held
+      // bomb is detonatable NOW, hence maximal danger -- the same progress=1.0 convention the
+      // pending/threat block above already uses for at-will bombs.
+      const bool atWill = (_lowMem[0x0077] != 0);
       for (uint8_t b = 0; b < 10; b++)
       {
         if (_lowMem[0x03A0 + b] == 0) continue;
-        const float progress = (float)_lowMem[0x03D2 + b] / 160.0f;
+        const float progress = atWill ? 1.0f : (float)_lowMem[0x03D2 + b] / 160.0f;
         const int   dx       = (int)_trackedTileX - (int)_lowMem[0x03AA + b];
         const int   dy       = (int)_trackedTileY - (int)_lowMem[0x03B4 + b];
         int         dist     = -1;
@@ -1476,13 +1490,19 @@ private:
     // Brick-chain plan: ladder per destroyed chain brick + pull toward the chain head
     reward += _chainBrickReward * ((float)(_chainLen - _chainRemaining) + _chainCrumble);
     if (_chainHeadThreat) reward += 0.5f * _chainBrickReward; // head covered by a ticking bomb (pre-crumble)
-    reward += -1.0 * _chainHeadMagnet * (_chainHeadDist - _bombMaxProgress * _chainHeadGain);
+    // Approach pull is suspended once the head is COMMITTED (a ticking bomb's cross already reaches
+    // it): from then on the player's job is to LEAVE the blast and detonate, not to hug the brick.
+    // Keeping the pull live punishes exactly that -- the player's own bomb is a 144px path obstacle
+    // (vs 16px of floor), so stepping off it swings this term from -80 to -800 and pins the search
+    // on top of its own bomb (stage05: 2800 steps, head never broken, even after the escape-danger
+    // fix). It re-engages automatically for the next head once this one breaks.
+    if (_chainHeadCommitted == false) reward += -1.0 * _chainHeadMagnet * (_chainHeadDist - _bombMaxProgress * _chainHeadGain);
     if (_chainNextDist >= 0.0f) reward += 0.2f * _chainHeadMagnet * std::max(0.0f, 800.0f - _chainNextDist);
 
     // Exit chain (identical logic, active once all enemies are dead)
     reward += _exitChainBrickReward * ((float)(_exitChainLen - _exitChainRemaining) + _exitChainCrumble);
     if (_exitChainHeadThreat) reward += 0.5f * _exitChainBrickReward;
-    reward += -1.0 * _exitChainHeadMagnet * (_exitChainHeadDist - _bombMaxProgress * _exitChainHeadGain);
+    if (_exitChainHeadCommitted == false) reward += -1.0 * _exitChainHeadMagnet * (_exitChainHeadDist - _bombMaxProgress * _exitChainHeadGain);
     if (_exitChainNextDist >= 0.0f) reward += 0.2f * _exitChainHeadMagnet * std::max(0.0f, 800.0f - _exitChainNextDist);
     // Reward for reducing the enemy count (the stage's primary objective)
     reward += -1.0 * _enemiesLeftMagnet * (float)*_enemiesLeft;

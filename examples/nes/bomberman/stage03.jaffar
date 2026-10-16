@@ -1,6 +1,6 @@
 {
  "Driver Configuration": {
-  "Max Steps": 2200,
+  "Max Steps": 2600,
   "Save Intermediate Results": {
    "Enabled": true,
    "Frequency (s)": 1.0,
@@ -22,11 +22,11 @@
  },
  "Engine Configuration": {
   "State Database": {
-   "Max Size (Mb)": 10000
+   "Max Size (Mb)": 30000
   },
   "Hash Database": {
    "Max Store Count": 2,
-   "Max Store Size (Mb)": 4000,
+   "Max Store Size (Mb)": 24000,
    "Enabled": true
   },
   "Log Verbosity": "Compact"
@@ -49,7 +49,7 @@
  "Runner Configuration": {
   "Hash Step Tolerance": 4,
   "Show Empty Input Slots": true,
-  "Show Allowed Inputs": true,
+  "Show Allowed Inputs": false,
   "Bypass Hash Calculation": false,
   "Store Input History": {
    "Type": "Raw",
@@ -363,6 +363,16 @@
     "Satisfies": [],
     "Conditions": [
      {
+      "Property": "Current Step",
+      "Op": ">",
+      "Value": 50
+     },
+     {
+      "Property": "Loading",
+      "Op": "==",
+      "Value": false
+     },
+     {
       "Property": "Game End Status",
       "Op": "==",
       "Value": 1
@@ -384,6 +394,11 @@
     "Description": "Tripwire: impossible state (corruption canary)",
     "Satisfies": [],
     "Conditions": [
+     {
+      "Property": "Current Step",
+      "Op": ">",
+      "Value": 50
+     },
      {
       "Property": "Loading",
       "Op": "==",

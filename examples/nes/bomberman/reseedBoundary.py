@@ -28,7 +28,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from scoreBoards import extract, score, LR
+from scoreBoards import extract, score, LR, MAP, ROWS, STRIDE
 
 NULL = "|..|........|"
 DIRS = {'U': "|..|U.......|", 'D': "|..|.D......|", 'L': "|..|..L.....|", 'R': "|..|...R....|"}
@@ -41,11 +41,17 @@ def replayDump(sol, ramPath, cwd):
     return open(ramPath, 'rb').read() if os.path.isfile(ramPath) else None
 
 
-def clearFrame(ram):
+def nextArmFrame(ram):
+    """Absolute frame of the NEXT stage's load -- screen off ($0C: 0x90 -> 0x10) WITH a board
+    regeneration, the same criterion findStageStarts.py uses. The LAST such transition is taken, so
+    this is correct on multi-stage movies (earlier ones are previous stages' loads; stage-card
+    screen-offs never regenerate the board). Replaces the old $5E clear-latch probe, which reads 0
+    for entire v2 movies and made every variant evaluate as invalid."""
     n = len(ram) // LR - 1
-    for f in range(1, n + 1):
-        if ram[(f - 1) * LR + 0x5E] == 0 and ram[f * LR + 0x5E] == 1: return f
-    return None
+    arms = [f for f in range(1, n + 1)
+            if ram[(f - 1) * LR + 0x0C] == 0x90 and ram[f * LR + 0x0C] == 0x10
+            and ram[(f - 1) * LR + MAP:(f - 1) * LR + MAP + ROWS * STRIDE] != ram[f * LR + MAP:f * LR + MAP + ROWS * STRIDE]]
+    return arms[-1] if arms else None
 
 
 def killerPlacementFrame(ram, lastKill):
@@ -62,6 +68,18 @@ def killerPlacementFrame(ram, lastKill):
     for f in range(best, 0, -1):
         if ram[(f - 1) * LR + 0x3A0 + bestSlot] == 0 and ram[f * LR + 0x3A0 + bestSlot] != 0: return f
     return None
+
+
+def isValidClear(ram, armAbs, expectStage):
+    """A detected arm only counts if the variant actually CLEARED the stage. A death also screen-offs
+    and regenerates the board (stage restart), which otherwise scores as a spectacular 'new board' --
+    three such phantoms topped the first stage05 sweep. Require: no death frame anywhere (frames 0-1
+    are uninitialized boot RAM) and the post-load stage counter advanced as the baseline's did."""
+    n = len(ram) // LR
+    for f in range(2, n):
+        if ram[f * LR + 0x5C] != 0: return False
+    if (armAbs + 16) * LR > len(ram): return False
+    return ram[(armAbs + 16) * LR + 0x58] == expectStage
 
 
 def lastKillFrame(ram, upTo):
@@ -94,20 +112,21 @@ def main():
     basePath = f'{args.outDir}/base.sol'
     open(basePath, 'w').write('\n'.join(movie + [NULL] * 600) + '\n')
     ram = replayDump(basePath, f'{args.outDir}/base.ram', cwd)
-    clr = clearFrame(ram)
-    board = extract(ram[clr * LR:])  # search the arm after the clear
-    if board is None: sys.exit('baseline: next arm not found (tail too short?)')
-    baseArm = clr + board['arm']
-    lk = lastKillFrame(ram, clr)
+    baseArm = nextArmFrame(ram)
+    if baseArm is None: sys.exit('baseline: next arm not found (tail too short?)')
+    board = extract(ram[(baseArm - 2) * LR:])  # slice just before the load so detectArm locks onto it
+    if board is None: sys.exit('baseline: board not extractable at the next arm')
+    baseStage = ram[(baseArm + 16) * LR + 0x58]
+    lk = lastKillFrame(ram, baseArm)
     lp = killerPlacementFrame(ram, lk)
     bs0 = score(board, 0)
-    print(f'baseline: killer placed {lp}, last kill {lk}, clear {clr}, next arm {baseArm}, board est {bs0["total"]:.0f} pu={board["pu"]} exit={board["exit"]}')
+    print(f'baseline: killer placed {lp}, last kill {lk}, next arm {baseArm}, board est {bs0["total"]:.0f} pu={board["pu"]} exit={board["exit"]}')
 
     # Variant generation
     variants = {}  # name -> (solPath, cost)
     for f in range(max(1, lp - args.window), lp):
         if movie[f - 1] != NULL: continue
-        if (ram[f * LR + 0x33] & 3) == 0: continue  # phase-0: input swallowed pre-skates, wiggle is a no-op
+        if (ram[f * LR + 0x33] & 3) == 0 and ram[f * LR + 0x75] == 0: continue  # phase-0 swallows input -- unless the Speed stat bypasses the gate (ROM $CCA4)
         for d, inp in DIRS.items():
             var = list(movie)
             var[f - 1] = inp
@@ -135,12 +154,12 @@ def main():
         rp = f'{args.outDir}/{name}.ram'
         if not os.path.isfile(rp): continue
         ram = open(rp, 'rb').read()
-        c = clearFrame(ram)
-        if c is None: continue
-        if cost == 0 and c != clr: continue  # wiggle broke the win timing -> invalid
-        board = extract(ram[c * LR:])
+        armAbs = nextArmFrame(ram)
+        if armAbs is None: continue
+        if not isValidClear(ram, armAbs, baseStage): continue  # died / restarted the stage, not a real ending
+        if cost == 0 and armAbs != baseArm: continue  # wiggle shifted the boundary -> not a free reseed
+        board = extract(ram[(armAbs - 2) * LR:])
         if board is None: continue
-        armAbs = c + board['arm']
         key = (board['pu'], board['exit'], tuple(sorted(p for p, _ in board['enemies'])))
         s = score(board, 0)
         if s is None: continue

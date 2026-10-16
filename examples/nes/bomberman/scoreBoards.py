@@ -72,9 +72,14 @@ def extract(ram):
             if grid[r][c] == 5: pu = (c, r)
     f = arm + 16
     if (f + 1) * LR > len(ram): return None
+    # Enemy records: stride-10 arrays at $580 (tile X) / $594 (tile Y) / $5A8 (state) / $5D0 (AI
+    # heading), one entry per slot 0-9. The block is allocated ENDING at slot 9, so a 7-enemy
+    # stage occupies 3..9 (see bomberman.hpp "Enemy Record Base"). Scanning the arrays from their
+    # true bases covers every roster size; the earlier +4 offsets silently dropped slot 3 (i.e. the
+    # 7th enemy of stages 5/6/11+) and read 4 entries past the state array as phantom enemies.
     enemies = []
     for i in range(10):
-        x, y, st, hd = ram[f * LR + 0x584 + i], ram[f * LR + 0x598 + i], ram[f * LR + 0x5AC + i], ram[f * LR + 0x5D4 + i]
+        x, y, st, hd = ram[f * LR + 0x580 + i], ram[f * LR + 0x594 + i], ram[f * LR + 0x5A8 + i], ram[f * LR + 0x5D0 + i]
         if x != 0 and st < 32: enemies.append(((x, y), hd))
     return {'arm': arm, 'grid': grid, 'exit': ex, 'pu': pu, 'enemies': enemies}
 

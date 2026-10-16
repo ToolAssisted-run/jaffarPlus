@@ -39,9 +39,16 @@ namespace emulator
  *   "Game Version"                the DOS release to play, always chosen (never taken from the files): "1.1", "1.0"
  *                                 (both on the same files) or "IR" (the initial release, on its own files)
  *   "Start Level", "Seed"          a new game at that level (1..14) with that random seed
+ *   "Skip Story Scenes"           (optional, false) the story scenes between levels skipped by a key, as a TAS does
+ *                                 (the sound stops: after levels 5 and 9 the next level's first tick draws a random
+ *                                 number, as in Chimera's core), not watched to their end
  *   "Initial State File"           (optional, "" none) a savestate to start from instead (quickerSDLPoP2 / SDLPoP2 format)
  *   "Initial Sequence File Path"   (optional) inputs played after that, one per line
  *   "Override RNG Enabled", "Override RNG Value"   (optional) the random seed set after all that
+ *   "Max HP At Level"             (optional) [level, hp] (or several pairs, [level, hp, level, hp, ...]): when the initial
+ *                                 sequence reaches that level, full health at that many (a level routed as if reached
+ *                                 with that many, e.g. the run's big potions taken before it); later chunks' initial
+ *                                 sequences replay the same
  */
 class QuickerSDLPoP2 final : public Emulator
 {
@@ -55,6 +62,7 @@ public:
     _instance = std::make_unique<PoP2Instance>(config);
     _gamePath = jaffarCommon::json::popString(_emulatorConfigRemaining, "Game Path");
     jaffarCommon::json::popString(_emulatorConfigRemaining, "Game Version"); // (required; the instance reads it)
+    if (_emulatorConfigRemaining.contains("Skip Story Scenes")) jaffarCommon::json::popBoolean(_emulatorConfigRemaining, "Skip Story Scenes"); // (the instance reads it)
 
     _startLevel = jaffarCommon::json::popNumber<int>(_emulatorConfigRemaining, "Start Level");
     _seed       = jaffarCommon::json::popNumber<uint32_t>(_emulatorConfigRemaining, "Seed");
@@ -65,6 +73,12 @@ public:
 
     _overrideRNGEnabled = _emulatorConfigRemaining.contains("Override RNG Enabled") ? jaffarCommon::json::popBoolean(_emulatorConfigRemaining, "Override RNG Enabled") : false;
     _overrideRNGValue   = _emulatorConfigRemaining.contains("Override RNG Value") ? jaffarCommon::json::popNumber<uint32_t>(_emulatorConfigRemaining, "Override RNG Value") : 0;
+    if (_emulatorConfigRemaining.contains("Max HP At Level"))
+    {
+      const auto v = jaffarCommon::json::popArray<int>(_emulatorConfigRemaining, "Max HP At Level");
+      if (v.empty() || v.size() % 2 != 0) JAFFAR_THROW_LOGIC("Max HP At Level: [level, hp] or [level, hp, level, hp, ...]\n");
+      for (size_t i = 0; i < v.size(); i += 2) _maxHPAt.push_back({v[i], v[i + 1], false});
+    }
   };
 
   void initializeImpl() override
@@ -96,13 +110,27 @@ public:
         while (!line.empty() && (line.back() == '\r' || line.back() == ' ' || line.back() == '\n')) line.pop_back();
         if (line.empty()) continue;
         _instance->advanceState(getInputParser()->parseInputString(line));
+        applyMaxHP();
       }
     }
+    applyMaxHP();
 
     if (_overrideRNGEnabled) _instance->setRNGValue(_overrideRNGValue);
   }
 
   jaffar::InputParser* getInputParser() const override { return _instance->getInputParser(); }
+
+  // "Max HP At Level": each pair once, when its level is first reached
+  void applyMaxHP()
+  {
+    for (auto& e : _maxHPAt)
+    {
+      if (e.applied || _instance->getLevel() != e.level) continue;
+      auto* core = _instance->getCore();
+      core->Kid.f12 = core->Kid.f13 = core->start_hp = (uint8_t)e.hp;
+      e.applied = true;
+    }
+  }
 
   void advanceStateImpl(const jaffar::input_t& input) override { _instance->advanceState(input); }
 
@@ -215,6 +243,13 @@ private:
   std::string _initialSequenceFilePath;
   bool        _overrideRNGEnabled;
   uint32_t    _overrideRNGValue;
+  struct maxHPAt_t
+  {
+    int  level;
+    int  hp;
+    bool applied;
+  };
+  std::vector<maxHPAt_t> _maxHPAt;
 };
 
 } // namespace emulator

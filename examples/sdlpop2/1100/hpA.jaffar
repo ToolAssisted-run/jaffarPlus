@@ -1,0 +1,2356 @@
+{
+  "Driver Configuration": {
+    "End On First Win State": true,
+    "Max Steps": 260,
+    "Save Intermediate Results": {
+      "Enabled": true,
+      "Frequency (s)": 1.0,
+      "Best Solution Path": "/dev/shm/hpA.best.sol",
+      "Worst Solution Path": "/dev/shm/hpA.worst.sol"
+    }
+  },
+  "Engine Configuration": {
+    "State Database": {
+      "Max Size (Mb)": 4000
+    },
+    "Hash Database": {
+      "Max Store Count": 2,
+      "Max Store Size (Mb)": 400,
+      "Enabled": true
+    }
+  },
+  "Emulator Configuration": {
+    "Emulator Name": "QuickerSDLPoP2",
+    "Game Path": "prince2",
+    "Game Version": "1.1",
+    "Start Level": 1,
+    "Seed": 7881336,
+    "Skip Story Scenes": true,
+    "Initial Sequence File Path": "init_a466.sol",
+    "Max HP At Level": [
+      11,
+      5
+    ]
+  },
+  "Game Configuration": {
+    "Game Name": "SDLPoP2 / Prince of Persia 2",
+    "Frame Rate": 12.0,
+    "Print Properties": [
+      "Current Level",
+      "Next Level",
+      "Player Room",
+      "Player Pos X",
+      "Player Pos Y",
+      "Player Frame",
+      "Player Action",
+      "Player Current Row",
+      "Player Current Col",
+      "Player Current HP",
+      "Player Max HP"
+    ],
+    "Hash Properties": [],
+    "Rules": [
+      {
+        "Label": 3000,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 5
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 5,
+            "Intensity": 1.0,
+            "Position": -200
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 5,
+            "Intensity": 1.0,
+            "Position": 182
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 1,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 2,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 6,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 7,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 9,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 10,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 12,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 13,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 17,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 18,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 19,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 20,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 21,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 22,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 23,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 24,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 25,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 26,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 27,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 28,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 29,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 32,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player HP Magnet",
+            "Intensity": 50
+          }
+        ]
+      },
+      {
+        "Label": 3001,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 1
+          }
+        ],
+        "Satisfies": [
+          3000
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 1,
+            "Intensity": 1.0,
+            "Position": 154
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 1,
+            "Intensity": 2.0,
+            "Position": -50
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 5,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 2,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 6,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 7,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 9,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 10,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 12,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 13,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 17,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 18,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 19,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 20,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 21,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 22,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 23,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 24,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 25,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 26,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 27,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 28,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 29,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 32,
+            "Intensity": 1.0,
+            "Position": -5000
+          }
+        ]
+      },
+      {
+        "Label": 3002,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 2
+          }
+        ],
+        "Satisfies": [
+          3001
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 2,
+            "Intensity": 1.0,
+            "Position": -200
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 2,
+            "Intensity": 1.0,
+            "Position": 182
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 1,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 5,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 6,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 7,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 9,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 10,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 12,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 13,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 17,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 18,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 19,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 20,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 21,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 22,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 23,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 24,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 25,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 26,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 27,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 28,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 29,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 32,
+            "Intensity": 1.0,
+            "Position": -5000
+          }
+        ]
+      },
+      {
+        "Label": 3003,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 4
+          }
+        ],
+        "Satisfies": [
+          3002
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": 378
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 4,
+            "Intensity": 2.0,
+            "Position": -50
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 2,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 1,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 5,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 6,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 7,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 9,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 10,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 12,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 13,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 17,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 18,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 19,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 20,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 21,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 22,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 23,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 24,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 25,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 26,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 27,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 28,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 29,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 32,
+            "Intensity": 1.0,
+            "Position": -5000
+          }
+        ]
+      },
+      {
+        "Label": 3004,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 10
+          }
+        ],
+        "Satisfies": [
+          3003
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 10,
+            "Intensity": 1.0,
+            "Position": 800
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 10,
+            "Intensity": 0.0,
+            "Position": 0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 1,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 2,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 5,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 6,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 7,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 9,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 12,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 13,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 17,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 18,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 19,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 20,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 21,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 22,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 23,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 24,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 25,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 26,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 27,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 28,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 29,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 32,
+            "Intensity": 1.0,
+            "Position": -5000
+          }
+        ]
+      },
+      {
+        "Label": 3005,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 9
+          }
+        ],
+        "Satisfies": [
+          3004
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 9,
+            "Intensity": 1.0,
+            "Position": 800
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 9,
+            "Intensity": 0.0,
+            "Position": 0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 10,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 1,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 2,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 5,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 6,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 7,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 12,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 13,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 17,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 18,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 19,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 20,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 21,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 22,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 23,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 24,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 25,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 26,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 27,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 28,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 29,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 32,
+            "Intensity": 1.0,
+            "Position": -5000
+          }
+        ]
+      },
+      {
+        "Label": 3006,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 2
+          },
+          {
+            "Property": "Visited Room[9]",
+            "Op": "==",
+            "Value": 1
+          }
+        ],
+        "Satisfies": [
+          3005
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 2,
+            "Intensity": 1.0,
+            "Position": 410
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 2,
+            "Intensity": 2.0,
+            "Position": -50
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 9,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 1,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 5,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 6,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 7,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 10,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 12,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 13,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 17,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 18,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 19,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 20,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 21,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 22,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 23,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 24,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 25,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 26,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 27,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 28,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 29,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 32,
+            "Intensity": 1.0,
+            "Position": -5000
+          }
+        ]
+      },
+      {
+        "Label": 3007,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 9
+          },
+          {
+            "Property": "Player Pos X",
+            "Op": ">",
+            "Value": 378
+          }
+        ],
+        "Satisfies": [
+          3006
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 9,
+            "Intensity": 1.0,
+            "Position": 800
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 9,
+            "Intensity": 1.0,
+            "Position": 119
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 2,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 1,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 5,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 6,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 7,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 10,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 12,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 13,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 17,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 18,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 19,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 20,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 21,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 22,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 23,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 24,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 25,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 26,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 27,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 28,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 29,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 32,
+            "Intensity": 1.0,
+            "Position": -5000
+          }
+        ]
+      },
+      {
+        "Label": 3008,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 3
+          }
+        ],
+        "Satisfies": [
+          3007
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 1.0,
+            "Position": 186
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 3,
+            "Intensity": 2.0,
+            "Position": -50
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 9,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 1,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 2,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 5,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 6,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 7,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 10,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 12,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 13,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 17,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 18,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 19,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 20,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 21,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 22,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 23,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 24,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 25,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 26,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 27,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 28,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 29,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 32,
+            "Intensity": 1.0,
+            "Position": -5000
+          }
+        ]
+      },
+      {
+        "Label": 3009,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 3
+          },
+          {
+            "Property": "Tile[3][2]",
+            "Op": "!=",
+            "Value": 11
+          }
+        ],
+        "Satisfies": [
+          3008
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 1.0,
+            "Position": 178
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 3,
+            "Intensity": 2.0,
+            "Position": -50
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 1,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 2,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 5,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 6,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 7,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 9,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 10,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 12,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 13,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 17,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 18,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 19,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 20,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 21,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 22,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 23,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 24,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 25,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 26,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 27,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 28,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 29,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 32,
+            "Intensity": 1.0,
+            "Position": -5000
+          }
+        ]
+      },
+      {
+        "Label": 3010,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 12
+          }
+        ],
+        "Satisfies": [
+          3009
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 12,
+            "Intensity": 1.0,
+            "Position": 282
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 12,
+            "Intensity": 2.0,
+            "Position": -50
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 3,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 1,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 2,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 5,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 6,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 7,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 9,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 10,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 13,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 17,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 18,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 19,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 20,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 21,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 22,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 23,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 24,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 25,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 26,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 27,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 28,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 29,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 32,
+            "Intensity": 1.0,
+            "Position": -5000
+          }
+        ]
+      },
+      {
+        "Label": 3899,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 12
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Win"
+          }
+        ]
+      },
+      {
+        "Label": 3901,
+        "Conditions": [
+          {
+            "Property": "Player Is Alive",
+            "Op": ">=",
+            "Value": 0
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3902,
+        "Conditions": [
+          {
+            "Property": "Player Current HP",
+            "Op": "==",
+            "Value": 0
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3903,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 0
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3904,
+        "Conditions": [
+          {
+            "Property": "Player Max HP",
+            "Op": ">",
+            "Value": 5
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3905,
+        "Conditions": [
+          {
+            "Property": "Player Current Sequence",
+            "Op": "==",
+            "Value": 78
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 11
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3958,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 8
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 11
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3961,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 11
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 11
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3964,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 14
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 11
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3965,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 15
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 11
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3966,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 16
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 11
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3980,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 30
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 11
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3981,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 31
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 11
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3990,
+        "Conditions": [
+          {
+            "Property": "Player Current HP",
+            "Op": "<",
+            "Value": 5
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      }
+    ],
+    "Bypass Emulator State": false,
+    "Prune Inputs": true,
+    "Restart At Checkpoint": false,
+    "Hash Tile Modifiers": [
+      [
+        4,
+        10
+      ],
+      [
+        4,
+        30
+      ],
+      [
+        10,
+        30
+      ],
+      [
+        6,
+        20
+      ],
+      [
+        3,
+        3
+      ],
+      [
+        3,
+        19
+      ],
+      [
+        13,
+        14
+      ],
+      [
+        13,
+        20
+      ],
+      [
+        18,
+        11
+      ],
+      [
+        26,
+        20
+      ],
+      [
+        20,
+        21
+      ],
+      [
+        29,
+        10
+      ],
+      [
+        24,
+        25
+      ],
+      [
+        24,
+        26
+      ],
+      [
+        3,
+        2
+      ],
+      [
+        22,
+        25
+      ],
+      [
+        22,
+        26
+      ]
+    ],
+    "Hash Visited Rooms": [
+      9,
+      25
+    ]
+  },
+  "Runner Configuration": {
+    "Hash Step Tolerance": 2,
+    "Show Empty Input Slots": true,
+    "Show Allowed Inputs": true,
+    "Store Input History": {
+      "Type": "Raw",
+      "Max Size": 3000
+    },
+    "Allowed Input Sets": [],
+    "Test Candidate Inputs": false,
+    "Candidate Input Sets": [],
+    "Bypass Hash Calculation": false,
+    "Frameskip": {
+      "Rate": 0,
+      "Use Custom Input": false,
+      "Custom Input": ""
+    }
+  }
+}

@@ -1,0 +1,10 @@
+fb8 entry R: Solution found. after 205 ticks | Room: 7, Pos: 561, 182 (smooth 182), Row: 2, Col: 12, Frame: 0x7E, Act
+fb8 entry C: Solution found. after 209 ticks | Room: 7, Pos: 561, 182 (smooth 182), Row: 2, Col: 12, Frame: 0x7E, Act
+SEGC DONE
+fb8 entry L: Solution found. after 210 ticks | Room: 7, Pos: 561, 182 (smooth 182), Row: 2, Col: 12, Frame: 0x7E, Act
+ALL DONE
+fb8 entry C2 (from 10 ticks before its end): Solution found. after 209 ticks | Room: 7, Pos: 561, 182 (smooth 182), Row: 2, Col: 12, Frame: 0x7E, Act
+fb8 entry R (from 10 ticks before its end): Solution found. after 215 ticks | Room: 7, Pos: 561, 182 (smooth 182), Row: 2, Col: 12, Frame: 0x7E, Act
+fb8 entry L (from 10 ticks before its end): Solution found. after 220 ticks | Room: 7, Pos: 561, 182 (smooth 182), Row: 2, Col: 12, Frame: 0x7E, Act
+fb entry R: Solution found. after 205 ticks | Room: 7, Pos: 561, 182 (smooth 182), Row: 2, Col: 12, Frame: 0x7E, Act
+QUEUE DONE

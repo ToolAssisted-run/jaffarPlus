@@ -1,0 +1,403 @@
+{
+  "Driver Configuration": {
+    "End On First Win State": true,
+    "Max Steps": 3000,
+    "Save Intermediate Results": {
+      "Enabled": true,
+      "Frequency (s)": 1.0,
+      "Best Solution Path": "/tmp/jaffar.pop2l3.l1.best.sol",
+      "Worst Solution Path": "/tmp/jaffar.pop2l3.l1.worst.sol"
+    }
+  },
+  "Engine Configuration": {
+    "State Database": {
+      "Max Size (Mb)": 15000
+    },
+    "Hash Database": {
+      "Max Store Count": 2,
+      "Max Store Size (Mb)": 10000,
+      "Enabled": true
+    }
+  },
+  "Emulator Configuration": {
+    "Emulator Name": "QuickerSDLPoP2",
+    "Game Path": "prince2",
+    "Game Version": "1.1",
+    "Start Level": 1,
+    "Seed": 7881336,
+    "Initial Sequence File Path": "level0102.sol"
+  },
+  "Game Configuration": {
+    "Game Name": "SDLPoP2 / Prince of Persia 2",
+    "Frame Rate": 12.0,
+    "Print Properties": [
+      "Current Level",
+      "Next Level",
+      "Player Room",
+      "Player Pos X",
+      "Player Pos Y",
+      "Player Frame",
+      "Player Action",
+      "Player Current Row",
+      "Player Current Col",
+      "Player Current HP",
+      "Player Max HP"
+    ],
+    "Hash Properties": [],
+    "Rules": [
+      {
+        "Label": 3000,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 1
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 1,
+            "Intensity": 1.0,
+            "Position": -200
+          }
+        ]
+      },
+      {
+        "Label": 3001,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 5
+          }
+        ],
+        "Satisfies": [
+          3000
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 1,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 5,
+            "Intensity": 1.0,
+            "Position": -200
+          }
+        ]
+      },
+      {
+        "Label": 3002,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 7
+          }
+        ],
+        "Satisfies": [
+          3001
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 5,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 7,
+            "Intensity": 1.0,
+            "Position": 360
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 7,
+            "Intensity": 1.0,
+            "Position": 300
+          }
+        ]
+      },
+      {
+        "Label": 3003,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 8
+          }
+        ],
+        "Satisfies": [
+          3002
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 7,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 8,
+            "Intensity": 1.0,
+            "Position": 410
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 8,
+            "Intensity": 2.0,
+            "Position": 119
+          }
+        ]
+      },
+      {
+        "Label": 3004,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 8
+          },
+          {
+            "Property": "Tile Modifier[8][24]",
+            "Op": ">",
+            "Value": 0
+          }
+        ],
+        "Satisfies": [
+          3003
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 8,
+            "Intensity": 1.0,
+            "Position": 186
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 8,
+            "Intensity": 1.0,
+            "Position": 300
+          }
+        ]
+      },
+      {
+        "Label": 3005,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 11
+          }
+        ],
+        "Satisfies": [
+          3004
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 8,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 11,
+            "Intensity": 1.0,
+            "Position": 800
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 11,
+            "Intensity": 1.0,
+            "Position": 300
+          }
+        ]
+      },
+      {
+        "Label": 3899,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 11
+          },
+          {
+            "Property": "Player Action",
+            "Op": "==",
+            "Value": 1
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Win"
+          }
+        ]
+      },
+      {
+        "Label": 3901,
+        "Conditions": [
+          {
+            "Property": "Player Is Alive",
+            "Op": ">=",
+            "Value": 0
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3902,
+        "Conditions": [
+          {
+            "Property": "Player Current HP",
+            "Op": "==",
+            "Value": 0
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3903,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 0
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3904,
+        "Conditions": [
+          {
+            "Property": "Player Max HP",
+            "Op": ">",
+            "Value": 3
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      }
+    ],
+    "Bypass Emulator State": false,
+    "Prune Inputs": true,
+    "Restart At Checkpoint": false,
+    "Hash Tile Modifiers": [
+      [
+        3,
+        26
+      ],
+      [
+        10,
+        20
+      ],
+      [
+        17,
+        28
+      ],
+      [
+        20,
+        21
+      ],
+      [
+        24,
+        2
+      ],
+      [
+        23,
+        2
+      ],
+      [
+        8,
+        24
+      ],
+      [
+        30,
+        29
+      ],
+      [
+        30,
+        26
+      ],
+      [
+        30,
+        9
+      ],
+      [
+        13,
+        17
+      ]
+    ]
+  },
+  "Runner Configuration": {
+    "Hash Step Tolerance": 2,
+    "Show Empty Input Slots": true,
+    "Show Allowed Inputs": true,
+    "Store Input History": {
+      "Type": "Raw",
+      "Max Size": 3000
+    },
+    "Allowed Input Sets": [],
+    "Test Candidate Inputs": false,
+    "Candidate Input Sets": [],
+    "Bypass Hash Calculation": false,
+    "Frameskip": {
+      "Rate": 0,
+      "Use Custom Input": false,
+      "Custom Input": ""
+    }
+  }
+}

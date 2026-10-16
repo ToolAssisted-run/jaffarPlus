@@ -1,0 +1,918 @@
+{
+  "Driver Configuration": {
+    "End On First Win State": true,
+    "Max Steps": 200,
+    "Save Intermediate Results": {
+      "Enabled": true,
+      "Frequency (s)": 1.0,
+      "Best Solution Path": "/tmp/jaffar.pop2l14.scene.best.sol",
+      "Worst Solution Path": "/tmp/jaffar.pop2l14.scene.worst.sol"
+    }
+  },
+  "Engine Configuration": {
+    "State Database": {
+      "Max Size (Mb)": 100000
+    },
+    "Hash Database": {
+      "Max Store Count": 2,
+      "Max Store Size (Mb)": 10000,
+      "Enabled": true
+    }
+  },
+  "Emulator Configuration": {
+    "Emulator Name": "QuickerSDLPoP2",
+    "Game Path": "prince2",
+    "Game Version": "1.1",
+    "Start Level": 1,
+    "Seed": 7881336,
+    "Skip Story Scenes": true,
+    "Initial Sequence File Path": "level01020304050607080910111213.sol",
+    "Max HP At Level": [
+      11,
+      5
+    ]
+  },
+  "Game Configuration": {
+    "Game Name": "SDLPoP2 / Prince of Persia 2",
+    "Frame Rate": 12.0,
+    "Print Properties": [
+      "Current Level",
+      "Next Level",
+      "Player Room",
+      "Player Pos X",
+      "Player Pos Y",
+      "Player Frame",
+      "Player Action",
+      "Player Current Row",
+      "Player Current Col",
+      "Player Current HP",
+      "Player Max HP"
+    ],
+    "Hash Properties": [],
+    "Rules": [
+      {
+        "Label": 3000,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 1
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 1,
+            "Intensity": 1.0,
+            "Position": 338
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 1,
+            "Intensity": 2.0,
+            "Position": 300
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 2,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player HP Magnet",
+            "Intensity": 50
+          }
+        ]
+      },
+      {
+        "Label": 3001,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 2
+          }
+        ],
+        "Satisfies": [
+          3000
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 2,
+            "Intensity": 1.0,
+            "Position": -200
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 2,
+            "Intensity": 1.0,
+            "Position": 56
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 1,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": -5000
+          }
+        ]
+      },
+      {
+        "Label": 3002,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 4
+          }
+        ],
+        "Satisfies": [
+          3001
+        ],
+        "Actions": [
+          {
+            "Type": "Add Reward",
+            "Value": 1000.0
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": 800
+          },
+          {
+            "Type": "Set Player Pos Y Magnet",
+            "Room": 4,
+            "Intensity": 1.0,
+            "Position": 119
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 2,
+            "Intensity": 1.0,
+            "Position": -5000
+          },
+          {
+            "Type": "Set Player Pos X Magnet",
+            "Room": 1,
+            "Intensity": 1.0,
+            "Position": -5000
+          }
+        ]
+      },
+      {
+        "Label": 3899,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 4
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Win"
+          }
+        ]
+      },
+      {
+        "Label": 3901,
+        "Conditions": [
+          {
+            "Property": "Player Is Alive",
+            "Op": ">=",
+            "Value": 0
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3902,
+        "Conditions": [
+          {
+            "Property": "Player Current HP",
+            "Op": "==",
+            "Value": 0
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3903,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 0
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3904,
+        "Conditions": [
+          {
+            "Property": "Player Max HP",
+            "Op": ">",
+            "Value": 7
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3905,
+        "Conditions": [
+          {
+            "Property": "Player Current Sequence",
+            "Op": "==",
+            "Value": 78
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3953,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 3
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3955,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 5
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3956,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 6
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3957,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 7
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3958,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 8
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3959,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 9
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3960,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 10
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3961,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 11
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3962,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 12
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3963,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 13
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3964,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 14
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3965,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 15
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3966,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 16
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3967,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 17
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3968,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 18
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3969,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 19
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3970,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 20
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3971,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 21
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3972,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 22
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3973,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 23
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3974,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 24
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3975,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 25
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3976,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 26
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3977,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 27
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3978,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 28
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3979,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 29
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3980,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 30
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3981,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 31
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      },
+      {
+        "Label": 3982,
+        "Conditions": [
+          {
+            "Property": "Player Room",
+            "Op": "==",
+            "Value": 32
+          },
+          {
+            "Property": "Current Level",
+            "Op": "==",
+            "Value": 14
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      }
+    ],
+    "Bypass Emulator State": false,
+    "Prune Inputs": true,
+    "Restart At Checkpoint": false,
+    "Hash Tile Modifiers": []
+  },
+  "Runner Configuration": {
+    "Hash Step Tolerance": 2,
+    "Show Empty Input Slots": true,
+    "Show Allowed Inputs": true,
+    "Store Input History": {
+      "Type": "Raw",
+      "Max Size": 3000
+    },
+    "Allowed Input Sets": [],
+    "Test Candidate Inputs": false,
+    "Candidate Input Sets": [],
+    "Bypass Hash Calculation": false,
+    "Frameskip": {
+      "Rate": 0,
+      "Use Custom Input": false,
+      "Custom Input": ""
+    }
+  }
+}

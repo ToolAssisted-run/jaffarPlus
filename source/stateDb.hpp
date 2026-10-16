@@ -131,6 +131,18 @@ public:
     // Splitting state database equally among numa domains
     size_t stateDbSizePerNUMA = std::ceil((_maxSizeMb * 1024 * 1024) / _numaCount);
     for (int i = 0; i < _numaCount; i++) _maxSizePerNuma.push_back(stateDbSizePerNUMA);
+    // (local, jaffanator2 shared with another job: env JAFFAR_NUMA_WEIGHTS="w0,w1,..." splits the database by those
+    // weights instead, e.g. a domain another process has filled gets a token share)
+    if (const char* w = std::getenv("JAFFAR_NUMA_WEIGHTS"))
+    {
+      std::vector<double> ws; std::string str(w); size_t pos = 0;
+      while (pos <= str.size()) { size_t e = str.find(',', pos); if (e == std::string::npos) e = str.size(); ws.push_back(std::stod(str.substr(pos, e - pos))); pos = e + 1; }
+      if ((int)ws.size() == _numaCount)
+      {
+        double sum = 0; for (auto x : ws) sum += x;
+        for (int i = 0; i < _numaCount; i++) _maxSizePerNuma[i] = (size_t)((double)_maxSizeMb * 1024.0 * 1024.0 * ws[i] / sum);
+      }
+    }
 
     // Getting maximum allocatable memory in each NUMA domain
     std::vector<size_t> maxFreeMemoryPerNuma(_numaCount);

@@ -1,0 +1,9 @@
+max 4: stage 117 ticks (reached at 117), back in room 4 after 207 more: 324
+max 5: stage 143 ticks (reached at 260), back in room 4 after 151 more: 411
+max 6: stage 94 ticks (reached at 354), back in room 4 after 259 more: 613
+max 7: stage 137 ticks (reached at 491), back in room 4 after 147 more: 638
+max 8: stage 103 ticks (reached at 594), back in room 4 after 222 more: 816
+max 9: stage 102 ticks (reached at 696), back in room 4 after 151 more: 847
+max 10: stage 91 ticks (reached at 787), back in room 4 after 222 more: 1009
+max 11: stage 119 ticks (reached at 906), back in room 4 after 151 more: 1057
+ALL DONE

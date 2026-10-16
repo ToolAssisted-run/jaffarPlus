@@ -1,0 +1,1 @@
+entry R: Maximum step count reached. after 520 ticks | Room: 8, Pos: 426, 182 (smooth 182), Row: 2, Col: 8, Frame: 0x35, Acti

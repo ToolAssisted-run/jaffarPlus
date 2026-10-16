@@ -1,0 +1,6 @@
+r7R: Solution found. after 277 ticks | Room: 7, Pos: 391, 182 (smooth 182), Row: 2, Col: 7, Frame: 0xF, Actio
+r7L: Solution found. after 290 ticks | Room: 7, Pos: 231, 182 (smooth 182), Row: 2, Col: 2, Frame: 0xF, Actio
+r7L2: Solution found. after 316 ticks | Room: 7, Pos: 231, 182 (smooth 182), Row: 2, Col: 2, Frame: 0xF, Actio
+ALL DONE
+r7C: Solution found. after 321 ticks | Room: 7, Pos: 282, 182 (smooth 182), Row: 2, Col: 4, Frame: 0xF, Actio
+r7C2: Solution found. after 300 ticks | Room: 7, Pos: 282, 182 (smooth 182), Row: 2, Col: 4, Frame: 0xF, Actio

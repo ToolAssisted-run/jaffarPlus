@@ -64,6 +64,8 @@ def main():
     a.add_argument("--landed-cap", type=float, default=3.0)
     a.add_argument("--lean-weight", type=float, default=0.0, help="the player's full lean's reward while he is nearer than --lean-range")
     a.add_argument("--lean-range", type=float, default=450.0)
+    a.add_argument("--safe-weight", type=float, default=0.0, help="the reward at --safe-distance or more from him (he punches only nearer than 420)")
+    a.add_argument("--safe-distance", type=float, default=420.0)
     a.add_argument("--max-thrown", type=int, default=0, help="no more punches thrown in the round than this (0: any; punching, the lean is let go)")
     o = a.parse_args()
     dirs = ["", "U", "D", "L", "R", "Q", "E", "Z", "C"]
@@ -112,7 +114,8 @@ def main():
             "Rules": [
                 {"Label": 1000, "Conditions": [], "Satisfies": [], "Actions": [
                     {"Type": "Set Survival Magnet", "Distance Weight": o.distance_weight, "Distance Cap": o.distance_cap, "Center Weight": o.center_weight,
-                     "Landed Weight": o.landed_weight, "Landed Cap": o.landed_cap, "Lean Weight": o.lean_weight, "Lean Range": o.lean_range}]},
+                     "Landed Weight": o.landed_weight, "Landed Cap": o.landed_cap, "Lean Weight": o.lean_weight, "Lean Range": o.lean_range,
+                     "Safe Weight": o.safe_weight, "Safe Distance": o.safe_distance}]},
                 # (the round's end: won with his punches landed, else failed)
                 {"Label": 1001, "Conditions": [{"Property": "Round Over", "Op": ">", "Value": 0},
                                                {"Property": "Player Round Landed", "Op": ">=", "Value": o.min_landed}], "Satisfies": [],

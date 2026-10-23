@@ -185,8 +185,9 @@ public:
       serializer.push(dummy.data(), dummy.size());
       return;
     }
+    // (a runtime error: the engine drops the state and counts it, "Dropped States (Failed Serialization)")
     if (o4db_save_delta(_stateBuffer.data(), _maxPages) < 0)
-      JAFFAR_THROW_LOGIC("quickerOpen4DBoxing: a state differs from the search's start in more than %u pages of memory: raise \"Max Delta Pages\"\n", _maxPages);
+      JAFFAR_THROW_RUNTIME("quickerOpen4DBoxing: a state differs from the search's start in more than %u pages of memory: raise \"Max Delta Pages\"\n", _maxPages);
     serializer.push(_stateBuffer.data(), _stateBuffer.size());
   };
 

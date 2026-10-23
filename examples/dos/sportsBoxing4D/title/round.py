@@ -52,7 +52,8 @@ def main():
     a.add_argument("--steps", type=int, default=1900, help="a round's 3 minutes are 1800 steps")
     a.add_argument("--db", type=int, default=60000)
     a.add_argument("--hash", type=int, default=8000)
-    a.add_argument("--pages", type=int, default=400, help="a state's delta pages at most (a fight's states reach about 330)")
+    a.add_argument("--pages", type=int, default=200,
+                   help="a state's delta pages at most (a won round's states reach about 130 from its start; more: dropped and counted)")
     a.add_argument("--min-landed", type=int, default=1)
     a.add_argument("--reach", type=int, default=520, help="no punch thrown farther from him than this (it could not land)")
     a.add_argument("--no-defense", action="store_true", help="no right Shift (the footwork's button: steps, 420 or more from him)")

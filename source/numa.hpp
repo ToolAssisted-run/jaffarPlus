@@ -1,4 +1,6 @@
 #pragma once
+#include <cstring>
+#include <cstdio>
 
 /**
  * @file numa.hpp
@@ -188,6 +190,36 @@ __INLINE__ void initializeNUMA()
 
   // Reporting the placement
   if (bindThreads) jaffarCommon::logger::log("[J+] Worker threads bound to their NUMA node, spread over the nodes (set OMP_PROC_BIND to choose the placement yourself)\n");
+}
+
+
+/**
+ * @brief A NUMA node's free memory for the databases' guards: numa_node_size64's free pages, plus (with
+ *        JAFFAR_NUMA_FREE_INCLUDES_CACHE set in the environment) the node's inactive file pages, the page cache
+ *        the kernel reclaims for an allocation (a box whose nodes are filled by another program's cached files).
+ * @param node The node.
+ * @return The bytes the guards may count on.
+ */
+inline long long numaNodeFreeForGuards(const int node)
+{
+  long long freeMemory = 0;
+  numa_node_size64(node, &freeMemory);
+  if (std::getenv("JAFFAR_NUMA_FREE_INCLUDES_CACHE") == nullptr) return freeMemory;
+  char path[96];
+  std::snprintf(path, sizeof path, "/sys/devices/system/node/node%d/meminfo", node);
+  FILE* f = std::fopen(path, "r");
+  if (f == nullptr) return freeMemory;
+  char      line[256];
+  long long kb = 0;
+  while (std::fgets(line, sizeof line, f))
+    if (std::strstr(line, "Inactive(file):") != nullptr)
+    {
+      const char* p = std::strstr(line, "Inactive(file):") + 15;
+      kb            = std::atoll(p);
+      break;
+    }
+  std::fclose(f);
+  return freeMemory + kb * 1024;
 }
 
 } // namespace jaffarPlus

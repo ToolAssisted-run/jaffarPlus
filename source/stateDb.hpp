@@ -189,8 +189,7 @@ public:
     for (int i = 0; i < _numaCount; i++)
     {
       if (_maxStatesPerNuma[i] == 0) continue;
-      long long freeMemory = 0;
-      numa_node_size64(i, &freeMemory);
+      const long long freeMemory = numaNodeFreeForGuards(i);
       const size_t required = _maxSizePerNuma[i] + _maxStatesPerNuma[i] * (sizeof(nextEntry_t) + sizeof(void*));
       if (required > (size_t)freeMemory) JAFFAR_THROW_RUNTIME("The requested memory (%lu) for NUMA domain %d exceeds its available free space (%lld)\n", required, i, freeMemory);
     }

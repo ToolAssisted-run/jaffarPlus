@@ -326,8 +326,7 @@ public:
       size_t       freeRam  = 0;
       for (int i = 0; i < _numaCount; i++)
       {
-        long long nodeFree = 0;
-        numa_node_size64(i, &nodeFree);
+        const long long nodeFree = numaNodeFreeForGuards(i);
         freeRam += (size_t)nodeFree;
       }
       const size_t usable = (size_t)((double)freeRam * 0.90); // 10% headroom: emulators, OS, fragmentation

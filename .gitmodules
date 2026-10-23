@@ -50,3 +50,6 @@
 [submodule "extern/quickerSDLPoP2"]
 	path = extern/quickerSDLPoP2
 	url = https://github.com/ToolAssisted-run/quickerSDLPoP2.git
+[submodule "extern/quickerOpen4DBoxing"]
+	path = extern/quickerOpen4DBoxing
+	url = https://github.com/ToolAssisted-run/quickerOpen4DBoxing.git

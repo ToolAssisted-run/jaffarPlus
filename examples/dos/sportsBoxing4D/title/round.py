@@ -67,6 +67,7 @@ def main():
     a.add_argument("--safe-weight", type=float, default=0.0, help="the reward at --safe-distance or more from him (he punches only nearer than 420)")
     a.add_argument("--safe-distance", type=float, default=420.0)
     a.add_argument("--max-thrown", type=int, default=0, help="no more punches thrown in the round than this (0: any; punching, the lean is let go)")
+    a.add_argument("--min-distance", type=int, default=0, help="(experiments) never nearer to him than this (420: out of his punches' decisions)")
     o = a.parse_args()
     dirs = ["", "U", "D", "L", "R", "Q", "E", "Z", "C"]
     # (the right Shift, the controls' other button, 0x10: with a direction a footwork step, 1eb6:0668, standing and 420
@@ -129,7 +130,8 @@ def main():
                 fail(1004, "Player Wasted Punches", ">", 0),
                 fail(1005, "Player Down", ">", 0),
                 fail(1006, "Count Warnings", ">", 0),
-            ] + ([fail(1007, "Player Round Thrown", ">", o.max_thrown)] if o.max_thrown else []),
+            ] + ([fail(1007, "Player Round Thrown", ">", o.max_thrown)] if o.max_thrown else [])
+              + ([fail(1008, "Boxer Distance", "<", o.min_distance)] if o.min_distance else []),
             "Bypass Emulator State": False,
         },
         "Runner Configuration": {

@@ -253,8 +253,10 @@ private:
     float r = m.distanceWeight * std::min(distance, m.distanceCap);
     r -= m.centerWeight * std::sqrt(x * x + z * z);
     r += m.landedWeight * std::min(landed, m.landedCap);
+    // (a punch of the player's in flight counts as a full lean: punching lets the lean go, and a beam would drop the
+    // punch's steps before it lands)
     if (m.leanWeight != 0.0f && distance < m.leanRange)
-      r += m.leanWeight * std::min(std::fabs((float)*ds<int16_t>(BLUE + 0x48)), 8192.0f) / 8192.0f;
+      r += *ds<uint16_t>(BLUE + 0x28) != 0 ? m.leanWeight : m.leanWeight * std::min(std::fabs((float)*ds<int16_t>(BLUE + 0x48)), 8192.0f) / 8192.0f;
     if (m.safeWeight != 0.0f && distance >= m.safeDistance) r += m.safeWeight;
     return r;
   }

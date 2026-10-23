@@ -673,7 +673,9 @@ public:
    */
   void verifyBestState()
   {
-    std::vector<uint8_t> best(_runner->getStateSize()), bestHot(_runner->getHotStateSize()), replayHot(_runner->getHotStateSize());
+    // (the emulator's states compared: the game's own bookkeeping, as its damage counters, starts over in a replay)
+    auto*                emulator = _runner->getGame()->getEmulator();
+    std::vector<uint8_t> best(_runner->getStateSize()), bestHot(emulator->getStateSize()), replayHot(emulator->getStateSize());
     const size_t         bestSteps = _runner->getStepCount();
     {
       jaffarCommon::serializer::Contiguous s(best.data(), best.size());
@@ -681,7 +683,7 @@ public:
     }
     {
       jaffarCommon::serializer::Contiguous s(bestHot.data(), bestHot.size());
-      _runner->serializeHotState(s);
+      emulator->serializeState(s);
     }
     const auto inputs = jaffarCommon::string::split(_bestSolutionStorage, '\n');
     _runner->setStepCount(0);
@@ -708,7 +710,7 @@ public:
       }
     {
       jaffarCommon::serializer::Contiguous s(replayHot.data(), replayHot.size());
-      _runner->serializeHotState(s);
+      emulator->serializeState(s);
     }
     size_t first = SIZE_MAX, count = 0;
     for (size_t i = 0; i < bestHot.size(); i++)
@@ -718,10 +720,10 @@ public:
         count++;
       }
     if (count == 0)
-      jaffarCommon::logger::log("[J+] VERIFY: the best solution (%lu inputs) reproduces the best state\n", replayed);
+      jaffarCommon::logger::log("[J+] VERIFY: the best solution (%lu inputs) reproduces the best state's machine\n", replayed);
     else
     {
-      jaffarCommon::logger::log("[J+] VERIFY: the best solution (%lu inputs, the state's depth %lu) does NOT reproduce the best state: %lu bytes differ, the first at %lu\n",
+      jaffarCommon::logger::log("[J+] VERIFY: the best solution (%lu inputs, the state's depth %lu) does NOT reproduce the best state's machine: %lu bytes differ, the first at %lu\n",
                                 replayed, bestSteps, count, first);
       jaffarCommon::logger::log("[J+] VERIFY: the replay's state:\n");
       _runner->getGame()->printInfo();

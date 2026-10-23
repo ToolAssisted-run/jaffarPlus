@@ -458,9 +458,10 @@ public:
     // Internal flag to indicate we are still running
     _hasFinished = false;
 
-    // (JAFFAR_VERIFY_BEST: the initial state kept, for verifyBestState)
-    if (std::getenv("JAFFAR_VERIFY_BEST") != nullptr)
+    // (JAFFAR_VERIFY_BEST=N: the initial state kept, for verifyBestState every N steps; 1 if N is not a number)
+    if (const char* v = std::getenv("JAFFAR_VERIFY_BEST"); v != nullptr)
     {
+      _verifyEvery = std::max(1l, std::atol(v));
       _verifyInitialState.resize(_runner->getStateSize());
       jaffarCommon::serializer::Contiguous s(_verifyInitialState.data(), _verifyInitialState.size());
       _runner->serializeState(s);
@@ -979,7 +980,7 @@ public:
     _bestSolutionStorage = _runner->getInputHistoryString();
 
     // (JAFFAR_VERIFY_BEST: the best solution must reproduce the best state)
-    if (_verifyInitialState.empty() == false) verifyBestState();
+    if (_verifyInitialState.empty() == false && _currentStep % _verifyEvery == 0) verifyBestState();
 
     // Making sure the intermediate result thread is not currently reading
     _updateIntermediateResultMutex.unlock();
@@ -1176,6 +1177,7 @@ private:
 
   std::string _bestSolutionStorage; ///< Storage for the current best solution's input history.
   std::vector<uint8_t> _verifyInitialState; ///< (JAFFAR_VERIFY_BEST) the initial state, for verifyBestState.
+  size_t               _verifyEvery = 1;     ///< (JAFFAR_VERIFY_BEST) the steps between two verifications.
 
   std::string _worstSolutionStorage; ///< Storage for the current worst solution's input history.
 

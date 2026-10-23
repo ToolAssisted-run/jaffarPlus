@@ -41,7 +41,8 @@ namespace emulator
  *   "Initial State File Path"    (optional) a machine's state (quickerOpen4DBoxing's o4db_save, tests/o4dbBench's save:
  *                                the whole game's after a movie's rows, at the CPU speed) loaded instead of playing the
  *                                initial sequence (the rows then only counted): a fight's later rounds without their
- *                                movie played again in every thread
+ *                                movie played again in every thread. A state does not hold its speed: the machine set up
+ *                                at the CPU speed ("Initial Speed" is the initial sequence's alone)
  *   "Initial Speed"              (optional, experiments) the CPU speed of the initial sequence, the machine switched to
  *                                "CPU Speed" at its end (a sequence recorded at another speed; a search from it is no
  *                                movie)
@@ -99,7 +100,7 @@ public:
 
   void initializeImpl() override
   {
-    o4db_set_speed(_initialSpeed);
+    o4db_set_speed(_initialStateFilePath != "" ? _cpuSpeed : _initialSpeed);
     if (!o4db_setup(_gamePath.c_str(), _sound.c_str(), _clockStart.c_str(), nullptr)) JAFFAR_THROW_LOGIC("quickerOpen4DBoxing: %s\n", o4db_error());
 
     // The initial sequence: a Chimera movie's rows, a row a frame end (its first before the game starts)
@@ -142,7 +143,7 @@ public:
 
     // From here on, steps (the fight's logic alone if asked, at the CPU speed asked): and the states as the pages that
     // differ from here (every thread's machine must be here)
-    if (_initialSpeed != _cpuSpeed) o4db_test_set_cycles(_cpuSpeed);
+    if (_initialStateFilePath == "" && _initialSpeed != _cpuSpeed) o4db_test_set_cycles(_cpuSpeed);
     o4db_set_step_function(_stepFunction, _maxFramesPerStep);
     o4db_set_fast(_fastFight ? 1 : 0);
     for (const auto& r : _unsaved) o4db_set_unsaved(r.first, r.second);

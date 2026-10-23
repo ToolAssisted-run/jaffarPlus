@@ -1,10 +1,12 @@
 #pragma once
 
+#include <cmath>
 #include <emulator.hpp>
 #include <game.hpp>
 #include <jaffarCommon/json.hpp>
 #include <jaffarCommon/logger.hpp>
 #include <machine.h>
+#include <string>
 
 namespace jaffarPlus
 {
@@ -76,6 +78,9 @@ private:
     registerGameProperty(name + " Punching", ds<uint16_t>(b + 0x28), dt::dt_uint16, le);
     registerGameProperty(name + " Punch Definition", ds<uint16_t>(b + 0x30), dt::dt_uint16, le);
     registerGameProperty(name + " Guard", ds<uint16_t>(b + 0x40), dt::dt_uint16, le);
+    // the lean (1eb6:2864: -0x2000 and up): a punch at a boxer is stopped by 0x1800 (0x1E00 guarded) times 0.5 plus
+    // its lean's size (1eb6:19fa), and lands only when its own force is more
+    registerGameProperty(name + " Lean", ds<int16_t>(b + 0x48), dt::dt_int16, le);
     registerGameProperty(name + " Input", ds<uint8_t>(input), dt::dt_uint8, le);        // (1 up 2 down 4 right 8 left, 0x20 0x10 the buttons)
     registerGameProperty(name + " Round Thrown", ds<uint16_t>(st + 0x00), dt::dt_uint16, le);
     registerGameProperty(name + " Round Landed", ds<uint16_t>(st + 0x02), dt::dt_uint16, le);
@@ -97,6 +102,15 @@ private:
     registerBoxer("Player", BLUE, BLUE_STATS, 0x8A40);
     registerBoxer("Opponent", RED, RED_STATS, 0x8A41);
     registerGameProperty("Round", ds<uint16_t>(0x9302), dt::dt_uint16, le);
+    registerGameProperty("Rounds", ds<uint16_t>(0x5EDC), dt::dt_uint16, le);           // (15 - 12 x the opponent's rank / 50)
+    registerGameProperty("Round Length", ds<uint32_t>(0x5ED8), dt::dt_uint32, le);     // (milliseconds)
+    // the judges' cards (1eb6:0fd4 at each round's end: the round's landed punches, each with a judge's noise of 25%,
+    // their share 10-6 down to 6-10, 0-0 when neither landed; less a point a knockdown and a deduction)
+    for (int judge = 0; judge < 3; judge++)
+    {
+      registerGameProperty("Player Judge " + std::to_string(judge + 1), ds<int16_t>(0xA4EE + 2 * judge), dt::dt_int16, le);
+      registerGameProperty("Opponent Judge " + std::to_string(judge + 1), ds<int16_t>(0xA562 + 2 * judge), dt::dt_int16, le);
+    }
     registerGameProperty("Round Clock", ds<uint32_t>(0xCF02), dt::dt_uint32, le);
     registerGameProperty("Round Over", ds<uint16_t>(0xCF0A), dt::dt_uint16, le);
     registerGameProperty("Fight Over", ds<uint16_t>(0xCF0C), dt::dt_uint16, le);
@@ -188,6 +202,7 @@ private:
     _playerStaminaMagnet  = 0.0f;
     _distanceMagnet       = {0.0f, 0.0f};
     _fightMagnet          = fightMagnet_t{};
+    _survivalMagnet       = survivalMagnet_t{};
   }
 
   // The fight's reward (the "Set Fight Magnet" action), from the state as it is now (rules latch, this does not): the
@@ -221,6 +236,22 @@ private:
     return r;
   }
 
+  // The survival's reward (the "Set Survival Magnet" action), from the state as it is now: the distance to the
+  // opponent (up to a cap: out of his reach), the player's distance from the ring's middle (room to step away, as a
+  // cost), and the punches landed in the round (up to a cap: one wins the judges' round 10-6 while he lands none)
+  __INLINE__ float survivalReward() const
+  {
+    const auto& m = _survivalMagnet;
+    if (m.distanceWeight == 0.0f && m.centerWeight == 0.0f && m.landedWeight == 0.0f) return 0.0f;
+    const float distance = (float)*ds<int16_t>(0xCF54);
+    const float x = (float)*ds<int16_t>(BLUE + 0x06), z = (float)*ds<int16_t>(BLUE + 0x0A);
+    const float landed = (float)*ds<uint16_t>(BLUE_STATS + 0x02);
+    float r = m.distanceWeight * std::min(distance, m.distanceCap);
+    r -= m.centerWeight * std::sqrt(x * x + z * z);
+    r += m.landedWeight * std::min(landed, m.landedCap);
+    return r;
+  }
+
   __INLINE__ void ruleUpdatePostHook() override {}
 
   __INLINE__ void serializeStateImpl(jaffarCommon::serializer::Base& serializer) const override
@@ -249,6 +280,7 @@ private:
     reward += _playerStaminaMagnet * (float)*ds<int16_t>(BLUE + 0x0E);
     if (_distanceMagnet.intensity != 0.0f) reward += _distanceMagnet.intensity * -std::abs((float)*ds<int16_t>(0xCF54) - _distanceMagnet.center);
     reward += fightReward();
+    reward += survivalReward();
     return reward;
   }
 
@@ -269,6 +301,9 @@ private:
     if (_opponentHealthMagnet != 0.0f) jaffarCommon::logger::log("[J+]  + Opponent Health Magnet: %f\n", _opponentHealthMagnet);
     if (_playerStaminaMagnet != 0.0f) jaffarCommon::logger::log("[J+]  + Player Stamina Magnet: %f\n", _playerStaminaMagnet);
     if (_distanceMagnet.intensity != 0.0f) jaffarCommon::logger::log("[J+]  + Distance Magnet: intensity %f, center %f\n", _distanceMagnet.intensity, _distanceMagnet.center);
+    if (survivalReward() != 0.0f)
+      jaffarCommon::logger::log("[J+]  + Survival Magnet: %f (distance x %g up to %g, from the middle x %g, landed x %g up to %g)\n", survivalReward(), _survivalMagnet.distanceWeight,
+                                _survivalMagnet.distanceCap, _survivalMagnet.centerWeight, _survivalMagnet.landedWeight, _survivalMagnet.landedCap);
     if (fightReward() != 0.0f)
       jaffarCommon::logger::log("[J+]  + Fight Magnet: %f (knockdowns x %g, health x %g, range %g x %g, count range %g, stamina x %g, endurance x %g, damage x %g, wasted x %g)\n",
                                 fightReward(), _fightMagnet.knockdownWeight, _fightMagnet.healthWeight, _fightMagnet.range, _fightMagnet.rangeWeight, _fightMagnet.countRange,
@@ -309,6 +344,17 @@ private:
       if (actionJs.contains("Damage Weight")) m.damageWeight = jaffarCommon::json::getNumber<float>(actionJs, "Damage Weight");
       if (actionJs.contains("Wasted Weight")) m.wastedWeight = jaffarCommon::json::getNumber<float>(actionJs, "Wasted Weight");
       rule.addAction([=, this]() { this->_fightMagnet = m; });
+      recognizedActionType = true;
+    }
+    if (actionType == "Set Survival Magnet")
+    {
+      survivalMagnet_t m;
+      m.distanceWeight = jaffarCommon::json::getNumber<float>(actionJs, "Distance Weight");
+      m.distanceCap    = jaffarCommon::json::getNumber<float>(actionJs, "Distance Cap");
+      m.centerWeight   = jaffarCommon::json::getNumber<float>(actionJs, "Center Weight");
+      m.landedWeight   = jaffarCommon::json::getNumber<float>(actionJs, "Landed Weight");
+      m.landedCap      = jaffarCommon::json::getNumber<float>(actionJs, "Landed Cap");
+      rule.addAction([=, this]() { this->_survivalMagnet = m; });
       recognizedActionType = true;
     }
     if (actionType == "Set Distance Magnet")
@@ -361,6 +407,14 @@ private:
     float damageWeight    = 0.0f;
     float wastedWeight    = 0.0f;
   } _fightMagnet;
+  struct survivalMagnet_t
+  {
+    float distanceWeight = 0.0f;
+    float distanceCap    = 0.0f;
+    float centerWeight   = 0.0f;
+    float landedWeight   = 0.0f;
+    float landedCap      = 0.0f;
+  } _survivalMagnet;
 };
 
 } // namespace dos

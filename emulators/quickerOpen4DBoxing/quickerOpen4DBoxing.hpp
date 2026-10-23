@@ -33,6 +33,10 @@ namespace emulator
  *   "Fast Fight"                 (optional, false) from the initial sequence's end, the fight's logic alone (no scene
  *                                drawn, the frames with nothing to do skipped; quickerOpen4DBoxing's o4db_set_fast):
  *                                the game's steps at a CPU speed of 220000, many times faster
+ *   "Initial State File Path"    (optional) a machine's state (quickerOpen4DBoxing's o4db_save, tests/o4dbBench's save:
+ *                                the whole game's after a movie's rows, at the CPU speed) loaded instead of playing the
+ *                                initial sequence (the rows then only counted): a fight's later rounds without their
+ *                                movie played again in every thread
  *   "Initial Speed"              (optional, experiments) the CPU speed of the initial sequence, the machine switched to
  *                                "CPU Speed" at its end (a sequence recorded at another speed; a search from it is no
  *                                movie)
@@ -70,6 +74,8 @@ public:
     if (_emulatorConfigRemaining.contains("Fast Fight")) _fastFight = jaffarCommon::json::popBoolean(_emulatorConfigRemaining, "Fast Fight");
     if (_emulatorConfigRemaining.contains("Initial Sequence File Path"))
       _initialSequenceFilePath = jaffarCommon::json::popString(_emulatorConfigRemaining, "Initial Sequence File Path");
+    if (_emulatorConfigRemaining.contains("Initial State File Path"))
+      _initialStateFilePath = jaffarCommon::json::popString(_emulatorConfigRemaining, "Initial State File Path");
     if (_emulatorConfigRemaining.contains("Step Function"))
     {
       const auto f = jaffarCommon::json::popString(_emulatorConfigRemaining, "Step Function");
@@ -110,9 +116,23 @@ public:
     }
     const O4dbInput neutral = {0, O4DB_MOUSE_X_NEUTRAL, O4DB_MOUSE_Y_NEUTRAL};
     o4db_new(rows.empty() ? &neutral : &rows[0]);
-    if (!_pokes.empty()) o4db_set_frame_hook(pokeHook, this);
-    _initialFrames = rows.size() > 1 ? o4db_run(rows.data() + 1, rows.size() - 1) : 0;
-    o4db_set_frame_hook(nullptr, nullptr);
+    if (_initialStateFilePath != "")
+    {
+      // a saved machine instead of the rows played (the same machine: the whole game's, after them)
+      std::string state;
+      if (jaffarCommon::file::loadStringFromFile(state, _initialStateFilePath) == false)
+        JAFFAR_THROW_LOGIC("Could not load initial state file: %s\n", _initialStateFilePath.c_str());
+      if (state.size() != o4db_state_size())
+        JAFFAR_THROW_LOGIC("quickerOpen4DBoxing: %s holds %lu bytes, a state is %lu\n", _initialStateFilePath.c_str(), state.size(), o4db_state_size());
+      o4db_load(state.data());
+      _initialFrames = o4db_frames();
+    }
+    else
+    {
+      if (!_pokes.empty()) o4db_set_frame_hook(pokeHook, this);
+      _initialFrames = rows.size() > 1 ? o4db_run(rows.data() + 1, rows.size() - 1) : 0;
+      o4db_set_frame_hook(nullptr, nullptr);
+    }
     _initialRows = rows.size();
 
     // From here on, steps (the fight's logic alone if asked, at the CPU speed asked): and the states as the pages that
@@ -263,6 +283,7 @@ private:
   std::string                          _sound      = "mt32";
   std::string                          _clockStart = "1991-07-30 14:47:00";
   std::string                          _initialSequenceFilePath;
+  std::string                          _initialStateFilePath;
   uint32_t                             _stepFunction     = 0x25BB0202;
   unsigned                             _maxFramesPerStep = 8;
   unsigned                             _maxPages         = 1024;

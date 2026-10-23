@@ -66,7 +66,11 @@ private:
     registerGameProperty(name + " Stamina", ds<int16_t>(b + 0x0E), dt::dt_int16, le);
     registerGameProperty(name + " Health", ds<int16_t>(b + 0x10), dt::dt_int16, le);
     registerGameProperty(name + " Endurance", ds<int16_t>(b + 0x12), dt::dt_int16, le);
-    registerGameProperty(name + " State", ds<uint16_t>(b + 0x2C), dt::dt_uint16, le); // (7 or 8 when down: it can get up)
+    // the posture (1eb6:2ee2: 1 standing; 3, 4, 5 floored; 7, 8 getting up) and the endurance's ceiling (its fight
+    // block's: the health comes back to 0x4000 less half the endurance lost, the stamina to 0x4000 less a quarter; a
+    // boxer below his ceiling's health loses endurance every tick, (ceiling - health) / 256, / 64 below 0)
+    registerGameProperty(name + " Posture", ds<uint16_t>(b + 0x16), dt::dt_uint16, le);
+    registerGameProperty(name + " State", ds<uint16_t>(b + 0x2C), dt::dt_uint16, le);
     // a punch reaching out (1eb6:298c: its button let go before phase 8 pulls it back; no new punch meanwhile), the
     // punch's definition (DS:5D16 + 16 k) and its animation's record (its phase at +0x10)
     registerGameProperty(name + " Punching", ds<uint16_t>(b + 0x28), dt::dt_uint16, le);
@@ -179,11 +183,15 @@ private:
   // opponent's knockdowns in this round (a TKO is the third); while he stands, his health taken (it comes back, so
   // what counts is what he lacks now) and the distance to him beyond the punching range; while he is down, the
   // distance to the count's range (the referee warns, docks and disqualifies a boxer within 500 from count 3 on), so
-  // that the player waits there to meet him when he gets up; and the player's stamina (a punch's damage grows with it)
+  // that the player waits there to meet him when he gets up; the player's stamina (a punch's damage grows with it);
+  // the opponent's endurance lost (it lowers his health's ceiling and its return, and comes back by 2 a tick only);
+  // and, as costs, the health the player lost and his wasted punches (blocked or absorbed: they cost stamina)
   __INLINE__ float fightReward() const
   {
     const auto& m = _fightMagnet;
-    if (m.knockdownWeight == 0.0f && m.healthWeight == 0.0f && m.rangeWeight == 0.0f && m.staminaWeight == 0.0f) return 0.0f;
+    if (m.knockdownWeight == 0.0f && m.healthWeight == 0.0f && m.rangeWeight == 0.0f && m.staminaWeight == 0.0f && m.enduranceWeight == 0.0f &&
+        m.damageWeight == 0.0f && m.wastedWeight == 0.0f)
+      return 0.0f;
     const float knockdowns = (float)*ds<uint16_t>(RED_STATS + 0x0A);
     const bool  down       = *ds<uint16_t>(RED + 0x0C) != 0;
     const float distance   = (float)*ds<int16_t>(0xCF54);
@@ -196,6 +204,9 @@ private:
       r -= m.rangeWeight * std::max(0.0f, distance - m.range);
     }
     r += m.staminaWeight * (float)*ds<int16_t>(BLUE + 0x0E);
+    r += m.enduranceWeight * (float)(*(const int16_t*)(_ds + *ds<uint16_t>(RED) + 0x14) - *ds<int16_t>(RED + 0x12));
+    r -= m.damageWeight * (float)_playerDamage;
+    r -= m.wastedWeight * (float)_wastedPunches;
     return r;
   }
 
@@ -248,8 +259,9 @@ private:
     if (_playerStaminaMagnet != 0.0f) jaffarCommon::logger::log("[J+]  + Player Stamina Magnet: %f\n", _playerStaminaMagnet);
     if (_distanceMagnet.intensity != 0.0f) jaffarCommon::logger::log("[J+]  + Distance Magnet: intensity %f, center %f\n", _distanceMagnet.intensity, _distanceMagnet.center);
     if (fightReward() != 0.0f)
-      jaffarCommon::logger::log("[J+]  + Fight Magnet: %f (knockdowns x %g, health x %g, range %g x %g, count range %g, stamina x %g)\n", fightReward(), _fightMagnet.knockdownWeight,
-                                _fightMagnet.healthWeight, _fightMagnet.range, _fightMagnet.rangeWeight, _fightMagnet.countRange, _fightMagnet.staminaWeight);
+      jaffarCommon::logger::log("[J+]  + Fight Magnet: %f (knockdowns x %g, health x %g, range %g x %g, count range %g, stamina x %g, endurance x %g, damage x %g, wasted x %g)\n",
+                                fightReward(), _fightMagnet.knockdownWeight, _fightMagnet.healthWeight, _fightMagnet.range, _fightMagnet.rangeWeight, _fightMagnet.countRange,
+                                _fightMagnet.staminaWeight, _fightMagnet.enduranceWeight, _fightMagnet.damageWeight, _fightMagnet.wastedWeight);
   }
 
   bool parseRuleActionImpl(Rule& rule, const std::string& actionType, const nlohmann::json& actionJs) override
@@ -282,6 +294,9 @@ private:
       m.rangeWeight     = jaffarCommon::json::getNumber<float>(actionJs, "Range Weight");
       m.countRange      = jaffarCommon::json::getNumber<float>(actionJs, "Count Range");
       m.staminaWeight   = jaffarCommon::json::getNumber<float>(actionJs, "Stamina Weight");
+      if (actionJs.contains("Endurance Weight")) m.enduranceWeight = jaffarCommon::json::getNumber<float>(actionJs, "Endurance Weight");
+      if (actionJs.contains("Damage Weight")) m.damageWeight = jaffarCommon::json::getNumber<float>(actionJs, "Damage Weight");
+      if (actionJs.contains("Wasted Weight")) m.wastedWeight = jaffarCommon::json::getNumber<float>(actionJs, "Wasted Weight");
       rule.addAction([=, this]() { this->_fightMagnet = m; });
       recognizedActionType = true;
     }
@@ -330,6 +345,9 @@ private:
     float rangeWeight     = 0.0f;
     float countRange      = 0.0f;
     float staminaWeight   = 0.0f;
+    float enduranceWeight = 0.0f;
+    float damageWeight    = 0.0f;
+    float wastedWeight    = 0.0f;
   } _fightMagnet;
 };
 

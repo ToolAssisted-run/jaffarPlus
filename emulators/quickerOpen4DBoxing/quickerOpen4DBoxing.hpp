@@ -37,6 +37,9 @@ namespace emulator
  *   "Max Delta Pages"            (optional, 1024) the states are the memory's 256-byte pages that differ from the
  *                                search's start (the same in every thread) and the rest of the machine: at most so many
  *                                pages (a state with more stops the search)
+ *   "Unsaved Memory"             (optional) [["START", "END"], ...]: memory the states do not hold (linear addresses,
+ *                                hexadecimal, whole pages): what the game only writes before it reads it (its pictures:
+ *                                the screen A0000-AFFFF, its drawing buffers); the pictures of a state loaded are wrong
  *   "Initial Pokes"              (optional, experiments) [[frame, "OFFSET", "VALUE"], ...]: a word of the data segment
  *                                changed at that frame end of the initial sequence (before its input), e.g. a boxer's
  *                                fight parameters for another set of statistics; a search with pokes is no movie
@@ -61,6 +64,9 @@ public:
     }
     if (_emulatorConfigRemaining.contains("Max Frames Per Step")) _maxFramesPerStep = jaffarCommon::json::popNumber<unsigned>(_emulatorConfigRemaining, "Max Frames Per Step");
     if (_emulatorConfigRemaining.contains("Max Delta Pages")) _maxPages = jaffarCommon::json::popNumber<unsigned>(_emulatorConfigRemaining, "Max Delta Pages");
+    if (_emulatorConfigRemaining.contains("Unsaved Memory"))
+      for (const auto& r : jaffarCommon::json::popArray<nlohmann::json>(_emulatorConfigRemaining, "Unsaved Memory"))
+        _unsaved.push_back({(uint32_t)std::stoul(r[0].get<std::string>(), nullptr, 16), (uint32_t)std::stoul(r[1].get<std::string>(), nullptr, 16)});
     if (_emulatorConfigRemaining.contains("Initial Pokes"))
       for (const auto& p : jaffarCommon::json::popArray<nlohmann::json>(_emulatorConfigRemaining, "Initial Pokes"))
         _pokes.push_back({p[0].get<uint64_t>(), (uint16_t)std::stoul(p[1].get<std::string>(), nullptr, 16), (uint16_t)std::stoul(p[2].get<std::string>(), nullptr, 16)});
@@ -97,6 +103,7 @@ public:
 
     // From here on, steps: and the states as the pages that differ from here (every thread's machine must be here)
     o4db_set_step_function(_stepFunction, _maxFramesPerStep);
+    for (const auto& r : _unsaved) o4db_set_unsaved(r.first, r.second);
     const int differ = o4db_set_reference();
     if (differ != 0) JAFFAR_THROW_LOGIC("quickerOpen4DBoxing: this thread's machine differs from the first one's after the initial sequence (%d pages)\n", differ);
     _deltaSize = o4db_delta_size(_maxPages);
@@ -218,6 +225,7 @@ private:
       }
   }
   std::vector<poke_t> _pokes;
+  std::vector<std::pair<uint32_t, uint32_t>> _unsaved;  // "Unsaved Memory"
 
   void drawFrame()
   {

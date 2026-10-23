@@ -2,7 +2,8 @@
 """Experiments: the time to the first knockdown of the exhibition's opponent (The Champ) for a set of statistics of the
 player's boxer, put into the fight by pokes (its fight parameters as 1519:3522 computes them from the statistics).
 
-  gen.py NAME POWER SPEED STAMINA [--db MB] [--steps N] [--inputs basic|all] [--pages N]
+  gen.py NAME POWER SPEED STAMINA [--db MB] [--steps N] [--inputs basic|all] [--pages N] [--opponent INDEX]
+         [--knockdowns K] [--fail-damage] [--damage-weight W] [--wasted-weight W] [--endurance-weight W]
 
 writes script-NAME.jaffar (initial sequence: ../test/exhibition-round1.sol, the round about to start at 29000).
 """
@@ -57,10 +58,15 @@ def main():
     a.add_argument("--db", type=int, default=4000)
     a.add_argument("--steps", type=int, default=400)
     a.add_argument("--inputs", default="basic")
-    a.add_argument("--pages", type=int, default=640)
+    a.add_argument("--pages", type=int, default=192)
     a.add_argument("--opponent", type=int, default=-1, help="CHALLENG.DAT index of the red boxer (-1: The Champ, the exhibition's)")
     a.add_argument("--distance", type=float, default=0.5)
     a.add_argument("--range", type=float, default=300.0)
+    a.add_argument("--knockdowns", type=int, default=1, help="the win: the opponent's knockdowns in the round")
+    a.add_argument("--fail-damage", action="store_true", help="a state where the player lost health fails")
+    a.add_argument("--damage-weight", type=float, default=0.5, help="the cost of a point of the player's health lost")
+    a.add_argument("--wasted-weight", type=float, default=200.0, help="the cost of a punch blocked or absorbed")
+    a.add_argument("--endurance-weight", type=float, default=1.0, help="the reward of a point of the opponent's endurance lost")
     o = a.parse_args()
     buttons = ["", "N"] if o.inputs == "basic" else ["", "N", "!"]
     dirs = ["", "U", "D", "L", "R", "Q", "E", "Z", "C"]
@@ -84,26 +90,29 @@ def main():
             "Game Path": "/home/jaffar/o4db-tas/disks",
             "Initial Sequence File Path": "../test/exhibition-round1.sol",
             "Max Delta Pages": o.pages,
+            # (the pictures: the screen, the drawing buffers; tests/o4dbScramble: the game never reads them back)
+            "Unsaved Memory": [["A0000", "AFFFF"], ["68000", "71FFF"], ["88000", "88FFF"], ["51000", "51FFF"]],
             "Initial Pokes": pokes(o.power, o.speed, o.stamina) + (opponent_pokes(o.opponent) if o.opponent >= 0 else []),
         },
         "Game Configuration": {
             "Game Name": "DOS / 4D Sports Boxing",
             "Frame Rate": 10.0,
             "Print Properties": ["Round Clock", "Player Punching", "Player Punch Definition", "Player Health", "Player Stamina", "Player Endurance", "Opponent Health",
-                                 "Opponent Stamina", "Opponent Damage", "Player Damage", "Player Thrown", "Player Landed",
-                                 "Opponent Round Knockdowns", "Boxer Distance", "Step Frames"],
+                                 "Opponent Stamina", "Opponent Endurance", "Opponent Posture", "Opponent Damage", "Player Damage", "Player Thrown", "Player Landed",
+                                 "Player Wasted Punches", "Opponent Round Knockdowns", "Count", "Count Warnings", "Boxer Distance", "Step Frames"],
             "Hash Properties": [],
             "Rules": [
                 {"Label": 1000, "Conditions": [], "Satisfies": [], "Actions": [
-                    {"Type": "Set Opponent Health Magnet", "Intensity": 1.0},
-                    {"Type": "Set Opponent Damage Magnet", "Intensity": 0.1},
-                    {"Type": "Set Distance Magnet", "Intensity": o.distance, "Center": o.range},
-                    {"Type": "Set Player Stamina Magnet", "Intensity": 0.05}]},
-                {"Label": 1001, "Conditions": [{"Property": "Opponent Round Knockdowns", "Op": ">", "Value": 0}], "Satisfies": [],
+                    {"Type": "Set Fight Magnet", "Knockdown Weight": 30000.0, "Health Weight": 1.0, "Range": o.range, "Range Weight": o.distance * 2,
+                     "Count Range": 650.0, "Stamina Weight": 0.05, "Endurance Weight": o.endurance_weight, "Damage Weight": o.damage_weight,
+                     "Wasted Weight": o.wasted_weight}]},
+                {"Label": 1001, "Conditions": [{"Property": "Opponent Round Knockdowns", "Op": ">=", "Value": o.knockdowns}], "Satisfies": [],
                  "Actions": [{"Type": "Trigger Win"}]},
-                {"Label": 1002, "Conditions": [{"Property": "Player Damage", "Op": ">", "Value": 0}], "Satisfies": [],
+                # (the referee's warnings: the third is a disqualification)
+                {"Label": 1003, "Conditions": [{"Property": "Count Warnings", "Op": ">", "Value": 0}], "Satisfies": [],
                  "Actions": [{"Type": "Trigger Fail"}]},
-            ],
+            ] + ([{"Label": 1002, "Conditions": [{"Property": "Player Damage", "Op": ">", "Value": 0}], "Satisfies": [],
+                   "Actions": [{"Type": "Trigger Fail"}]}] if o.fail_damage else []),
             "Bypass Emulator State": False,
         },
         "Runner Configuration": {

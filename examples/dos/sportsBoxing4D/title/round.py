@@ -68,6 +68,11 @@ def main():
     a.add_argument("--safe-distance", type=float, default=420.0)
     a.add_argument("--max-thrown", type=int, default=0, help="no more punches thrown in the round than this (0: any; punching, the lean is let go)")
     a.add_argument("--min-distance", type=int, default=0, help="(experiments) never nearer to him than this (420: out of his punches' decisions)")
+    a.add_argument("--allow-hits", action="store_true", help="his punches may land (each costs --hit-weight); never floored, never below --min-health")
+    a.add_argument("--min-health", type=int, default=0)
+    a.add_argument("--hit-weight", type=float, default=0.0)
+    a.add_argument("--health-weight", type=float, default=0.0)
+    a.add_argument("--min-margin", type=int, default=0, help="the round won with at least this many punches landed more than his (the judges' ratio)")
     o = a.parse_args()
     dirs = ["", "U", "D", "L", "R", "Q", "E", "Z", "C"]
     # (the right Shift, the controls' other button, 0x10: with a direction a footwork step, 1eb6:0668, standing and 420
@@ -116,22 +121,26 @@ def main():
                 {"Label": 1000, "Conditions": [], "Satisfies": [], "Actions": [
                     {"Type": "Set Survival Magnet", "Distance Weight": o.distance_weight, "Distance Cap": o.distance_cap, "Center Weight": o.center_weight,
                      "Landed Weight": o.landed_weight, "Landed Cap": o.landed_cap, "Lean Weight": o.lean_weight, "Lean Range": o.lean_range,
-                     "Safe Weight": o.safe_weight, "Safe Distance": o.safe_distance}]},
+                     "Safe Weight": o.safe_weight, "Safe Distance": o.safe_distance, "Hit Weight": o.hit_weight, "Health Weight": o.health_weight}]},
                 # (the round's end: won with his punches landed, else failed)
                 {"Label": 1001, "Conditions": [{"Property": "Round Over", "Op": ">", "Value": 0},
-                                               {"Property": "Player Round Landed", "Op": ">=", "Value": o.min_landed}], "Satisfies": [],
+                                               {"Property": "Player Round Landed", "Op": ">=", "Value": o.min_landed}]
+                                              + ([{"Property": "Round Landed Margin", "Op": ">=", "Value": o.min_margin}] if o.min_margin else []), "Satisfies": [],
                  "Actions": [{"Type": "Trigger Win"}]},
                 {"Label": 1002, "Conditions": [{"Property": "Round Over", "Op": ">", "Value": 0},
                                                {"Property": "Player Round Landed", "Op": "<", "Value": o.min_landed}], "Satisfies": [],
                  "Actions": [{"Type": "Trigger Fail"}]},
                 # (never hit: a punch of his landed, his round's count, not the player's health, which his own punches cost
                 # too; never a punch of his own that does not land, never floored, never warned)
-                fail(1003, "Opponent Round Landed", ">", 0),
+                *([] if o.allow_hits else [fail(1003, "Opponent Round Landed", ">", 0)]),
                 fail(1004, "Player Wasted Punches", ">", 0),
                 fail(1005, "Player Down", ">", 0),
                 fail(1006, "Count Warnings", ">", 0),
             ] + ([fail(1007, "Player Round Thrown", ">", o.max_thrown)] if o.max_thrown else [])
-              + ([fail(1008, "Boxer Distance", "<", o.min_distance)] if o.min_distance else []),
+              + ([fail(1008, "Boxer Distance", "<", o.min_distance)] if o.min_distance else [])
+              + ([fail(1009, "Player Health", "<", o.min_health)] if o.min_health else [])
+              + ([{"Label": 1010, "Conditions": [{"Property": "Round Over", "Op": ">", "Value": 0}, {"Property": "Round Landed Margin", "Op": "<", "Value": o.min_margin}],
+                   "Satisfies": [], "Actions": [{"Type": "Trigger Fail"}]}] if o.min_margin else []),
             "Bypass Emulator State": False,
         },
         "Runner Configuration": {

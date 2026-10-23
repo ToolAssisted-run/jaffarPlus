@@ -124,6 +124,7 @@ private:
     registerGameProperty("Opponent Damage", &_opponentDamage, dt::dt_int32, le);
     registerGameProperty("Player Damage", &_playerDamage, dt::dt_int32, le);
     registerGameProperty("Player Wasted Punches", &_wastedPunches, dt::dt_int32, le); // (resolved but not landed)
+    registerGameProperty("Round Landed Margin", &_landedMargin, dt::dt_int32, le);    // (the player's round landed less the opponent's: the judges' ratio)
     registerGameProperty("Step Frames", &_stepFrames, dt::dt_uint32, le);
 
     _playerHealth   = ds<int16_t>(BLUE + 0x10);
@@ -191,6 +192,7 @@ private:
     _lastOpponentHealth = oh;
     _lastPlayerHealth   = ph;
     _wastedPunches      = (int32_t)*_playerThrown - (int32_t)*_playerLanded;
+    _landedMargin       = (int32_t)*ds<uint16_t>(BLUE_STATS + 0x02) - (int32_t)*ds<uint16_t>(RED_STATS + 0x02);
     _stepFrames         = (uint32_t)((emulator::QuickerOpen4DBoxing*)_emulator.get())->getLastStepFrames();
     _started            = 1;
   }
@@ -241,12 +243,16 @@ private:
   // cost), the punches landed in the round (up to a cap: one wins the judges' round 10-6 while he lands none), and
   // the player's lean (+0x48, the diagonals' 1eb6:2864, up to 0x2000 either way) while he is nearer than a range:
   // his punches miss a head leaned away, and the lean must be there before them (2 to 6 steps from a punch's start
-  // to its end, the lean's command only at the controls' next reading); and a bonus at a safe distance or more (his
-  // punches only nearer than 420, 234a:0012: there he does not punch, and the player's land from up to about 450)
+  // to its end, the lean's command only at the controls' next reading); a bonus at a safe distance or more (his
+  // punches only nearer than 420, 234a:0012: there he does not punch, and the player's land from up to about 450);
+  // and, where his punches may land, a cost for each in the round and the player's health (the judges score each round
+  // by the ratio of the punches landed, 1eb6:0fd4, the knockdowns taken off)
   __INLINE__ float survivalReward() const
   {
     const auto& m = _survivalMagnet;
-    if (m.distanceWeight == 0.0f && m.centerWeight == 0.0f && m.landedWeight == 0.0f && m.leanWeight == 0.0f && m.safeWeight == 0.0f) return 0.0f;
+    if (m.distanceWeight == 0.0f && m.centerWeight == 0.0f && m.landedWeight == 0.0f && m.leanWeight == 0.0f && m.safeWeight == 0.0f && m.hitWeight == 0.0f &&
+        m.healthWeight == 0.0f)
+      return 0.0f;
     const float distance = (float)*ds<int16_t>(0xCF54);
     const float x = (float)*ds<int16_t>(BLUE + 0x06), z = (float)*ds<int16_t>(BLUE + 0x0A);
     const float landed = (float)*ds<uint16_t>(BLUE_STATS + 0x02);
@@ -258,6 +264,8 @@ private:
     if (m.leanWeight != 0.0f && distance < m.leanRange)
       r += *ds<uint16_t>(BLUE + 0x28) != 0 ? m.leanWeight : m.leanWeight * std::min(std::fabs((float)*ds<int16_t>(BLUE + 0x48)), 8192.0f) / 8192.0f;
     if (m.safeWeight != 0.0f && distance >= m.safeDistance) r += m.safeWeight;
+    r -= m.hitWeight * (float)*ds<uint16_t>(RED_STATS + 0x02);
+    r += m.healthWeight * (float)*_playerHealth / 16384.0f;
     return r;
   }
 
@@ -311,9 +319,11 @@ private:
     if (_playerStaminaMagnet != 0.0f) jaffarCommon::logger::log("[J+]  + Player Stamina Magnet: %f\n", _playerStaminaMagnet);
     if (_distanceMagnet.intensity != 0.0f) jaffarCommon::logger::log("[J+]  + Distance Magnet: intensity %f, center %f\n", _distanceMagnet.intensity, _distanceMagnet.center);
     if (survivalReward() != 0.0f)
-      jaffarCommon::logger::log("[J+]  + Survival Magnet: %f (distance x %g up to %g, from the middle x %g, landed x %g up to %g, lean x %g nearer than %g, %g from %g)\n",
+      jaffarCommon::logger::log("[J+]  + Survival Magnet: %f (distance x %g up to %g, from the middle x %g, landed x %g up to %g, lean x %g nearer than %g, %g from %g, his landed x -%g, "
+                                "health x %g)\n",
                                 survivalReward(), _survivalMagnet.distanceWeight, _survivalMagnet.distanceCap, _survivalMagnet.centerWeight, _survivalMagnet.landedWeight,
-                                _survivalMagnet.landedCap, _survivalMagnet.leanWeight, _survivalMagnet.leanRange, _survivalMagnet.safeWeight, _survivalMagnet.safeDistance);
+                                _survivalMagnet.landedCap, _survivalMagnet.leanWeight, _survivalMagnet.leanRange, _survivalMagnet.safeWeight, _survivalMagnet.safeDistance,
+                                _survivalMagnet.hitWeight, _survivalMagnet.healthWeight);
     if (fightReward() != 0.0f)
       jaffarCommon::logger::log("[J+]  + Fight Magnet: %f (knockdowns x %g, health x %g, range %g x %g, count range %g, stamina x %g, endurance x %g, damage x %g, wasted x %g)\n",
                                 fightReward(), _fightMagnet.knockdownWeight, _fightMagnet.healthWeight, _fightMagnet.range, _fightMagnet.rangeWeight, _fightMagnet.countRange,
@@ -368,6 +378,8 @@ private:
       if (actionJs.contains("Lean Range")) m.leanRange = jaffarCommon::json::getNumber<float>(actionJs, "Lean Range");
       if (actionJs.contains("Safe Weight")) m.safeWeight = jaffarCommon::json::getNumber<float>(actionJs, "Safe Weight");
       if (actionJs.contains("Safe Distance")) m.safeDistance = jaffarCommon::json::getNumber<float>(actionJs, "Safe Distance");
+      if (actionJs.contains("Hit Weight")) m.hitWeight = jaffarCommon::json::getNumber<float>(actionJs, "Hit Weight");
+      if (actionJs.contains("Health Weight")) m.healthWeight = jaffarCommon::json::getNumber<float>(actionJs, "Health Weight");
       rule.addAction([=, this]() { this->_survivalMagnet = m; });
       recognizedActionType = true;
     }
@@ -398,6 +410,7 @@ private:
   uint8_t _started            = 0;
   // (derived after each step)
   int32_t  _wastedPunches = 0;
+  int32_t  _landedMargin  = 0;
   uint32_t _stepFrames    = 0;
 
   // (magnets)
@@ -432,6 +445,8 @@ private:
     float leanRange      = 0.0f;
     float safeWeight     = 0.0f;
     float safeDistance   = 0.0f;
+    float hitWeight      = 0.0f;
+    float healthWeight   = 0.0f;
   } _survivalMagnet;
 };
 

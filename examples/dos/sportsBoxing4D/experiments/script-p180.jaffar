@@ -1,0 +1,180 @@
+{
+  "Driver Configuration": {
+    "End On First Win State": true,
+    "Max Steps": 400,
+    "Save Intermediate Results": {
+      "Enabled": true,
+      "Frequency (s)": 1.0,
+      "Best Solution Path": "/tmp/jaffar.best.sol",
+      "Worst Solution Path": "/tmp/jaffar.worst.sol"
+    }
+  },
+  "Engine Configuration": {
+    "State Database": {
+      "Max Size (Mb)": 4000
+    },
+    "Hash Database": {
+      "Max Store Count": 2,
+      "Max Store Size (Mb)": 400,
+      "Enabled": true
+    }
+  },
+  "Emulator Configuration": {
+    "Emulator Name": "QuickerOpen4DBoxing",
+    "Game Path": "/home/jaffar/o4db-tas/disks",
+    "Initial Sequence File Path": "../test/exhibition-round1.sol",
+    "Max Delta Pages": 640,
+    "Initial Pokes": [
+      [
+        28990,
+        "5E1A",
+        "5334"
+      ],
+      [
+        28990,
+        "5E1C",
+        "4784"
+      ],
+      [
+        28990,
+        "5E20",
+        "2CCC"
+      ],
+      [
+        28990,
+        "A7B8",
+        "5334"
+      ],
+      [
+        28990,
+        "A7BA",
+        "4784"
+      ],
+      [
+        28990,
+        "A7BE",
+        "2CCC"
+      ],
+      [
+        28990,
+        "BA26",
+        "5334"
+      ],
+      [
+        28990,
+        "BA24",
+        "2CCC"
+      ]
+    ]
+  },
+  "Game Configuration": {
+    "Game Name": "DOS / 4D Sports Boxing",
+    "Frame Rate": 10.0,
+    "Print Properties": [
+      "Round Clock",
+      "Player Health",
+      "Player Stamina",
+      "Player Endurance",
+      "Opponent Health",
+      "Opponent Stamina",
+      "Opponent Damage",
+      "Player Damage",
+      "Player Thrown",
+      "Player Landed",
+      "Opponent Round Knockdowns",
+      "Boxer Distance",
+      "Step Frames"
+    ],
+    "Hash Properties": [],
+    "Rules": [
+      {
+        "Label": 1000,
+        "Conditions": [],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Set Opponent Damage Magnet",
+            "Intensity": 1.0
+          }
+        ]
+      },
+      {
+        "Label": 1001,
+        "Conditions": [
+          {
+            "Property": "Opponent Round Knockdowns",
+            "Op": ">",
+            "Value": 0
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Win"
+          }
+        ]
+      },
+      {
+        "Label": 1002,
+        "Conditions": [
+          {
+            "Property": "Player Damage",
+            "Op": ">",
+            "Value": 0
+          }
+        ],
+        "Satisfies": [],
+        "Actions": [
+          {
+            "Type": "Trigger Fail"
+          }
+        ]
+      }
+    ],
+    "Bypass Emulator State": false
+  },
+  "Runner Configuration": {
+    "Hash Step Tolerance": 0,
+    "Show Empty Input Slots": true,
+    "Show Allowed Inputs": false,
+    "Store Input History": {
+      "Type": "Raw",
+      "Max Size": 450
+    },
+    "Allowed Input Sets": [
+      {
+        "Description": "Moves and punches",
+        "Conditions": [],
+        "Inputs": [
+          "|  135,   65,.........................................................|",
+          "|  135,   65,..U......................................................|",
+          "|  135,   65,...D.....................................................|",
+          "|  135,   65,....L....................................................|",
+          "|  135,   65,.....R...................................................|",
+          "|  135,   65,......Q..................................................|",
+          "|  135,   65,.......E.................................................|",
+          "|  135,   65,........Z................................................|",
+          "|  135,   65,.........C...............................................|",
+          "|  135,   65,............N............................................|",
+          "|  135,   65,..U.........N............................................|",
+          "|  135,   65,...D........N............................................|",
+          "|  135,   65,....L.......N............................................|",
+          "|  135,   65,.....R......N............................................|",
+          "|  135,   65,......Q.....N............................................|",
+          "|  135,   65,.......E....N............................................|",
+          "|  135,   65,........Z...N............................................|",
+          "|  135,   65,.........C..N............................................|"
+        ],
+        "Stop Input Evaluation": false
+      }
+    ],
+    "Test Candidate Inputs": false,
+    "Candidate Input Sets": [],
+    "Bypass Hash Calculation": false,
+    "Frameskip": {
+      "Rate": 0,
+      "Use Custom Input": false,
+      "Custom Input": ""
+    }
+  }
+}

@@ -23,6 +23,7 @@ GAME_DIR_GUARD = {
     "arkbot":"defined(__JAFFAR_USE_ARKBOT)", "gba":"defined(__JAFFAR_ENABLE_GBA)",
     "gbc":"defined(__JAFFAR_ENABLE_GBC)", "doom":"defined(__JAFFAR_ENABLE_DOOM)",
     "pipeBot":"defined(__JAFFAR_ENABLE_PIPEBOT)", "test":"defined(__JAFFAR_ENABLE_TESTGAME)",
+    "dos":"defined(__JAFFAR_ENABLE_OPEN4DBOXING)",
 }
 GAME_FILE_GUARD = {
     "nes/superMarioBros/superMarioBros.hpp":"(defined(__JAFFAR_ENABLE_SMBC) || defined(__JAFFAR_ENABLE_NES))",

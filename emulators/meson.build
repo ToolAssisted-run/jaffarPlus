@@ -30,6 +30,12 @@ jaffarCPPFlags += '-D__JAFFAR_ENABLE_SDLPOP2'
 subdir('quickerSDLPoP2')
 endif
 
+if emulator == 'QuickerOpen4DBoxing'
+jaffarCPPFlags += '-D__JAFFAR_USE_QUICKEROPEN4DBOXING'
+jaffarCPPFlags += '-D__JAFFAR_ENABLE_OPEN4DBOXING'
+subdir('quickerOpen4DBoxing')
+endif
+
 if emulator == 'QuickerSnes9x'
 jaffarCPPFlags += '-D__JAFFAR_USE_QUICKERSNES9X'
 jaffarCPPFlags += '-D__JAFFAR_ENABLE_SNES'

@@ -92,6 +92,7 @@ private:
     using dt      = Property::datatype_t;
     const auto le = Property::endianness_t::little;
     _ds           = _emulator->getProperty("Data Segment").pointer;
+    _memory       = _emulator->getProperty("Memory").pointer;
 
     registerBoxer("Player", BLUE, BLUE_STATS, 0x8A40);
     registerBoxer("Opponent", RED, RED_STATS, 0x8A41);
@@ -147,6 +148,16 @@ private:
     hashEngine.Update(_ds + 0xBD08, 12);
     hashEngine.Update(_ds + 0xCC58, 4);
     hashEngine.Update(_ds + 0xCF02, 0x60);
+    // the controls recorded but not yet read (the fight's replay: the timer's reads write a boxer's byte, far pointer
+    // DS:8E3E blue, 8E42 red; his steps read it later, DS:8CC8, 8CD0): a step's input is only that until the next
+    // step reads it (the step ends where the controls are read)
+    for (int boxer = 0; boxer < 2; boxer++)
+    {
+      const uint16_t readOff = *ds<uint16_t>(0x8CC8 + 8 * boxer), readSeg = *ds<uint16_t>(0x8CCA + 8 * boxer);
+      const uint16_t writeOff = *ds<uint16_t>(0x8E3E + 4 * boxer), writeSeg = *ds<uint16_t>(0x8E40 + 4 * boxer);
+      if (readSeg != writeSeg || writeOff <= readOff || writeOff - readOff > 16) continue;
+      hashEngine.Update(_memory + ((uint32_t)readSeg << 4) + readOff, writeOff - readOff);
+    }
     if (_hashStack)
     {
       int        n     = 0;
@@ -311,6 +322,7 @@ private:
   }
 
   uint8_t*              _ds = nullptr;
+  uint8_t*              _memory = nullptr;
   bool                  _hashStack = true;
   InputSet::inputIndex_t _nullInputIdx;
   const int16_t*        _playerHealth;

@@ -67,6 +67,8 @@ def main():
     a.add_argument("--damage-weight", type=float, default=0.5, help="the cost of a point of the player's health lost")
     a.add_argument("--wasted-weight", type=float, default=200.0, help="the cost of a punch blocked or absorbed")
     a.add_argument("--endurance-weight", type=float, default=1.0, help="the reward of a point of the opponent's endurance lost")
+    a.add_argument("--cpu-speed", type=int, default=220000, help="the PC's speed (DOSBox's cycles); the initial sequence was recorded at 22000")
+    a.add_argument("--full", action="store_true", help="the whole game, not the fight's logic alone")
     o = a.parse_args()
     buttons = ["", "N"] if o.inputs == "basic" else ["", "N", "!"]
     dirs = ["", "U", "D", "L", "R", "Q", "E", "Z", "C"]
@@ -90,6 +92,9 @@ def main():
             "Game Path": "/home/jaffar/o4db-tas/disks",
             "Initial Sequence File Path": "../test/exhibition-round1.sol",
             "Max Delta Pages": o.pages,
+            "CPU Speed": o.cpu_speed,
+            "Initial Speed": 22000,
+            "Fast Fight": not o.full,
             # (the pictures: the screen, the drawing buffers; tests/o4dbScramble: the game never reads them back)
             "Unsaved Memory": [["A0000", "AFFFF"], ["68000", "71FFF"], ["88000", "88FFF"], ["51000", "51FFF"]],
             "Initial Pokes": pokes(o.power, o.speed, o.stamina) + (opponent_pokes(o.opponent) if o.opponent >= 0 else []),
@@ -110,6 +115,9 @@ def main():
                  "Actions": [{"Type": "Trigger Win"}]},
                 # (the referee's warnings: the third is a disqualification)
                 {"Label": 1003, "Conditions": [{"Property": "Count Warnings", "Op": ">", "Value": 0}], "Satisfies": [],
+                 "Actions": [{"Type": "Trigger Fail"}]},
+                # (the player floored: no use, and the fast fight is the game's only while he stands)
+                {"Label": 1004, "Conditions": [{"Property": "Player Down", "Op": ">", "Value": 0}], "Satisfies": [],
                  "Actions": [{"Type": "Trigger Fail"}]},
             ] + ([{"Label": 1002, "Conditions": [{"Property": "Player Damage", "Op": ">", "Value": 0}], "Satisfies": [],
                    "Actions": [{"Type": "Trigger Fail"}]}] if o.fail_damage else []),

@@ -27,6 +27,15 @@ namespace emulator
  *   "Sound"                      (optional, "mt32") the sound card the game drives (its driver's timing is part of the
  *                                game's): "mt32", "sb", "adlib", "speaker", "tandy", as the Chimera project's setting
  *   "Clock Start"                (optional, "1991-07-30 14:47:00") the PC's clock at the start, the project's setting
+ *   "CPU Speed"                  (optional, 22000) the PC's speed, DOSBox's cycles (instructions a millisecond), the
+ *                                project's setting: at 220000 every frame of the game fits in a tick of its timer and
+ *                                its fight goes the same drawn or not ("Fast Fight")
+ *   "Fast Fight"                 (optional, false) from the initial sequence's end, the fight's logic alone (no scene
+ *                                drawn, the frames with nothing to do skipped; quickerOpen4DBoxing's o4db_set_fast):
+ *                                the game's steps at a CPU speed of 220000, many times faster
+ *   "Initial Speed"              (optional, experiments) the CPU speed of the initial sequence, the machine switched to
+ *                                "CPU Speed" at its end (a sequence recorded at another speed; a search from it is no
+ *                                movie)
  *   "Initial Sequence File Path" (optional) a Chimera movie's rows played from the start, a row a frame (its first row
  *                                before the game starts, as Chimera's first step); the search starts where it ends
  *   "Step Function"              (optional, "25BB0202") where the game reads the boxers' controls (its timer interrupt's
@@ -55,6 +64,10 @@ public:
     _gamePath = jaffarCommon::json::popString(_emulatorConfigRemaining, "Game Path");
     if (_emulatorConfigRemaining.contains("Sound")) _sound = jaffarCommon::json::popString(_emulatorConfigRemaining, "Sound");
     if (_emulatorConfigRemaining.contains("Clock Start")) _clockStart = jaffarCommon::json::popString(_emulatorConfigRemaining, "Clock Start");
+    if (_emulatorConfigRemaining.contains("CPU Speed")) _cpuSpeed = jaffarCommon::json::popNumber<uint32_t>(_emulatorConfigRemaining, "CPU Speed");
+    _initialSpeed = _cpuSpeed;
+    if (_emulatorConfigRemaining.contains("Initial Speed")) _initialSpeed = jaffarCommon::json::popNumber<uint32_t>(_emulatorConfigRemaining, "Initial Speed");
+    if (_emulatorConfigRemaining.contains("Fast Fight")) _fastFight = jaffarCommon::json::popBoolean(_emulatorConfigRemaining, "Fast Fight");
     if (_emulatorConfigRemaining.contains("Initial Sequence File Path"))
       _initialSequenceFilePath = jaffarCommon::json::popString(_emulatorConfigRemaining, "Initial Sequence File Path");
     if (_emulatorConfigRemaining.contains("Step Function"))
@@ -75,6 +88,7 @@ public:
 
   void initializeImpl() override
   {
+    o4db_set_speed(_initialSpeed);
     if (!o4db_setup(_gamePath.c_str(), _sound.c_str(), _clockStart.c_str(), nullptr)) JAFFAR_THROW_LOGIC("quickerOpen4DBoxing: %s\n", o4db_error());
 
     // The initial sequence: a Chimera movie's rows, a row a frame end (its first before the game starts)
@@ -101,8 +115,11 @@ public:
     o4db_set_frame_hook(nullptr, nullptr);
     _initialRows = rows.size();
 
-    // From here on, steps: and the states as the pages that differ from here (every thread's machine must be here)
+    // From here on, steps (the fight's logic alone if asked, at the CPU speed asked): and the states as the pages that
+    // differ from here (every thread's machine must be here)
+    if (_initialSpeed != _cpuSpeed) o4db_test_set_cycles(_cpuSpeed);
     o4db_set_step_function(_stepFunction, _maxFramesPerStep);
+    o4db_set_fast(_fastFight ? 1 : 0);
     for (const auto& r : _unsaved) o4db_set_unsaved(r.first, r.second);
     const int differ = o4db_set_reference();
     if (differ != 0) JAFFAR_THROW_LOGIC("quickerOpen4DBoxing: this thread's machine differs from the first one's after the initial sequence (%d pages)\n", differ);
@@ -142,6 +159,8 @@ public:
   {
     jaffarCommon::logger::log("[J+] quickerOpen4DBoxing: %lu initial rows (%lu frames), %lu-byte states (%u pages at most), step function %08X, %u frames at most\n",
                               _initialRows, _initialFrames, _deltaSize, _maxPages, _stepFunction, _maxFramesPerStep);
+    jaffarCommon::logger::log("[J+] quickerOpen4DBoxing: CPU speed %u (the initial sequence's %u), %s; %lu replays of steps (a missed punch's garbage)\n", _cpuSpeed, _initialSpeed,
+                              _fastFight ? "the fight's logic alone" : "the whole game", (unsigned long)o4db_fast_replays());
   }
 
   // "Memory": the megabyte; "Data Segment": the program's (DS 3173h, 64 KB): the boxers, the fight, the career
@@ -247,6 +266,9 @@ private:
   uint32_t                             _stepFunction     = 0x25BB0202;
   unsigned                             _maxFramesPerStep = 8;
   unsigned                             _maxPages         = 1024;
+  uint32_t                             _cpuSpeed         = 22000;
+  uint32_t                             _initialSpeed     = 22000;
+  bool                                 _fastFight        = false;
   size_t                               _deltaSize        = 0;
   size_t                               _initialRows      = 0;
   uint64_t                             _initialFrames    = 0;

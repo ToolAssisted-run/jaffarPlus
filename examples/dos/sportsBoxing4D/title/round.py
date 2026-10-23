@@ -62,6 +62,9 @@ def main():
     a.add_argument("--center-weight", type=float, default=0.5)
     a.add_argument("--landed-weight", type=float, default=2000.0)
     a.add_argument("--landed-cap", type=float, default=3.0)
+    a.add_argument("--lean-weight", type=float, default=0.0, help="the player's full lean's reward while he is nearer than --lean-range")
+    a.add_argument("--lean-range", type=float, default=450.0)
+    a.add_argument("--max-thrown", type=int, default=0, help="no more punches thrown in the round than this (0: any; punching, the lean is let go)")
     o = a.parse_args()
     dirs = ["", "U", "D", "L", "R", "Q", "E", "Z", "C"]
     # (the right Shift, the controls' other button, 0x10: with a direction a footwork step, 1eb6:0668, standing and 420
@@ -109,7 +112,7 @@ def main():
             "Rules": [
                 {"Label": 1000, "Conditions": [], "Satisfies": [], "Actions": [
                     {"Type": "Set Survival Magnet", "Distance Weight": o.distance_weight, "Distance Cap": o.distance_cap, "Center Weight": o.center_weight,
-                     "Landed Weight": o.landed_weight, "Landed Cap": o.landed_cap}]},
+                     "Landed Weight": o.landed_weight, "Landed Cap": o.landed_cap, "Lean Weight": o.lean_weight, "Lean Range": o.lean_range}]},
                 # (the round's end: won with his punches landed, else failed)
                 {"Label": 1001, "Conditions": [{"Property": "Round Over", "Op": ">", "Value": 0},
                                                {"Property": "Player Round Landed", "Op": ">=", "Value": o.min_landed}], "Satisfies": [],
@@ -123,7 +126,7 @@ def main():
                 fail(1004, "Player Wasted Punches", ">", 0),
                 fail(1005, "Player Down", ">", 0),
                 fail(1006, "Count Warnings", ">", 0),
-            ],
+            ] + ([fail(1007, "Player Round Thrown", ">", o.max_thrown)] if o.max_thrown else []),
             "Bypass Emulator State": False,
         },
         "Runner Configuration": {

@@ -1,6 +1,9 @@
 #pragma once
 
 #include <SDL.h>
+#include <atomic>
+#include <cstdio>
+#include <cstdlib>
 #include <emulator.hpp>
 #include <jaffarCommon/deserializers/base.hpp>
 #include <jaffarCommon/file.hpp>
@@ -10,6 +13,8 @@
 #include <machine.h>
 #include <sstream>
 #include <vector>
+
+extern "C" uint32_t game_cycles(void); // (the thread's machine's speed: quickerOpen4DBoxing's game.c)
 
 namespace jaffarPlus
 {
@@ -143,6 +148,21 @@ public:
     for (const auto& r : _unsaved) o4db_set_unsaved(r.first, r.second);
     const int differ = o4db_set_reference();
     if (differ != 0) JAFFAR_THROW_LOGIC("quickerOpen4DBoxing: this thread's machine differs from the first one's after the initial sequence (%d pages)\n", differ);
+    // (JAFFAR_O4DB_DUMP_INITIAL: the machine after the initial sequence, its memory and its whole state, written to
+    // that path's .mem and .state, the first machine's of the process)
+    if (const char* dump = std::getenv("JAFFAR_O4DB_DUMP_INITIAL"); dump != nullptr)
+    {
+      static std::atomic<bool> dumped = false;
+      if (dumped.exchange(true) == false)
+      {
+        std::vector<uint8_t> st(o4db_state_size());
+        o4db_save(st.data());
+        FILE* f = fopen((std::string(dump) + ".mem").c_str(), "wb");
+        if (f) fwrite(o4db_memory(), 1, 0x100000, f), fclose(f);
+        f = fopen((std::string(dump) + ".state").c_str(), "wb");
+        if (f) fwrite(st.data(), 1, st.size(), f), fclose(f);
+      }
+    }
     _deltaSize = o4db_delta_size(_maxPages);
     _stateBuffer.resize(_deltaSize);
   }
@@ -181,6 +201,7 @@ public:
                               _initialRows, _initialFrames, _deltaSize, _maxPages, _stepFunction, _maxFramesPerStep);
     jaffarCommon::logger::log("[J+] quickerOpen4DBoxing: CPU speed %u (the initial sequence's %u), %s; %lu replays of steps (a missed punch's garbage)\n", _cpuSpeed, _initialSpeed,
                               _fastFight ? "the fight's logic alone" : "the whole game", (unsigned long)o4db_fast_replays());
+    jaffarCommon::logger::log("[J+] quickerOpen4DBoxing: this thread's machine runs at %u cycles a millisecond\n", game_cycles());
   }
 
   // "Memory": the megabyte; "Data Segment": the program's (DS 3173h, 64 KB): the boxers, the fight, the career

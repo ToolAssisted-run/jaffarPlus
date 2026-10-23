@@ -95,8 +95,9 @@ def main():
             "CPU Speed": o.cpu_speed,
             "Initial Speed": 22000,
             "Fast Fight": not o.full,
-            # (the pictures: the screen, the drawing buffers; tests/o4dbScramble: the game never reads them back)
-            "Unsaved Memory": [["A0000", "AFFFF"], ["68000", "71FFF"], ["88000", "88FFF"], ["51000", "51FFF"]],
+            # (the pictures: the screen, the drawing buffers; tests/o4dbScramble: the game never reads them back; not
+        # 51000-51FFF, which the fast fight reads: left unsaved, a search's states were not their solutions' replays)
+            "Unsaved Memory": [["A0000", "AFFFF"], ["68000", "71FFF"], ["88000", "88FFF"]],
             "Initial Pokes": pokes(o.power, o.speed, o.stamina) + (opponent_pokes(o.opponent) if o.opponent >= 0 else []),
         },
         "Game Configuration": {

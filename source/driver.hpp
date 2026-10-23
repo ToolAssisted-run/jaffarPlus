@@ -458,6 +458,14 @@ public:
     // Internal flag to indicate we are still running
     _hasFinished = false;
 
+    // (JAFFAR_VERIFY_BEST: the initial state kept, for verifyBestState)
+    if (std::getenv("JAFFAR_VERIFY_BEST") != nullptr)
+    {
+      _verifyInitialState.resize(_runner->getStateSize());
+      jaffarCommon::serializer::Contiguous s(_verifyInitialState.data(), _verifyInitialState.size());
+      _runner->serializeState(s);
+    }
+
     // If using ncurses, initialize terminal now
     jaffarCommon::logger::initializeTerminal();
 
@@ -657,6 +665,73 @@ public:
    * Queries the engine for a manual-save request; when one has a non-empty path, it loads that state
    * into the runner and writes the runner's input history to the requested file.
    */
+  /**
+   * @brief (JAFFAR_VERIFY_BEST) Replays the best solution from the initial state on the driver's runner and
+   * compares the hot state it reaches with the best state's (loaded in the runner), then reloads the best.
+   * A mismatch means the stored path is not the state's: it is logged with the first differing offset.
+   */
+  void verifyBestState()
+  {
+    std::vector<uint8_t> best(_runner->getStateSize()), bestHot(_runner->getHotStateSize()), replayHot(_runner->getHotStateSize());
+    const size_t         bestSteps = _runner->getStepCount();
+    {
+      jaffarCommon::serializer::Contiguous s(best.data(), best.size());
+      _runner->serializeState(s);
+    }
+    {
+      jaffarCommon::serializer::Contiguous s(bestHot.data(), bestHot.size());
+      _runner->serializeHotState(s);
+    }
+    const auto inputs = jaffarCommon::string::split(_bestSolutionStorage, '\n');
+    _runner->setStepCount(0);
+    {
+      jaffarCommon::deserializer::Contiguous d(_verifyInitialState.data(), _verifyInitialState.size());
+      _runner->deserializeState(d);
+    }
+    size_t      replayed = 0;
+    const char* dumpDir  = std::getenv("JAFFAR_VERIFY_DUMP_DIR"); // (each replayed step's full state, as the player's JAFFAR_DUMP_FULLSTATE_DIR)
+    for (const auto& inputString : inputs)
+      if (inputString.empty() == false)
+      {
+        _runner->advanceState(_runner->getInputIndex(inputString));
+        replayed++;
+        if (dumpDir != nullptr)
+        {
+          std::vector<uint8_t>                 buf(_runner->getStateSize());
+          jaffarCommon::serializer::Contiguous s(buf.data(), buf.size());
+          _runner->serializeState(s);
+          char path[512];
+          snprintf(path, sizeof(path), "%s/state%04lu.bin", dumpDir, replayed);
+          saveFile(std::string((char*)buf.data(), buf.size()), path);
+        }
+      }
+    {
+      jaffarCommon::serializer::Contiguous s(replayHot.data(), replayHot.size());
+      _runner->serializeHotState(s);
+    }
+    size_t first = SIZE_MAX, count = 0;
+    for (size_t i = 0; i < bestHot.size(); i++)
+      if (bestHot[i] != replayHot[i])
+      {
+        if (first == SIZE_MAX) first = i;
+        count++;
+      }
+    if (count == 0)
+      jaffarCommon::logger::log("[J+] VERIFY: the best solution (%lu inputs) reproduces the best state\n", replayed);
+    else
+    {
+      jaffarCommon::logger::log("[J+] VERIFY: the best solution (%lu inputs, the state's depth %lu) does NOT reproduce the best state: %lu bytes differ, the first at %lu\n",
+                                replayed, bestSteps, count, first);
+      jaffarCommon::logger::log("[J+] VERIFY: the replay's state:\n");
+      _runner->getGame()->printInfo();
+    }
+    _runner->setStepCount(bestSteps);
+    {
+      jaffarCommon::deserializer::Contiguous d(best.data(), best.size());
+      _runner->deserializeState(d);
+    }
+  }
+
   void storeManualSaveSolution()
   {
     auto manualSaveSolution = _engine->getManualSaveSolution();
@@ -903,6 +978,9 @@ public:
     // Storing best solution
     _bestSolutionStorage = _runner->getInputHistoryString();
 
+    // (JAFFAR_VERIFY_BEST: the best solution must reproduce the best state)
+    if (_verifyInitialState.empty() == false) verifyBestState();
+
     // Making sure the intermediate result thread is not currently reading
     _updateIntermediateResultMutex.unlock();
   }
@@ -1097,6 +1175,7 @@ private:
   std::string _worstStateStorage; ///< Storage for the current worst (win or otherwise) state.
 
   std::string _bestSolutionStorage; ///< Storage for the current best solution's input history.
+  std::vector<uint8_t> _verifyInitialState; ///< (JAFFAR_VERIFY_BEST) the initial state, for verifyBestState.
 
   std::string _worstSolutionStorage; ///< Storage for the current worst solution's input history.
 

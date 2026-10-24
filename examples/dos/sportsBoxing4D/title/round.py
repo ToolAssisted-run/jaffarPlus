@@ -57,6 +57,9 @@ def main():
     a.add_argument("--min-landed", type=int, default=1)
     a.add_argument("--reach", type=int, default=520, help="no punch thrown farther from him than this (it could not land)")
     a.add_argument("--no-defense", action="store_true", help="no right Shift (the footwork's button: steps, 420 or more from him)")
+    a.add_argument("--footwork-from", type=int, default=400,
+                   help="nearer than this, the right Shift's inputs as one (the footwork only from 420: tests/o4dbEquiv found the nine "
+                        "the same future at every point nearer than 400 of a round's line); 0: all of them everywhere")
     a.add_argument("--distance-weight", type=float, default=1.0)
     a.add_argument("--distance-cap", type=float, default=700.0)
     a.add_argument("--center-weight", type=float, default=0.5)
@@ -80,6 +83,7 @@ def main():
     defense = [] if o.no_defense else ["!"]
     inputs = [row(d + b) for b in ["", "N"] + defense for d in dirs]
     moves = [row(d + b) for b in [""] + defense for d in dirs]
+    close = [row(d + b) for b in ["", "N"] for d in dirs] + [row(b) for b in defense]
     emulator = {
         "Emulator Name": "QuickerOpen4DBoxing",
         "Game Path": "/home/jaffar/o4db-tas/disks",
@@ -151,7 +155,10 @@ def main():
             "Store Input History": {"Type": "Raw", "Max Size": max(o.steps + 50, 256)},
             "Allowed Input Sets": [
                 {"Description": "Out of reach: moves", "Conditions": [{"Property": "Boxer Distance", "Op": ">", "Value": o.reach}], "Inputs": moves,
-                 "Stop Input Evaluation": True},
+                 "Stop Input Evaluation": True}]
+            + ([{"Description": "Close: no footwork", "Conditions": [{"Property": "Boxer Distance", "Op": "<", "Value": o.footwork_from}], "Inputs": close,
+                 "Stop Input Evaluation": True}] if o.footwork_from and defense else [])
+            + [
                 {"Description": "Moves and punches", "Conditions": [], "Inputs": inputs, "Stop Input Evaluation": False}],
             "Test Candidate Inputs": False,
             "Candidate Input Sets": [],

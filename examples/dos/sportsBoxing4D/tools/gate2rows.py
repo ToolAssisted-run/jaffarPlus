@@ -7,7 +7,7 @@ JaffarPlus inputs of the QuickerOpen4DBoxing emulator.
 """
 import sys
 
-MNEMONICS = "<>UDLRQEZCKON_BXT^!%&abcdefghijklmnopqrstuvwxyz0123456789"
+MNEMONICS = "<>UDLRQEZCKON_BXT^!%&abcdefghijklmnopqrstuvwxyz0123456789AFGHIJMPSV"  # (the last ten F1-F10)
 
 
 def main():

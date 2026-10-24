@@ -10,7 +10,7 @@ writes script-NAME.jaffar (initial sequence: ../test/exhibition-round1.sol, the 
 import argparse
 import json
 
-M = "<>UDLRQEZCKON_BXT^!%&abcdefghijklmnopqrstuvwxyz0123456789"
+M = "<>UDLRQEZCKON_BXT^!%&abcdefghijklmnopqrstuvwxyz0123456789AFGHIJMPSV"  # (the last ten the function keys F1-F10)
 
 
 def row(keys, x=135, y=65):

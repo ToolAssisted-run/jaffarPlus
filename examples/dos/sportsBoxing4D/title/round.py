@@ -137,7 +137,8 @@ def main():
                 # (never hit: a punch of his landed, his round's count, not the player's health, which his own punches cost
                 # too; never a punch of his own that does not land, never floored, never warned)
                 *([] if o.allow_hits else [fail(1003, "Opponent Round Landed", ">", 0)]),
-                fail(1004, "Player Wasted Punches", ">", 0),
+                # (the round's own: the fight's count keeps a punch the last round's bell cut off)
+                fail(1004, "Player Round Thrown", ">", "Player Round Landed"),
                 fail(1005, "Player Down", ">", 0),
                 fail(1006, "Count Warnings", ">", 0),
             ] + ([fail(1007, "Player Round Thrown", ">", o.max_thrown)] if o.max_thrown else [])
